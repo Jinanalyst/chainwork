@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Icon, navigate } from '../components/ui.jsx'
 import ExperienceManager from '../components/ExperienceManager.jsx'
+import PortfolioManager from '../components/PortfolioManager.jsx'
 
 const STATS = [
   { label: 'Lifetime earnings', value: '$48,920', delta: '+12% YoY' },
@@ -260,28 +261,9 @@ export default function WorkerDashboard() {
         )}
 
         {tab === 'portfolio' && (
-          <Section title="Portfolio" action={<button className="text-sm text-brand-300 hover:text-white">+ Add project</button>}>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {PORTFOLIO.map((p) => (
-                <div key={p.id} className="card !p-0 overflow-hidden">
-                  <div className={`h-36 bg-gradient-to-br ${p.color} relative`}>
-                    <div className="absolute inset-0 opacity-30 grid-overlay" />
-                  </div>
-                  <div className="p-5">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Pill tone="info">{p.category}</Pill>
-                    </div>
-                    <h3 className="font-semibold">{p.title}</h3>
-                    <div className="text-xs text-white/55 mt-0.5">{p.client}</div>
-                    <div className="mt-3 flex items-center justify-between">
-                      <div className="text-sm font-semibold">{p.payout}</div>
-                      <button className="text-xs text-brand-300 hover:text-white">View case →</button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Section>
+          <section className="mb-10">
+            <PortfolioManager />
+          </section>
         )}
 
         {tab === 'experience' && (
