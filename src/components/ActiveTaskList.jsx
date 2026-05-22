@@ -14,6 +14,32 @@ const STATUS_TONE = {
   'Disputed':        'rose',
 }
 
+const PAYMENT_STRUCTURE_LABEL = {
+  'full-on-completion': 'Full on completion',
+  'fifty-fifty':        'Split 50 / 50',
+}
+const PAYMENT_STRUCTURE_SHORT = {
+  'full-on-completion': 'Full',
+  'fifty-fifty':        '50 / 50',
+}
+
+/**
+ * Whether each release milestone has already been paid out.
+ * Conservative — we only count it as "released" once a clear status implies it.
+ */
+const releaseStepsFor = (task) => {
+  const reached = (...statuses) => statuses.includes(task.status)
+  if (task.paymentStructure === 'fifty-fifty') {
+    return [
+      { label: '50% at kickoff',  released: reached('In progress', 'Awaiting review', 'Completed') },
+      { label: '50% on approval', released: reached('Completed') },
+    ]
+  }
+  return [
+    { label: '100% on approval', released: reached('Completed') },
+  ]
+}
+
 const initials = (name) => (name || '?').split(/\s+/).map((p) => p[0] || '').slice(0, 2).join('').toUpperCase()
 
 const Pill = ({ tone = 'default', children, className = '' }) => {
@@ -52,6 +78,12 @@ const TaskCard = ({ task, onOpen, onMessage }) => (
       <div className="text-right shrink-0">
         <div className="text-lg font-bold">{task.budget}</div>
         <div className="text-[11px] text-white/45">Budget</div>
+        {task.paymentStructure && (
+          <div className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-white/[0.04] border border-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wider text-white/65">
+            <Icon path={<><path d="M12 2v20M5 12h14" /></>} className="h-3 w-3" />
+            {PAYMENT_STRUCTURE_SHORT[task.paymentStructure] || task.paymentStructure}
+          </div>
+        )}
       </div>
     </div>
 
@@ -152,6 +184,13 @@ const TaskDetailModal = ({ task, onClose, onAddNote, onMessage }) => {
             {task.description || <span className="text-white/40">No description provided.</span>}
           </p>
         </Section>
+
+        {/* Payment structure */}
+        {task.paymentStructure && (
+          <Section title="Payment structure">
+            <PaymentStructure task={task} />
+          </Section>
+        )}
 
         {/* Skills */}
         {task.skills?.length > 0 && (
@@ -275,6 +314,62 @@ const Section = ({ title, children }) => (
     {children}
   </div>
 )
+
+const PaymentStructure = ({ task }) => {
+  const steps = releaseStepsFor(task)
+  const releasedCount = steps.filter((s) => s.released).length
+  const totalCount = steps.length
+  const percent = Math.round((releasedCount / totalCount) * 100)
+  const label = PAYMENT_STRUCTURE_LABEL[task.paymentStructure] || task.paymentStructure
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <Icon path={<><path d="M12 2v20M5 12h14" /></>} className="h-4 w-4 text-accent-400" />
+          <div className="font-medium">{label}</div>
+        </div>
+        <div className="text-xs text-white/55">
+          Released <span className="text-white font-semibold">{percent}%</span>
+          <span className="text-white/35"> of </span>
+          <span className="text-white">{task.budget}</span>
+        </div>
+      </div>
+
+      <div className="flex gap-1.5">
+        {steps.map((s, i) => (
+          <div
+            key={i}
+            className={
+              'flex-1 rounded-md px-3 py-2 text-[11px] border ' +
+              (s.released
+                ? 'bg-accent-500/15 border-accent-500/40 text-accent-200'
+                : 'bg-white/[0.03] border-white/10 text-white/55')
+            }
+          >
+            <div className="flex items-center gap-1.5">
+              {s.released ? (
+                <Icon path={<path d="M5 12l4 4 10-10" />} className="h-3 w-3" />
+              ) : (
+                <span className="h-2 w-2 rounded-full bg-white/30" />
+              )}
+              <span className="font-medium">{s.label}</span>
+            </div>
+            <div className="mt-0.5 text-[10px] uppercase tracking-wider opacity-75">
+              {s.released ? 'Released' : 'Pending'}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <p className="mt-3 text-xs text-white/55 leading-relaxed">
+        {task.paymentStructure === 'fifty-fifty'
+          ? 'Half of the budget releases when work kicks off; the rest is held in escrow until approval.'
+          : 'The full budget is held in escrow and releases the moment you approve the work.'}
+      </p>
+    </div>
+  )
+}
 
 const Fact = ({ label, value }) => (
   <div className="rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3">

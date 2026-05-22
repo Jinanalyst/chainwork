@@ -39,11 +39,15 @@ create table if not exists public.tasks (
   url              text,
   status           text default 'open',                 -- 'open' | 'in_escrow' | 'in_progress' | 'awaiting_review' | 'completed' | 'disputed' | 'cancelled'
   deadline         date,
-  progress         int  default 0 check (progress between 0 and 100),
-  last_activity_at timestamptz default now(),
-  created_at       timestamptz default now(),
-  updated_at       timestamptz default now()
+  progress           int  default 0 check (progress between 0 and 100),
+  payment_structure  text,    -- 'full-on-completion' | 'fifty-fifty'
+  last_activity_at   timestamptz default now(),
+  created_at         timestamptz default now(),
+  updated_at         timestamptz default now()
 );
+
+-- Add payment_structure to existing tasks tables (idempotent for re-runs)
+alter table public.tasks add column if not exists payment_structure text;
 
 create index if not exists tasks_hirer_idx        on public.tasks (hirer_id);
 create index if not exists tasks_talent_idx       on public.tasks (talent_id);
