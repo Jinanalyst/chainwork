@@ -102,10 +102,10 @@ const ACTIVE_TASKS = [
 ]
 
 const PAYOUTS = [
-  { id: 1, when: 'May 18',  title: 'Token landing page',       amount: '$1,200', method: 'USDC',  status: 'Paid' },
-  { id: 2, when: 'May 14',  title: 'PWA setup for shop site',  amount: '$540',   method: 'Bank',  status: 'Paid' },
-  { id: 3, when: 'May 09',  title: 'Mobile responsive fixes',  amount: '$180',   method: 'USDC',  status: 'Paid' },
-  { id: 4, when: 'May 03',  title: 'OpenAI API integration',   amount: '$760',   method: 'Card',  status: 'Paid' },
+  { id: 1, when: 'May 18', title: 'Token landing page',      amount: '$1,200', method: 'USDC',  chain: 'Base',     status: 'Paid' },
+  { id: 2, when: 'May 14', title: 'PWA setup for shop site', amount: '$540',   method: 'USDT',  chain: 'Ethereum', status: 'Paid' },
+  { id: 3, when: 'May 09', title: 'Mobile responsive fixes', amount: '$180',   method: 'USDC',  chain: 'Solana',   status: 'Paid' },
+  { id: 4, when: 'May 03', title: 'OpenAI API integration',  amount: '$760',   method: 'USDT',  chain: 'Polygon',  status: 'Paid' },
 ]
 
 const PORTFOLIO = [
@@ -125,9 +125,9 @@ const EXPERIENCE = [
 ]
 
 const PAYMENT_METHODS = [
-  { id: 'bank',   label: 'Chase Bank ••2841', kind: 'Primary',  icon: <><rect x="3" y="6" width="18" height="12" rx="2" /><path d="M3 10h18" /></> },
-  { id: 'wallet', label: '0xA3…7Cf2 (Base)',   kind: 'Crypto',   icon: <><circle cx="12" cy="12" r="9" /><path d="M9 9.5a2.5 2.5 0 0 1 5 0c0 1.4-1.5 1.9-2.5 2.5-1 .6-2.5 1.1-2.5 2.5a2.5 2.5 0 0 0 5 0" /></> },
-  { id: 'card',   label: 'Mastercard ••4416', kind: 'Backup',   icon: <><rect x="3" y="6" width="18" height="12" rx="2" /><path d="M3 10h18M7 15h3" /></> },
+  { id: 'usdc-base',     token: 'USDC', chain: 'Base',     address: '0xA3…7Cf2', kind: 'Primary',  tint: 'from-brand-400 to-brand-700' },
+  { id: 'usdt-eth',      token: 'USDT', chain: 'Ethereum', address: '0xA3…7Cf2', kind: 'Backup',   tint: 'from-accent-400 to-accent-700' },
+  { id: 'usdc-solana',   token: 'USDC', chain: 'Solana',   address: 'F3a…9Kp1',  kind: 'Backup',   tint: 'from-brand-400 to-brand-700' },
 ]
 
 const Stat = ({ label, value, delta }) => (
@@ -147,6 +147,46 @@ const Pill = ({ children, tone = 'default' }) => {
   }
   return <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] ${tones[tone]}`}>{children}</span>
 }
+
+const TokenChip = ({ token }) => (
+  <span className={
+    'inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium ' +
+    (token === 'USDC'
+      ? 'bg-brand-500/15 border-brand-400/30 text-brand-200'
+      : 'bg-accent-500/15 border-accent-500/30 text-accent-200')
+  }>
+    <span className={
+      'h-3.5 w-3.5 rounded-full grid place-items-center text-[8px] font-bold text-white ' +
+      (token === 'USDC' ? 'bg-brand-500' : 'bg-accent-600')
+    }>
+      {token === 'USDC' ? '$' : '₮'}
+    </span>
+    {token}
+  </span>
+)
+
+const PayoutTable = ({ rows }) => (
+  <div className="card !p-0 overflow-hidden">
+    <div className="grid grid-cols-12 px-5 py-3 text-[11px] uppercase tracking-wider text-white/40 border-b border-white/10">
+      <div className="col-span-2">Date</div>
+      <div className="col-span-4">Task</div>
+      <div className="col-span-2">Token</div>
+      <div className="col-span-1">Chain</div>
+      <div className="col-span-2 text-right">Amount</div>
+      <div className="col-span-1 text-right">Status</div>
+    </div>
+    {rows.map((p) => (
+      <div key={p.id} className="grid grid-cols-12 px-5 py-3 text-sm border-b border-white/5 last:border-0 hover:bg-white/[0.02]">
+        <div className="col-span-2 text-white/65">{p.when}</div>
+        <div className="col-span-4 truncate">{p.title}</div>
+        <div className="col-span-2"><TokenChip token={p.method} /></div>
+        <div className="col-span-1 text-white/65 text-xs">{p.chain}</div>
+        <div className="col-span-2 text-right font-semibold">{p.amount}</div>
+        <div className="col-span-1 text-right"><Pill tone="ok">{p.status}</Pill></div>
+      </div>
+    ))}
+  </div>
+)
 
 const Section = ({ title, children, action }) => (
   <section className="mb-10">
@@ -257,24 +297,7 @@ export default function WorkerDashboard() {
             </Section>
 
             <Section title="Recent payouts" action={<button onClick={() => setTab('payments')} className="text-sm text-brand-300 hover:text-white">View all →</button>}>
-              <div className="card !p-0 overflow-hidden">
-                <div className="grid grid-cols-12 px-5 py-3 text-[11px] uppercase tracking-wider text-white/40 border-b border-white/10">
-                  <div className="col-span-2">Date</div>
-                  <div className="col-span-5">Task</div>
-                  <div className="col-span-2">Method</div>
-                  <div className="col-span-2 text-right">Amount</div>
-                  <div className="col-span-1 text-right">Status</div>
-                </div>
-                {PAYOUTS.map((p) => (
-                  <div key={p.id} className="grid grid-cols-12 px-5 py-3 text-sm border-b border-white/5 last:border-0 hover:bg-white/[0.02]">
-                    <div className="col-span-2 text-white/65">{p.when}</div>
-                    <div className="col-span-5 truncate">{p.title}</div>
-                    <div className="col-span-2 text-white/65">{p.method}</div>
-                    <div className="col-span-2 text-right font-semibold">{p.amount}</div>
-                    <div className="col-span-1 text-right"><Pill tone="ok">{p.status}</Pill></div>
-                  </div>
-                ))}
-              </div>
+              <PayoutTable rows={PAYOUTS} />
             </Section>
           </>
         )}
@@ -313,19 +336,23 @@ export default function WorkerDashboard() {
               </div>
             </Section>
 
-            <Section title="Payment methods" action={<button className="text-sm text-brand-300 hover:text-white">+ Add method</button>}>
-              <div className="grid md:grid-cols-3 gap-4">
+            <Section title="Stablecoin wallets" action={<button className="text-sm text-brand-300 hover:text-white">+ Add wallet</button>}>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {PAYMENT_METHODS.map((m) => (
                   <div key={m.id} className="card">
                     <div className="flex items-start justify-between">
-                      <div className="h-10 w-10 rounded-xl bg-white/5 border border-white/10 grid place-items-center text-white/80">
-                        <Icon path={m.icon} className="h-5 w-5" />
+                      <div className={`h-10 w-10 rounded-full grid place-items-center text-sm font-bold text-white bg-gradient-to-br ${m.tint}`}>
+                        {m.token === 'USDC' ? '$' : '₮'}
                       </div>
-                      <Pill>{m.kind}</Pill>
+                      <Pill tone={m.kind === 'Primary' ? 'ok' : 'default'}>{m.kind}</Pill>
                     </div>
-                    <div className="mt-3 font-medium">{m.label}</div>
+                    <div className="mt-3 font-semibold">{m.token} <span className="text-white/55 font-normal">· {m.chain}</span></div>
+                    <div className="font-mono text-xs text-white/55 mt-0.5">{m.address}</div>
                     <div className="mt-3 flex gap-2">
                       <button className="btn-ghost !py-1.5 !px-3 text-xs">Manage</button>
+                      {m.kind !== 'Primary' && (
+                        <button className="text-xs text-brand-300 hover:text-white px-2 py-1.5">Make primary</button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -333,17 +360,7 @@ export default function WorkerDashboard() {
             </Section>
 
             <Section title="Payout history">
-              <div className="card !p-0 overflow-hidden">
-                {PAYOUTS.map((p) => (
-                  <div key={p.id} className="grid grid-cols-12 px-5 py-3 text-sm border-b border-white/5 last:border-0">
-                    <div className="col-span-2 text-white/65">{p.when}</div>
-                    <div className="col-span-5">{p.title}</div>
-                    <div className="col-span-2 text-white/65">{p.method}</div>
-                    <div className="col-span-2 text-right font-semibold">{p.amount}</div>
-                    <div className="col-span-1 text-right"><Pill tone="ok">{p.status}</Pill></div>
-                  </div>
-                ))}
-              </div>
+              <PayoutTable rows={PAYOUTS} dense={false} />
             </Section>
           </>
         )}

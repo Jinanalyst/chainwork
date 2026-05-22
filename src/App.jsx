@@ -382,7 +382,7 @@ const Trust = () => (
         {[
           ['Escrow-protected', 'Your payment is held safely until the work is approved'],
           ['Trusted workers', 'Verified profiles with a reputation history you can check'],
-          ['Flexible payments', 'Pay by card, bank transfer, or crypto — your choice'],
+          ['Stablecoin payments', 'Settle in USDC or USDT — instant, borderless, predictable'],
           ['Fair disputes', 'Neutral resolution with a clear, documented record'],
         ].map(([k, v]) => (
           <div key={k} className="card">
@@ -408,7 +408,7 @@ const TwoSides = () => (
               'Describe the task in plain English — we match you with trusted workers',
               'Compare price, turnaround, and reputation side-by-side',
               'Escrow protects your budget until the work is approved',
-              'Pay by card, bank, stablecoin, or crypto',
+              'Pay in USDC or USDT — escrow-held until you approve',
             ].map((t) => (
               <li key={t} className="flex gap-3">
                 <Icon path={<path d="M5 12l5 5L20 7" />} className="h-5 w-5 text-accent-400 shrink-0 mt-0.5" />
@@ -444,44 +444,112 @@ const TwoSides = () => (
   </section>
 )
 
+const TokenBadge = ({ sym, name, tint }) => (
+  <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+    <div className={`h-10 w-10 rounded-full grid place-items-center text-sm font-bold text-white shadow-inner ${tint}`}>
+      {sym === 'USDC' ? '$' : '₮'}
+    </div>
+    <div className="min-w-0">
+      <div className="font-semibold">{sym}</div>
+      <div className="text-xs text-white/55">{name}</div>
+    </div>
+  </div>
+)
+
+const ReleaseFlow = ({ left, right, rightEmphasis = true }) => (
+  <div className="mt-5 flex items-center gap-2">
+    <div className="flex-1 rounded-full bg-white/[0.04] border border-white/10 px-3 py-2 text-center text-xs text-white/75">
+      {left}
+    </div>
+    <Icon path={<path d="M5 12h14M13 5l7 7-7 7" />} className="h-4 w-4 text-white/45 shrink-0" />
+    <div className={
+      'flex-1 rounded-full px-3 py-2 text-center text-xs border ' +
+      (rightEmphasis
+        ? 'bg-brand-500/15 border-brand-400/30 text-brand-200'
+        : 'bg-accent-500/15 border-accent-500/30 text-accent-200')
+    }>
+      {right}
+    </div>
+  </div>
+)
+
 const Payments = () => {
-  const methods = [
+  const structures = [
     {
-      title: 'Card & bank',
-      body: 'Pay with a credit card or bank transfer like any other online service. Refundable through escrow.',
-      icon: <><rect x="3" y="6" width="18" height="12" rx="2" /><path d="M3 10h18M7 15h3" /></>,
+      key: 'completion',
+      pill: 'Most popular',
+      title: 'Pay on completion',
+      blurb: '100% of the budget sits in escrow when the task starts, then releases the moment you approve the work.',
+      flow: { left: 'Escrow funded', right: '100% on approval', emphasis: true },
+      bullets: [
+        'Lowest risk for hirers — pay only for what ships',
+        'Best for short, well-defined tasks',
+        'Workers know the full budget is already locked in',
+      ],
+      accent: 'from-brand-400/30 to-brand-500/10',
+      icon: <><path d="M5 12l5 5L20 7" /></>,
     },
     {
-      title: 'Stablecoins',
-      body: 'Settle in USDC or USDT for predictable pricing — no FX surprises across borders.',
-      icon: <><circle cx="12" cy="12" r="9" /><path d="M12 7v10M9 9.5a2.5 2.5 0 0 1 5 0c0 1.4-1.5 1.9-2.5 2.5-1 .6-2.5 1.1-2.5 2.5a2.5 2.5 0 0 0 5 0" /></>,
-    },
-    {
-      title: 'Crypto (optional)',
-      body: 'Prefer to pay in ETH, SOL, or BTC? Available as an opt-in, especially handy for Web3 tasks.',
-      icon: <><path d="M12 2l9 5v10l-9 5-9-5V7z" /><path d="M3 7l9 5 9-5M12 12v10" /></>,
+      key: 'split',
+      title: 'Split 50 / 50',
+      blurb: '50% releases to the worker at kickoff, the remaining 50% on final approval.',
+      flow: { left: '50% at kickoff', right: '50% on approval', emphasis: false },
+      bullets: [
+        'Shares risk evenly between both sides',
+        'Signals commitment for longer builds',
+        'Common for first-time client / worker pairings',
+      ],
+      accent: 'from-accent-400/30 to-accent-500/10',
+      icon: <><path d="M3 12h18M12 3v18" /></>,
     },
   ]
+
   return (
     <section id="payments" className="py-24">
       <div className="mx-auto max-w-7xl px-6">
         <div className="text-center mb-12">
-          <div className="text-xs uppercase tracking-[0.2em] text-accent-400 mb-3">Flexible payments</div>
-          <h2 className="text-3xl md:text-5xl font-bold">Pay the way that works for you.</h2>
+          <div className="text-xs uppercase tracking-[0.2em] text-accent-400 mb-3">Stablecoin payments</div>
+          <h2 className="text-3xl md:text-5xl font-bold">Held in escrow. Released on approval.</h2>
           <p className="mt-4 text-white/70 max-w-2xl mx-auto">
-            ChainWork supports everyday payment methods first — with crypto as an optional extra for those who want it.
+            Settle in <span className="text-white font-semibold">USDC</span> or <span className="text-white font-semibold">USDT</span> — predictable, borderless, and instant. Pick the release structure that fits the work.
           </p>
         </div>
-        <div className="grid md:grid-cols-3 gap-5">
-          {methods.map((m) => (
-            <div key={m.title} className="card">
-              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-brand-400/30 to-accent-400/30 border border-white/10 flex items-center justify-center text-brand-200 mb-4">
-                <Icon path={m.icon} className="h-5 w-5" />
+
+        <div className="grid md:grid-cols-2 gap-5">
+          {structures.map((s) => (
+            <div key={s.key} className="card relative overflow-hidden">
+              {s.pill && (
+                <span className="absolute top-5 right-5 inline-flex items-center rounded-full bg-accent-500/20 border border-accent-500/40 text-accent-200 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5">
+                  {s.pill}
+                </span>
+              )}
+              <div className={`h-12 w-12 rounded-2xl bg-gradient-to-br ${s.accent} border border-white/10 flex items-center justify-center text-white mb-4`}>
+                <Icon path={s.icon} className="h-5 w-5" />
               </div>
-              <h3 className="text-lg font-semibold">{m.title}</h3>
-              <p className="mt-2 text-sm text-white/65 leading-relaxed">{m.body}</p>
+              <h3 className="text-xl font-semibold">{s.title}</h3>
+              <p className="mt-2 text-sm text-white/70 leading-relaxed">{s.blurb}</p>
+              <ReleaseFlow left={s.flow.left} right={s.flow.right} rightEmphasis={s.flow.emphasis} />
+              <ul className="mt-5 space-y-2">
+                {s.bullets.map((b) => (
+                  <li key={b} className="flex gap-2 text-sm text-white/80">
+                    <Icon path={<path d="M5 12l5 5L20 7" />} className="h-4 w-4 text-accent-400 shrink-0 mt-0.5" />
+                    <span>{b}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           ))}
+        </div>
+
+        <div className="mt-14">
+          <div className="text-center text-xs uppercase tracking-[0.2em] text-white/45 mb-5">Supported stablecoins</div>
+          <div className="grid sm:grid-cols-2 gap-4 max-w-xl mx-auto">
+            <TokenBadge sym="USDC" name="USD Coin" tint="bg-gradient-to-br from-brand-400 to-brand-700" />
+            <TokenBadge sym="USDT" name="Tether"   tint="bg-gradient-to-br from-accent-400 to-accent-700" />
+          </div>
+          <div className="text-center text-xs text-white/45 mt-5">
+            Available on Ethereum, Solana, Base &amp; Polygon · gas covered by the platform on first withdrawal
+          </div>
         </div>
       </div>
     </section>
