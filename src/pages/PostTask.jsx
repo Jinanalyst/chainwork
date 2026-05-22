@@ -1,5 +1,7 @@
 import React from 'react'
 import ConversationalForm from '../components/ConversationalForm.jsx'
+import EscrowAddressCard from '../components/EscrowAddressCard.jsx'
+import { PLATFORM_WALLETS, ESCROW_RELEASE_NOTE } from '../lib/platform.js'
 
 const QUESTIONS = [
   {
@@ -58,6 +60,42 @@ const QUESTIONS = [
   },
 ]
 
+const FundingInstructions = ({ answers }) => {
+  const isSplit = answers?.paymentStructure === 'fifty-fifty'
+  const budget = (answers?.budget || '').trim()
+  return (
+    <div className="max-w-xl mx-auto">
+      <div className="rounded-2xl border border-warm-ink/10 bg-white/70 backdrop-blur p-5 md:p-6">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="h-8 w-8 rounded-full bg-[#1e5be3]/10 border border-[#1e5be3]/30 grid place-items-center text-[#1e5be3]">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+              <rect x="4" y="10" width="16" height="10" rx="2" />
+              <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+            </svg>
+          </div>
+          <h2 className="text-lg font-semibold text-warm-ink">Fund the escrow</h2>
+        </div>
+        <p className="text-sm text-warm-ink/70 leading-relaxed">
+          {isSplit
+            ? <>Send <strong className="text-warm-ink">50% of your budget{budget && ` (of ${budget})`}</strong> now to start work. The remaining 50% releases on final approval.</>
+            : <>Send <strong className="text-warm-ink">your full budget{budget && ` (${budget})`}</strong> to one of the addresses below. The funds release to the worker the moment you approve the work.</>}
+        </p>
+        <p className="mt-2 text-xs text-warm-ink/55">{ESCROW_RELEASE_NOTE}</p>
+
+        <div className="mt-5 space-y-3">
+          {PLATFORM_WALLETS.map((w) => (
+            <EscrowAddressCard key={w.id} wallet={w} theme="warm" />
+          ))}
+        </div>
+
+        <div className="mt-5 rounded-xl border border-amber-300/40 bg-amber-100/60 px-4 py-3 text-xs text-amber-900 leading-relaxed">
+          <strong>Double-check the chain.</strong> USDC goes to the Base address. USDT goes to the Tron (TRC20) address. Sending on the wrong network can result in lost funds.
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function PostTask() {
   return (
     <ConversationalForm
@@ -65,7 +103,8 @@ export default function PostTask() {
       questions={QUESTIONS}
       submitLabel="Post my task"
       successTitle="Your task is live."
-      successBody="Trusted workers are being matched right now. You'll start seeing offers within a few hours."
+      successBody="Send your budget to one of the escrow addresses below to start the work. You'll see offers from trusted workers within a few hours."
+      successExtra={(answers) => <FundingInstructions answers={answers} />}
       onSubmit={(answers) => {
         console.log('[ChainWork] task posted:', answers)
       }}

@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { Icon } from './ui.jsx'
+import EscrowAddressCard from './EscrowAddressCard.jsx'
+import { PLATFORM_WALLETS, ESCROW_RELEASE_NOTE } from '../lib/platform.js'
 
 const uid = () =>
   (typeof crypto !== 'undefined' && crypto.randomUUID)
@@ -192,6 +194,11 @@ const TaskDetailModal = ({ task, onClose, onAddNote, onMessage }) => {
           </Section>
         )}
 
+        {/* Escrow — platform addresses for the hirer to fund into */}
+        <Section title="Escrow">
+          <EscrowPanel task={task} />
+        </Section>
+
         {/* Skills */}
         {task.skills?.length > 0 && (
           <Section title="Required skills">
@@ -314,6 +321,68 @@ const Section = ({ title, children }) => (
     {children}
   </div>
 )
+
+const EscrowPanel = ({ task }) => {
+  const isCompleted     = task.status === 'Completed'
+  const awaitingPayout  = task.status === 'Awaiting review'
+  const isOpen          = task.status === 'Open' || task.status === 'In escrow'
+
+  return (
+    <div>
+      <div className="rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3 mb-4">
+        <div className="flex items-start gap-3">
+          <div className={
+            'h-8 w-8 rounded-full grid place-items-center shrink-0 ' +
+            (isCompleted
+              ? 'bg-accent-500/15 border border-accent-500/40 text-accent-300'
+              : awaitingPayout
+                ? 'bg-amber-500/15 border border-amber-400/40 text-amber-200'
+                : 'bg-brand-500/15 border border-brand-400/40 text-brand-200')
+          }>
+            <Icon
+              path={isCompleted
+                ? <path d="M5 12l5 5L20 7" />
+                : <><rect x="4" y="10" width="16" height="10" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></>}
+              className="h-4 w-4"
+            />
+          </div>
+          <div className="text-sm">
+            <div className="font-medium text-white/90">
+              {isCompleted
+                ? `Released to worker's wallet`
+                : awaitingPayout
+                  ? 'Worker delivered — payout pending approval'
+                  : 'Held in escrow by ChainWork'}
+            </div>
+            <div className="text-white/55 mt-0.5">
+              {isCompleted
+                ? 'Payout was sent manually within 24h of approval.'
+                : awaitingPayout
+                  ? 'Approve in the timeline above to release the next milestone.'
+                  : ESCROW_RELEASE_NOTE}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {isOpen && (
+        <>
+          <div className="text-[11px] uppercase tracking-wider text-white/45 mb-2">
+            Platform escrow addresses
+          </div>
+          <p className="text-xs text-white/55 mb-3">
+            Hirer: send <span className="text-white">{task.budget}</span> to one of these to fund the work. <strong>USDC → Base</strong>, <strong>USDT → Tron (TRC20)</strong>.
+          </p>
+          <div className="grid sm:grid-cols-2 gap-3">
+            {PLATFORM_WALLETS.map((w) => (
+              <EscrowAddressCard key={w.id} wallet={w} />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
 
 const PaymentStructure = ({ task }) => {
   const steps = releaseStepsFor(task)

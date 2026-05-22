@@ -11,6 +11,7 @@ export default function ConversationalForm({
   questions,
   successTitle = 'All set.',
   successBody  = "Thanks — we'll take it from here.",
+  successExtra,                 // optional: JSX or (answers) => JSX rendered under the body
   submitLabel  = 'Submit',
   onSubmit,
 }) {
@@ -124,7 +125,13 @@ export default function ConversationalForm({
             />
           )}
 
-          {onDone && <Success title={successTitle} body={successBody} />}
+          {onDone && (
+            <Success
+              title={successTitle}
+              body={successBody}
+              extra={typeof successExtra === 'function' ? successExtra(answers) : successExtra}
+            />
+          )}
         </div>
       </div>
     </div>
@@ -315,13 +322,18 @@ const Summary = ({ eyebrow, questions, answers, onEdit, onSubmit, submitLabel })
   </div>
 )
 
-const Success = ({ title, body }) => (
-  <div className="animate-[fadein_.4s_ease] text-center pt-8">
-    <div className="mx-auto h-16 w-16 rounded-full bg-[#14b8a6]/15 border border-[#14b8a6]/40 grid place-items-center text-[#0d9488] mb-6">
-      <Icon path={<path d="M5 12l5 5L20 7" />} className="h-7 w-7" />
+const Success = ({ title, body, extra }) => (
+  <div className="animate-[fadein_.4s_ease] pt-4 md:pt-8">
+    <div className="text-center">
+      <div className="mx-auto h-16 w-16 rounded-full bg-[#14b8a6]/15 border border-[#14b8a6]/40 grid place-items-center text-[#0d9488] mb-6">
+        <Icon path={<path d="M5 12l5 5L20 7" />} className="h-7 w-7" />
+      </div>
+      <h1 className="text-3xl md:text-5xl font-semibold tracking-tight">{title}</h1>
+      <p className="mt-4 text-warm-ink/65 text-lg max-w-md mx-auto">{body}</p>
     </div>
-    <h1 className="text-3xl md:text-5xl font-semibold tracking-tight">{title}</h1>
-    <p className="mt-4 text-warm-ink/65 text-lg max-w-md mx-auto">{body}</p>
+
+    {extra && <div className="mt-10">{extra}</div>}
+
     <div className="mt-10 flex flex-col sm:flex-row gap-3 justify-center">
       <button onClick={() => navigate('#/')} className="rounded-full border border-warm-ink/15 hover:border-warm-ink/35 px-6 py-3 font-medium transition">
         Back to home
