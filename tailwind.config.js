@@ -27,6 +27,10 @@ export default {
           600: '#0d9488',
           700: '#0f766e',
         },
+        cream:       '#fbf6ee',
+        'warm-ink':  '#2a2520',
+        'warm-peach':'#ffd7b5',
+        'warm-blush':'#ffd4d1',
       },
       fontFamily: {
         sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],

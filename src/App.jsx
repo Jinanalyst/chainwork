@@ -5,6 +5,7 @@ import { useSession, shortAddress, getWalletDisplay } from './hooks/useSession.j
 import { supabase } from './lib/supabase.js'
 import PostTask from './pages/PostTask.jsx'
 import WorkerDashboard from './pages/WorkerDashboard.jsx'
+import JoinAsWorker from './pages/JoinAsWorker.jsx'
 
 const UserChip = ({ user, onSignOut }) => {
   const [open, setOpen] = useState(false)
@@ -436,7 +437,7 @@ const TwoSides = () => (
               </li>
             ))}
           </ul>
-          <a href="#/worker" className="btn-ghost mt-8">Open worker dashboard</a>
+          <a href="#/join-as-worker" className="btn-ghost mt-8">Join as a worker</a>
         </div>
       </div>
     </div>
@@ -553,12 +554,20 @@ export default function App() {
   const closeSignIn = () => setSignInOpen(false)
   const signOut     = async () => { if (supabase) await supabase.auth.signOut() }
 
-  const needsAuth = route.startsWith('#/post-task') || route.startsWith('#/worker')
+  // Onboarding routes render their own minimal chrome — hide the global nav/footer.
+  const isOnboarding =
+    route.startsWith('#/post-task') || route.startsWith('#/join-as-worker')
+  const needsAuth = isOnboarding || route.startsWith('#/worker')
+
   let page
   if (route.startsWith('#/post-task')) {
     page = user
       ? <PostTask />
       : <AuthGate title="Sign in to post a task" sub="Connect a wallet to keep your tasks, offers, and escrow safe." onSignIn={openSignIn} />
+  } else if (route.startsWith('#/join-as-worker')) {
+    page = user
+      ? <JoinAsWorker />
+      : <AuthGate title="Sign in to join as a worker" sub="Connect a wallet so your portfolio and earnings stay yours." onSignIn={openSignIn} />
   } else if (route.startsWith('#/worker')) {
     page = user
       ? <WorkerDashboard />
@@ -567,15 +576,17 @@ export default function App() {
     page = <Home />
   }
 
+  const showChrome = !isOnboarding || !user // show dark nav for unauthed AuthGate too
+
   return (
     <div className="min-h-screen flex flex-col">
-      <Nav route={route} user={user} onSignIn={openSignIn} onSignOut={signOut} />
+      {showChrome && <Nav route={route} user={user} onSignIn={openSignIn} onSignOut={signOut} />}
       <main className="flex-1">
         {needsAuth && loading ? (
           <div className="py-24 text-center text-white/50 text-sm">Loading…</div>
         ) : page}
       </main>
-      <Footer />
+      {showChrome && <Footer />}
       <SignInModal open={signInOpen} onClose={closeSignIn} onSignedIn={() => closeSignIn()} />
     </div>
   )
