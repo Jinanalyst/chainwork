@@ -1,0 +1,346 @@
+import React, { useEffect, useState } from 'react'
+import { Icon } from './ui.jsx'
+
+const uid = () =>
+  (typeof crypto !== 'undefined' && crypto.randomUUID)
+    ? crypto.randomUUID()
+    : `id_${Math.random().toString(36).slice(2)}_${Date.now()}`
+
+const STATUS_TONE = {
+  'In escrow':       'info',
+  'In progress':     'default',
+  'Awaiting review': 'warn',
+  'Completed':       'ok',
+  'Disputed':        'rose',
+}
+
+const initials = (name) => (name || '?').split(/\s+/).map((p) => p[0] || '').slice(0, 2).join('').toUpperCase()
+
+const Pill = ({ tone = 'default', children, className = '' }) => {
+  const tones = {
+    default: 'bg-white/[0.05] border-white/10 text-white/75',
+    info:    'bg-brand-500/15 border-brand-400/30 text-brand-200',
+    ok:      'bg-accent-500/15 border-accent-500/30 text-accent-300',
+    warn:    'bg-amber-500/15 border-amber-400/30 text-amber-200',
+    rose:    'bg-rose-500/15 border-rose-400/30 text-rose-200',
+  }
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] ${tones[tone]} ${className}`}>
+      {children}
+    </span>
+  )
+}
+
+const Avatar = ({ name, size = 'h-7 w-7', accent = 'from-brand-400 to-accent-400' }) => (
+  <div className={`shrink-0 ${size} rounded-full bg-gradient-to-br ${accent} grid place-items-center text-[11px] font-bold text-ink-950`}>
+    {initials(name)}
+  </div>
+)
+
+// ---------- Card ----------
+
+const TaskCard = ({ task, onOpen, onMessage }) => (
+  <div className="card flex flex-col gap-4">
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Pill tone="info">{task.category}</Pill>
+          <Pill tone={STATUS_TONE[task.status] || 'default'}>{task.status}</Pill>
+        </div>
+        <h3 className="mt-2 font-semibold leading-tight">{task.title}</h3>
+      </div>
+      <div className="text-right shrink-0">
+        <div className="text-lg font-bold">{task.budget}</div>
+        <div className="text-[11px] text-white/45">Budget</div>
+      </div>
+    </div>
+
+    <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+      <Row label="Employer">
+        <span className="flex items-center gap-2 min-w-0">
+          <Avatar name={task.employer?.name} size="h-6 w-6" accent="from-brand-300 to-brand-500" />
+          <span className="truncate">{task.employer?.name}{task.employer?.company && <span className="text-white/55"> · {task.employer.company}</span>}</span>
+        </span>
+      </Row>
+      <Row label="Talent">
+        <span className="flex items-center gap-2 min-w-0">
+          <Avatar name={task.talent?.name} size="h-6 w-6" accent="from-accent-400 to-brand-400" />
+          <span className="truncate">{task.talent?.name}</span>
+        </span>
+      </Row>
+      <Row label="Deadline"><span className="text-white/85">{task.deadline}</span></Row>
+      <Row label="Last activity"><span className="text-white/65">{task.lastActivity}</span></Row>
+    </dl>
+
+    {typeof task.progress === 'number' && (
+      <div>
+        <div className="flex justify-between text-[11px] text-white/55 mb-1">
+          <span>Progress</span><span>{task.progress}%</span>
+        </div>
+        <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
+          <div className="h-full bg-gradient-to-r from-brand-400 to-accent-400" style={{ width: `${task.progress}%` }} />
+        </div>
+      </div>
+    )}
+
+    <div className="flex gap-2">
+      <button onClick={onOpen} className="btn-primary !py-2 !px-4 text-sm">
+        Open
+        <Icon path={<path d="M5 12h14M13 5l7 7-7 7" />} className="h-4 w-4" />
+      </button>
+      <button onClick={onMessage} className="btn-ghost !py-2 !px-4 text-sm">
+        <Icon path={<><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z" /></>} className="h-4 w-4" />
+        Message
+      </button>
+    </div>
+  </div>
+)
+
+const Row = ({ label, children }) => (
+  <div className="min-w-0">
+    <div className="text-[10px] uppercase tracking-wider text-white/40">{label}</div>
+    <div className="mt-0.5 truncate">{children}</div>
+  </div>
+)
+
+// ---------- Detail modal ----------
+
+const TaskDetailModal = ({ task, onClose, onAddNote, onMessage }) => {
+  const [draft, setDraft] = useState('')
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  const submitNote = () => {
+    if (!draft.trim()) return
+    onAddNote(task.id, draft.trim())
+    setDraft('')
+  }
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="absolute inset-0 bg-ink-950/85 backdrop-blur-md" onClick={onClose} />
+      <div className="relative w-full sm:max-w-3xl max-h-[94vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl border border-white/10 bg-ink-900 shadow-glow">
+        {/* Header */}
+        <div className="sticky top-0 z-10 bg-ink-900/95 backdrop-blur px-6 py-4 border-b border-white/5 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Pill tone="info">{task.category}</Pill>
+              <Pill tone={STATUS_TONE[task.status] || 'default'}>{task.status}</Pill>
+            </div>
+            <h2 className="mt-2 text-xl font-semibold leading-tight">{task.title}</h2>
+          </div>
+          <button onClick={onClose} className="h-8 w-8 grid place-items-center rounded-full text-white/60 hover:text-white hover:bg-white/5 shrink-0">
+            <Icon path={<path d="M6 6l12 12M18 6l-12 12" />} className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Quick facts */}
+        <div className="p-6 grid sm:grid-cols-2 gap-4">
+          <Fact label="Budget"   value={task.budget} />
+          <Fact label="Deadline" value={task.deadline} />
+          <Fact label="URL"      value={task.url ? <a href={task.url} target="_blank" rel="noreferrer" className="text-brand-300 hover:text-white underline-offset-2 hover:underline break-all">{task.url.replace(/^https?:\/\//, '')}</a> : '—'} />
+          <Fact label="Last activity" value={task.lastActivity} />
+        </div>
+
+        {/* Description */}
+        <Section title="Description">
+          <p className="text-sm text-white/80 leading-relaxed whitespace-pre-wrap">
+            {task.description || <span className="text-white/40">No description provided.</span>}
+          </p>
+        </Section>
+
+        {/* Skills */}
+        {task.skills?.length > 0 && (
+          <Section title="Required skills">
+            <div className="flex flex-wrap gap-1.5">
+              {task.skills.map((s) => (
+                <span key={s} className="text-[11px] text-white/85 bg-white/[0.04] border border-white/10 rounded-full px-2.5 py-1">
+                  {s}
+                </span>
+              ))}
+            </div>
+          </Section>
+        )}
+
+        {/* People */}
+        <Section title="People">
+          <div className="grid sm:grid-cols-2 gap-3">
+            <PersonCard role="Employer" person={task.employer} accent="from-brand-300 to-brand-500" />
+            <PersonCard role="Talent"   person={task.talent}   accent="from-accent-400 to-brand-400" />
+          </div>
+        </Section>
+
+        {/* Attachments */}
+        {task.attachments?.length > 0 && (
+          <Section title="Attachments &amp; references">
+            <ul className="space-y-1.5">
+              {task.attachments.map((a) => (
+                <li key={a.id}>
+                  <a
+                    href={a.url || '#'}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 text-sm text-brand-300 hover:text-white"
+                  >
+                    <Icon path={<><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" /></>} className="h-4 w-4" />
+                    {a.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </Section>
+        )}
+
+        {/* Timeline */}
+        <Section title="Status timeline">
+          <ol className="relative pl-5">
+            <div className="absolute left-1.5 top-1 bottom-1 w-px bg-white/10" />
+            {(task.timeline || []).map((t, i) => {
+              const isLast = i === task.timeline.length - 1
+              return (
+                <li key={t.id || i} className="relative pb-4 last:pb-0">
+                  <span className={
+                    'absolute -left-[10px] top-1 h-3 w-3 rounded-full ring-4 ring-ink-900 ' +
+                    (isLast ? 'bg-gradient-to-br from-brand-400 to-accent-400' : 'bg-white/30')
+                  } />
+                  <div className="text-sm text-white/85">{t.label}</div>
+                  <div className="text-[11px] text-white/45">
+                    {t.when}{t.by && <span> · {t.by}</span>}
+                  </div>
+                </li>
+              )
+            })}
+          </ol>
+        </Section>
+
+        {/* Notes */}
+        <Section title="Notes">
+          <div className="space-y-3">
+            {(task.notes || []).map((n) => (
+              <div key={n.id} className="flex gap-3">
+                <Avatar name={n.by} size="h-8 w-8" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-sm font-medium">{n.by}</span>
+                    <span className="text-[11px] text-white/45">{n.when}</span>
+                  </div>
+                  <p className="text-sm text-white/80 leading-relaxed mt-0.5 whitespace-pre-wrap">{n.body}</p>
+                </div>
+              </div>
+            ))}
+            {(!task.notes || task.notes.length === 0) && (
+              <div className="text-sm text-white/45">No notes yet.</div>
+            )}
+            <div className="mt-3">
+              <textarea
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); submitNote() } }}
+                rows={2}
+                placeholder="Add a note…"
+                className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-2.5 text-sm text-white placeholder:text-white/35 focus:outline-none focus:border-brand-300 transition resize-y min-h-[60px]"
+              />
+              <div className="mt-2 flex items-center justify-between">
+                <span className="text-[11px] text-white/40">Tip: ⌘/Ctrl + Enter to submit</span>
+                <button
+                  onClick={submitNote}
+                  disabled={!draft.trim()}
+                  className="btn-primary !py-1.5 !px-3 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Post note
+                </button>
+              </div>
+            </div>
+          </div>
+        </Section>
+
+        <div className="sticky bottom-0 bg-ink-900/95 backdrop-blur px-6 py-4 border-t border-white/5 flex items-center justify-end gap-2">
+          <button onClick={onClose} className="btn-ghost !py-2 !px-4 text-sm">Close</button>
+          <button onClick={() => onMessage(task)} className="btn-primary !py-2 !px-4 text-sm">
+            Message {task.employer?.name?.split(' ')[0] || 'employer'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const Section = ({ title, children }) => (
+  <div className="px-6 py-5 border-t border-white/5">
+    <div className="text-[11px] uppercase tracking-wider text-white/45 mb-3">{title}</div>
+    {children}
+  </div>
+)
+
+const Fact = ({ label, value }) => (
+  <div className="rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3">
+    <div className="text-[11px] uppercase tracking-wider text-white/45">{label}</div>
+    <div className="mt-1 text-base text-white/95">{value || <span className="text-white/35">—</span>}</div>
+  </div>
+)
+
+const PersonCard = ({ role, person, accent }) => (
+  <div className="rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3 flex items-center gap-3">
+    <Avatar name={person?.name} size="h-10 w-10" accent={accent} />
+    <div className="min-w-0">
+      <div className="text-[11px] uppercase tracking-wider text-white/45">{role}</div>
+      <div className="font-medium truncate">{person?.name || '—'}</div>
+      {(person?.company || person?.contact) && (
+        <div className="text-xs text-white/55 truncate">
+          {[person.company, person.contact].filter(Boolean).join(' · ')}
+        </div>
+      )}
+    </div>
+  </div>
+)
+
+// ---------- Public component ----------
+
+export default function ActiveTaskList({ tasks, limit, columns = 'md:grid-cols-2 lg:grid-cols-3' }) {
+  const [items, setItems] = useState(tasks)
+  const [openId, setOpenId] = useState(null)
+
+  // keep in sync if parent updates
+  useEffect(() => { setItems(tasks) }, [tasks])
+
+  const open = items.find((t) => t.id === openId)
+  const shown = typeof limit === 'number' ? items.slice(0, limit) : items
+
+  const addNote = (taskId, body) => {
+    setItems((prev) => prev.map((t) => t.id === taskId
+      ? { ...t, notes: [...(t.notes || []), { id: uid(), by: t.talent?.name || 'You', when: 'just now', body }] }
+      : t))
+  }
+
+  const message = (task) => {
+    // wire to your messaging route when ready
+    console.log('[ChainWork] open thread for', task.id)
+  }
+
+  return (
+    <>
+      <div className={`grid ${columns} gap-4`}>
+        {shown.map((t) => (
+          <TaskCard
+            key={t.id}
+            task={t}
+            onOpen={() => setOpenId(t.id)}
+            onMessage={() => message(t)}
+          />
+        ))}
+      </div>
+      {open && (
+        <TaskDetailModal
+          task={open}
+          onClose={() => setOpenId(null)}
+          onAddNote={addNote}
+          onMessage={message}
+        />
+      )}
+    </>
+  )
+}

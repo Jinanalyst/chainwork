@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { Icon, navigate } from '../components/ui.jsx'
 import ExperienceManager from '../components/ExperienceManager.jsx'
 import PortfolioManager from '../components/PortfolioManager.jsx'
+import ActiveTaskList from '../components/ActiveTaskList.jsx'
 
 const STATS = [
   { label: 'Lifetime earnings', value: '$48,920', delta: '+12% YoY' },
@@ -10,10 +11,93 @@ const STATS = [
   { label: 'Available',         value: '$640',    delta: 'Withdraw any time' },
 ]
 
+const ME = { name: 'Alex Park' }
+
 const ACTIVE_TASKS = [
-  { id: 1, title: 'Landing page for SaaS launch',   client: 'Northwind Co.',   category: 'Web Build',    progress: 60, due: 'In 2 days',     amount: '$950',  status: 'In escrow' },
-  { id: 2, title: 'AI chatbot integration',          client: 'Verde Wellness',  category: 'AI Automation',progress: 25, due: 'In 6 days',     amount: '$1,800', status: 'In progress' },
-  { id: 3, title: 'Fix Vercel deploy + auth bug',    client: 'Lumen Labs',      category: 'Web Fix',      progress: 90, due: 'Today',          amount: '$280',  status: 'Awaiting review' },
+  {
+    id: 1,
+    title: 'Landing page for SaaS launch',
+    category: 'Web Build',
+    status: 'In escrow',
+    employer: { name: 'Sara Chen', company: 'Northwind Co.', contact: 'sara@northwind.co' },
+    talent:   ME,
+    budget: '$950',
+    deadline: 'Jun 4, 2026',
+    lastActivity: '2h ago',
+    progress: 60,
+    description: "Single-page launch site for our new SaaS product. Hero, feature grid, pricing teaser, FAQ, and an email signup tied to Loops. Brand assets are ready in Figma — keep it clean, fast, and mobile-first.",
+    skills: ['React', 'Tailwind', 'Vercel', 'Figma'],
+    url: 'https://northwind.co',
+    attachments: [
+      { id: 'a1', label: 'Brand guidelines (Figma)', url: 'https://figma.com' },
+      { id: 'a2', label: 'Reference landing pages',  url: 'https://stripe.com' },
+    ],
+    timeline: [
+      { id: 't1', label: 'Task posted',          when: 'May 18', by: 'Sara Chen' },
+      { id: 't2', label: 'Offer accepted',       when: 'May 19', by: 'Sara Chen' },
+      { id: 't3', label: 'Escrow funded',        when: 'May 19', by: 'System' },
+      { id: 't4', label: 'Milestone 1 delivered', when: 'May 26', by: ME.name },
+      { id: 't5', label: 'Milestone 1 approved', when: 'May 27', by: 'Sara Chen' },
+    ],
+    notes: [
+      { id: 'n1', by: 'Sara Chen', when: 'Yesterday', body: 'Hero is looking great — can the CTA be a touch larger on mobile?' },
+      { id: 'n2', by: ME.name,     when: 'Today',     body: 'Done, bumped to 18px and added more vertical padding. Pushing now.' },
+    ],
+  },
+  {
+    id: 2,
+    title: 'AI chatbot integration',
+    category: 'AI Automation',
+    status: 'In progress',
+    employer: { name: 'Mia Tan', company: 'Verde Wellness', contact: 'mia@verde.co' },
+    talent:   ME,
+    budget: '$1,800',
+    deadline: 'Jun 8, 2026',
+    lastActivity: '1d ago',
+    progress: 25,
+    description: "Embed a help chatbot on the product pages. Use OpenAI with a small RAG over the FAQ + product catalog. Needs a streaming UI and lead-capture when the bot can't answer.",
+    skills: ['Next.js', 'OpenAI API', 'Edge Functions'],
+    url: 'https://verde.example.com',
+    attachments: [
+      { id: 'a1', label: 'Product catalog CSV', url: '#' },
+      { id: 'a2', label: 'FAQ doc',             url: '#' },
+    ],
+    timeline: [
+      { id: 't1', label: 'Task posted',    when: 'May 22', by: 'Mia Tan' },
+      { id: 't2', label: 'Offer accepted', when: 'May 23', by: 'Mia Tan' },
+      { id: 't3', label: 'Escrow funded',  when: 'May 23', by: 'System' },
+      { id: 't4', label: 'Discovery call', when: 'May 24', by: 'Mia Tan' },
+    ],
+    notes: [],
+  },
+  {
+    id: 3,
+    title: 'Fix Vercel deploy + auth bug',
+    category: 'Web Fix',
+    status: 'Awaiting review',
+    employer: { name: 'Dan Park', company: 'Lumen Labs', contact: 'dan@lumen.xyz' },
+    talent:   ME,
+    budget: '$280',
+    deadline: 'Today',
+    lastActivity: '20m ago',
+    progress: 90,
+    description: "Vercel build is failing on the auth route after a Next.js upgrade. Also need to fix a session loop that signs users out on refresh. Repo access provided.",
+    skills: ['Next.js', 'Auth', 'Vercel'],
+    url: 'https://lumen.xyz',
+    attachments: [
+      { id: 'a1', label: 'GitHub repo',  url: 'https://github.com' },
+      { id: 'a2', label: 'Build logs',   url: '#' },
+    ],
+    timeline: [
+      { id: 't1', label: 'Task posted',         when: 'May 26', by: 'Dan Park' },
+      { id: 't2', label: 'Offer accepted',      when: 'May 26', by: 'Dan Park' },
+      { id: 't3', label: 'Escrow funded',       when: 'May 26', by: 'System' },
+      { id: 't4', label: 'Fix submitted for review', when: '20m ago', by: ME.name },
+    ],
+    notes: [
+      { id: 'n1', by: ME.name, when: '20m ago', body: 'Pushed a fix — build is green, sessions persist on refresh. Ready for review.' },
+    ],
+  },
 ]
 
 const PAYOUTS = [
@@ -73,36 +157,6 @@ const Section = ({ title, children, action }) => (
   </section>
 )
 
-const ActiveTask = ({ t }) => (
-  <div className="card flex flex-col gap-3">
-    <div className="flex items-start justify-between gap-3">
-      <div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <Pill tone="info">{t.category}</Pill>
-          <Pill tone={t.status === 'Awaiting review' ? 'warn' : t.status === 'In escrow' ? 'ok' : 'default'}>{t.status}</Pill>
-        </div>
-        <h3 className="mt-2 font-semibold">{t.title}</h3>
-        <div className="text-xs text-white/55 mt-0.5">{t.client} · Due {t.due}</div>
-      </div>
-      <div className="text-right">
-        <div className="text-lg font-bold">{t.amount}</div>
-        <div className="text-[11px] text-white/45">In escrow</div>
-      </div>
-    </div>
-    <div>
-      <div className="flex justify-between text-[11px] text-white/55 mb-1">
-        <span>Progress</span><span>{t.progress}%</span>
-      </div>
-      <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
-        <div className="h-full bg-gradient-to-r from-brand-400 to-accent-400" style={{ width: `${t.progress}%` }} />
-      </div>
-    </div>
-    <div className="flex gap-2">
-      <button className="btn-ghost !py-1.5 !px-3 text-xs">Open</button>
-      <button className="btn-ghost !py-1.5 !px-3 text-xs">Message client</button>
-    </div>
-  </div>
-)
 
 export default function WorkerDashboard() {
   const [tab, setTab] = useState('overview')
@@ -177,9 +231,7 @@ export default function WorkerDashboard() {
             </Section>
 
             <Section title="Active tasks" action={<button onClick={() => setTab('tasks')} className="text-sm text-brand-300 hover:text-white">View all →</button>}>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {ACTIVE_TASKS.map((t) => <ActiveTask key={t.id} t={t} />)}
-              </div>
+              <ActiveTaskList tasks={ACTIVE_TASKS} columns="md:grid-cols-2 lg:grid-cols-3" />
             </Section>
 
             <Section title="Recent payouts" action={<button onClick={() => setTab('payments')} className="text-sm text-brand-300 hover:text-white">View all →</button>}>
@@ -207,9 +259,7 @@ export default function WorkerDashboard() {
 
         {tab === 'tasks' && (
           <Section title="Active tasks">
-            <div className="grid md:grid-cols-2 gap-4">
-              {ACTIVE_TASKS.map((t) => <ActiveTask key={t.id} t={t} />)}
-            </div>
+            <ActiveTaskList tasks={ACTIVE_TASKS} columns="md:grid-cols-2" />
           </Section>
         )}
 
