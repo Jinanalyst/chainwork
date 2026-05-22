@@ -17,38 +17,59 @@ function detectSolanaProvider() {
   return window.solana || null
 }
 
+const STATEMENT = 'I accept the ChainWork Terms of Service'
+
 async function signInEthereum() {
   const provider = detectEthProvider()
   if (!provider) {
     window.open(ETH_INSTALL_URL, '_blank', 'noopener,noreferrer')
     throw new Error('No Ethereum wallet detected. Install MetaMask to continue.')
   }
-  await provider.request({ method: 'eth_requestAccounts' })
-  const { data, error } = await supabase.auth.signInWithWeb3({
-    chain: 'ethereum',
-    statement: 'I accept the ChainWork Terms of Service.',
-    wallet: provider,
-  })
-  if (error) throw error
-  return data
+  try {
+    await provider.request({ method: 'eth_requestAccounts' })
+  } catch (e) {
+    if (e?.code === 4001) throw new Error('You rejected the connection request.')
+    throw e
+  }
+  try {
+    const { data, error } = await supabase.auth.signInWithWeb3({
+      chain: 'ethereum',
+      statement: STATEMENT,
+      wallet: provider,
+    })
+    if (error) throw error
+    return data
+  } catch (e) {
+    console.error('[ChainWork] Ethereum sign-in failed:', e)
+    throw new Error(e?.message || 'Ethereum sign-in failed. Please try again.')
+  }
 }
 
 async function signInSolana() {
-  const provider = detectSolanaProvider()
-  if (!provider) {
+  if (!detectSolanaProvider()) {
     window.open(SOL_INSTALL_URL, '_blank', 'noopener,noreferrer')
     throw new Error('No Solana wallet detected. Install Phantom to continue.')
   }
-  if (!provider.isConnected && provider.connect) {
-    try { await provider.connect() } catch (e) { /* user dismissed */ }
+  try {
+    const { data, error } = await supabase.auth.signInWithWeb3({
+      chain: 'solana',
+      statement: STATEMENT,
+    })
+    if (error) throw error
+    return data
+  } catch (e) {
+    console.error('[ChainWork] Solana sign-in failed:', e)
+    const msg = e?.message || ''
+    if (/User rejected|User declined|cancelled/i.test(msg)) {
+      throw new Error('You cancelled the signature request.')
+    }
+    if (/invalid formatting/i.test(msg)) {
+      throw new Error(
+        "Your wallet couldn't read the sign-in request. Make sure Phantom is up to date and that 'Sign In With Solana' is enabled in Phantom settings."
+      )
+    }
+    throw new Error(msg || 'Solana sign-in failed. Please try again.')
   }
-  const { data, error } = await supabase.auth.signInWithWeb3({
-    chain: 'solana',
-    statement: 'I accept the ChainWork Terms of Service.',
-    wallet: provider,
-  })
-  if (error) throw error
-  return data
 }
 
 const WalletButton = ({ name, hint, accent, onClick, busy, disabled }) => (
