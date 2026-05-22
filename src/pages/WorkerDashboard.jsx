@@ -3,6 +3,7 @@ import { Icon, navigate } from '../components/ui.jsx'
 import ExperienceManager from '../components/ExperienceManager.jsx'
 import PortfolioManager from '../components/PortfolioManager.jsx'
 import ActiveTaskList from '../components/ActiveTaskList.jsx'
+import { useTasks } from '../hooks/useTasks.js'
 
 const STATS = [
   { label: 'Lifetime earnings', value: '$48,920', delta: '+12% YoY' },
@@ -160,6 +161,13 @@ const Section = ({ title, children, action }) => (
 
 export default function WorkerDashboard() {
   const [tab, setTab] = useState('overview')
+  const { tasks: liveTasks, loading: tasksLoading, addNote } = useTasks()
+
+  // Show real tasks if available, otherwise fall back to mock so the dashboard
+  // still feels alive on first sign-in. addNote is only wired when real.
+  const usingReal = liveTasks.length > 0
+  const tasks       = usingReal ? liveTasks : ACTIVE_TASKS
+  const taskAddNote = usingReal ? addNote   : undefined
 
   return (
     <section className="py-12">
@@ -230,8 +238,22 @@ export default function WorkerDashboard() {
               </div>
             </Section>
 
-            <Section title="Active tasks" action={<button onClick={() => setTab('tasks')} className="text-sm text-brand-300 hover:text-white">View all →</button>}>
-              <ActiveTaskList tasks={ACTIVE_TASKS} columns="md:grid-cols-2 lg:grid-cols-3" />
+            <Section
+              title="Active tasks"
+              action={<button onClick={() => setTab('tasks')} className="text-sm text-brand-300 hover:text-white">View all →</button>}
+            >
+              <ActiveTaskList
+                tasks={tasks}
+                limit={3}
+                columns="md:grid-cols-2 lg:grid-cols-3"
+                onAddNote={taskAddNote}
+                selfName={ME.name}
+              />
+              {!usingReal && !tasksLoading && (
+                <div className="mt-3 text-[11px] text-white/40">
+                  Showing sample tasks. Post or accept a task in Supabase to see real data here.
+                </div>
+              )}
             </Section>
 
             <Section title="Recent payouts" action={<button onClick={() => setTab('payments')} className="text-sm text-brand-300 hover:text-white">View all →</button>}>
@@ -259,7 +281,23 @@ export default function WorkerDashboard() {
 
         {tab === 'tasks' && (
           <Section title="Active tasks">
-            <ActiveTaskList tasks={ACTIVE_TASKS} columns="md:grid-cols-2" />
+            {tasksLoading ? (
+              <div className="card text-center py-12 text-white/60 text-sm">Loading…</div>
+            ) : (
+              <>
+                <ActiveTaskList
+                  tasks={tasks}
+                  columns="md:grid-cols-2"
+                  onAddNote={taskAddNote}
+                  selfName={ME.name}
+                />
+                {!usingReal && (
+                  <div className="mt-3 text-[11px] text-white/40">
+                    Showing sample tasks. Post or accept a task to see real data here.
+                  </div>
+                )}
+              </>
+            )}
           </Section>
         )}
 

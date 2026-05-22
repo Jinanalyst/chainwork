@@ -300,7 +300,13 @@ const PersonCard = ({ role, person, accent }) => (
 
 // ---------- Public component ----------
 
-export default function ActiveTaskList({ tasks, limit, columns = 'md:grid-cols-2 lg:grid-cols-3' }) {
+export default function ActiveTaskList({
+  tasks,
+  limit,
+  columns = 'md:grid-cols-2 lg:grid-cols-3',
+  onAddNote,          // async (taskId, body) => { ok, error }
+  selfName,           // name to attribute optimistic notes to
+}) {
   const [items, setItems] = useState(tasks)
   const [openId, setOpenId] = useState(null)
 
@@ -310,10 +316,21 @@ export default function ActiveTaskList({ tasks, limit, columns = 'md:grid-cols-2
   const open = items.find((t) => t.id === openId)
   const shown = typeof limit === 'number' ? items.slice(0, limit) : items
 
-  const addNote = (taskId, body) => {
+  const addNote = async (taskId, body) => {
+    // Optimistic insert — replaced on next refresh from realtime
+    const tmpId = 'tmp_' + Date.now()
     setItems((prev) => prev.map((t) => t.id === taskId
-      ? { ...t, notes: [...(t.notes || []), { id: uid(), by: t.talent?.name || 'You', when: 'just now', body }] }
+      ? { ...t, notes: [...(t.notes || []), { id: tmpId, by: selfName || t.talent?.name || 'You', when: 'just now', body }] }
       : t))
+    if (onAddNote) {
+      const res = await onAddNote(taskId, body)
+      if (res && res.ok === false) {
+        // Roll back on failure
+        setItems((prev) => prev.map((t) => t.id === taskId
+          ? { ...t, notes: (t.notes || []).filter((n) => n.id !== tmpId) }
+          : t))
+      }
+    }
   }
 
   const message = (task) => {
