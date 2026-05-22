@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { Icon, navigate } from '../components/ui.jsx'
+import ExperienceManager from '../components/ExperienceManager.jsx'
 
 const STATS = [
   { label: 'Lifetime earnings', value: '$48,920', delta: '+12% YoY' },
@@ -284,21 +285,9 @@ export default function WorkerDashboard() {
         )}
 
         {tab === 'experience' && (
-          <Section title="Experience" action={<button className="text-sm text-brand-300 hover:text-white">+ Add entry</button>}>
-            <div className="relative pl-6">
-              <div className="absolute left-2 top-1 bottom-1 w-px bg-white/10" />
-              {EXPERIENCE.map((e, i) => (
-                <div key={i} className="relative pb-6 last:pb-0">
-                  <span className="absolute -left-4 top-2 h-3 w-3 rounded-full bg-gradient-to-br from-brand-400 to-accent-400 ring-4 ring-ink-950" />
-                  <div className="card">
-                    <div className="text-xs text-white/45 uppercase tracking-wider">{e.period}</div>
-                    <div className="mt-1 font-semibold">{e.role} <span className="text-white/55 font-normal">· {e.org}</span></div>
-                    <div className="mt-2 text-sm text-white/70 leading-relaxed">{e.desc}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Section>
+          <section className="mb-10">
+            <ExperienceManager />
+          </section>
         )}
       </div>
     </section>
