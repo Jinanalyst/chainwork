@@ -23,7 +23,25 @@ const QUESTIONS = [
     prompt: 'What is your budget?',
     shortLabel: 'Budget',
     placeholder: 'e.g. $500 – $2,000',
-    hint: 'A rough range helps workers send realistic offers.',
+    hint: 'A rough range in USDC or USDT helps workers send realistic offers.',
+  },
+  {
+    id: 'paymentStructure',
+    prompt: 'How would you like to pay?',
+    shortLabel: 'Payment structure',
+    hint: 'Both options are held in escrow until you approve the work.',
+    choices: [
+      {
+        id: 'full-on-completion',
+        title: 'Full on completion',
+        hint: '100% sits in escrow now, released the moment you approve the finished work. Lowest risk — best for short, well-defined tasks.',
+      },
+      {
+        id: 'fifty-fifty',
+        title: 'Split 50 / 50',
+        hint: '50% released at kickoff, 50% on final approval. Shares risk evenly — good for longer builds or first-time pairings.',
+      },
+    ],
   },
   {
     id: 'startWhen',

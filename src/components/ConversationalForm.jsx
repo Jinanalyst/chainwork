@@ -140,6 +140,13 @@ const Question = ({ eyebrow, q, value, onChange, onNext, inputRef, canContinue }
       onNext()
     }
   }
+
+  const pickChoice = (choiceId) => {
+    onChange(choiceId)
+    // Auto-advance after a brief beat so the user sees the selection
+    setTimeout(() => onNext(), 280)
+  }
+
   return (
     <div className="animate-[fadein_.4s_ease]">
       {eyebrow && (
@@ -157,53 +164,107 @@ const Question = ({ eyebrow, q, value, onChange, onNext, inputRef, canContinue }
       </h2>
       {q.hint && <p className="mt-3 text-warm-ink/55 text-sm md:text-base">{q.hint}</p>}
 
-      <div className="mt-10 flex items-end gap-3 border-b border-warm-ink/15 focus-within:border-warm-ink/40 transition-colors pb-2">
-        {q.long ? (
-          <textarea
-            ref={inputRef}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            onKeyDown={onKeyDown}
-            rows={2}
-            placeholder={q.placeholder}
-            className="flex-1 bg-transparent border-0 focus:outline-none text-lg md:text-xl py-2 resize-none placeholder:text-warm-ink/30"
-          />
-        ) : (
-          <input
-            ref={inputRef}
-            type={q.type || 'text'}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            onKeyDown={onKeyDown}
-            placeholder={q.placeholder}
-            className="flex-1 bg-transparent border-0 focus:outline-none text-lg md:text-xl py-2 placeholder:text-warm-ink/30"
-          />
-        )}
-        <button
-          type="button"
-          onClick={onNext}
-          disabled={!canContinue}
-          aria-label="Next"
-          className={
-            'shrink-0 h-11 w-11 md:h-12 md:w-12 rounded-full grid place-items-center transition transform ' +
-            (canContinue
-              ? 'bg-[#1e5be3] text-white hover:scale-[1.04] hover:bg-[#1a4cc0] shadow-[0_10px_30px_-12px_rgba(30,91,227,0.6)]'
-              : 'bg-warm-ink/10 text-warm-ink/30 cursor-not-allowed')
-          }
-        >
-          <Icon path={<path d="M5 12h14M13 5l7 7-7 7" />} className="h-5 w-5" />
-        </button>
-      </div>
+      {q.choices ? (
+        <ChoiceList
+          choices={q.choices}
+          value={value}
+          onPick={pickChoice}
+        />
+      ) : (
+        <>
+          <div className="mt-10 flex items-end gap-3 border-b border-warm-ink/15 focus-within:border-warm-ink/40 transition-colors pb-2">
+            {q.long ? (
+              <textarea
+                ref={inputRef}
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+                onKeyDown={onKeyDown}
+                rows={2}
+                placeholder={q.placeholder}
+                className="flex-1 bg-transparent border-0 focus:outline-none text-lg md:text-xl py-2 resize-none placeholder:text-warm-ink/30"
+              />
+            ) : (
+              <input
+                ref={inputRef}
+                type={q.type || 'text'}
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+                onKeyDown={onKeyDown}
+                placeholder={q.placeholder}
+                className="flex-1 bg-transparent border-0 focus:outline-none text-lg md:text-xl py-2 placeholder:text-warm-ink/30"
+              />
+            )}
+            <button
+              type="button"
+              onClick={onNext}
+              disabled={!canContinue}
+              aria-label="Next"
+              className={
+                'shrink-0 h-11 w-11 md:h-12 md:w-12 rounded-full grid place-items-center transition transform ' +
+                (canContinue
+                  ? 'bg-[#1e5be3] text-white hover:scale-[1.04] hover:bg-[#1a4cc0] shadow-[0_10px_30px_-12px_rgba(30,91,227,0.6)]'
+                  : 'bg-warm-ink/10 text-warm-ink/30 cursor-not-allowed')
+              }
+            >
+              <Icon path={<path d="M5 12h14M13 5l7 7-7 7" />} className="h-5 w-5" />
+            </button>
+          </div>
 
-      <div className="mt-5 flex items-center gap-3 text-xs text-warm-ink/40">
-        <span>Press</span>
-        <kbd className="px-2 py-0.5 rounded-md border border-warm-ink/15 bg-white/40 font-mono">Enter</kbd>
-        <span>to continue</span>
-        {q.long && <span className="opacity-70">· Shift + Enter for a new line</span>}
-      </div>
+          <div className="mt-5 flex items-center gap-3 text-xs text-warm-ink/40">
+            <span>Press</span>
+            <kbd className="px-2 py-0.5 rounded-md border border-warm-ink/15 bg-white/40 font-mono">Enter</kbd>
+            <span>to continue</span>
+            {q.long && <span className="opacity-70">· Shift + Enter for a new line</span>}
+          </div>
+        </>
+      )}
     </div>
   )
 }
+
+const ChoiceList = ({ choices, value, onPick }) => (
+  <div className="mt-8 space-y-3">
+    {choices.map((c, i) => {
+      const active = value === c.id
+      return (
+        <button
+          key={c.id}
+          type="button"
+          onClick={() => onPick(c.id)}
+          className={
+            'group w-full text-left rounded-2xl px-5 py-4 md:px-6 md:py-5 transition border ' +
+            (active
+              ? 'bg-white border-[#1e5be3] shadow-[0_20px_50px_-25px_rgba(30,91,227,0.55)]'
+              : 'bg-white/60 border-warm-ink/10 hover:bg-white hover:border-warm-ink/25')
+          }
+        >
+          <div className="flex items-start gap-4">
+            <div className={
+              'shrink-0 h-7 w-7 rounded-full grid place-items-center text-xs font-mono mt-0.5 transition ' +
+              (active
+                ? 'bg-[#1e5be3] text-white'
+                : 'bg-warm-ink/8 text-warm-ink/55 border border-warm-ink/15')
+            }>
+              {active ? (
+                <Icon path={<path d="M5 12l4 4 10-10" />} className="h-3.5 w-3.5" />
+              ) : String.fromCharCode(65 + i) /* A, B, C… */}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className={'font-semibold text-base md:text-lg ' + (active ? 'text-warm-ink' : 'text-warm-ink/90')}>
+                {c.title}
+              </div>
+              {c.hint && (
+                <div className="mt-1 text-sm text-warm-ink/55 leading-relaxed">
+                  {c.hint}
+                </div>
+              )}
+            </div>
+          </div>
+        </button>
+      )
+    })}
+  </div>
+)
 
 const Summary = ({ eyebrow, questions, answers, onEdit, onSubmit, submitLabel }) => (
   <div className="animate-[fadein_.4s_ease]">
@@ -229,7 +290,10 @@ const Summary = ({ eyebrow, questions, answers, onEdit, onSubmit, submitLabel })
           <div className="flex-1 min-w-0">
             <div className="text-sm text-warm-ink/50">{q.shortLabel || q.prompt}</div>
             <div className="mt-1 text-base text-warm-ink whitespace-pre-wrap break-words">
-              {answers[q.id]?.trim() || <span className="text-warm-ink/30">— not provided —</span>}
+              {q.choices
+                ? (q.choices.find((c) => c.id === answers[q.id])?.title
+                    || <span className="text-warm-ink/30">— not chosen —</span>)
+                : (answers[q.id]?.trim() || <span className="text-warm-ink/30">— not provided —</span>)}
             </div>
           </div>
           <span className="opacity-0 group-hover:opacity-100 text-xs text-warm-ink/50 mt-1">Edit</span>
