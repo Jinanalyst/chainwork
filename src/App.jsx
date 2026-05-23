@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import { LogoMark, Wordmark, Icon, useHashRoute, navigate } from './components/ui.jsx'
+import { CATEGORIES as WEB_CATEGORIES } from './data/categories.jsx'
 import SignInModal from './components/SignInModal.jsx'
 import { useSession, shortAddress, getWalletDisplay } from './hooks/useSession.js'
 import { supabase } from './lib/supabase.js'
@@ -170,62 +171,7 @@ const HowItWorks = () => {
   )
 }
 
-const CATEGORIES = [
-  {
-    id: 'web-build',
-    tag: 'Build',
-    title: 'Web Build',
-    blurb: 'Spin up a new website or web page that ships fast and looks sharp.',
-    examples: ['Landing page', 'Startup MVP', 'Portfolio site', 'Company website', 'Blog / news site', 'Simple e-commerce'],
-    accent: 'from-brand-400/30 to-brand-500/10',
-    icon: <><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><path d="M3 9h18M7 13h6M7 16h4" /></>,
-  },
-  {
-    id: 'web-fix',
-    tag: 'Fix',
-    title: 'Web Fix',
-    blurb: 'Stop the bleeding on a broken or buggy site — fast, surgical fixes.',
-    examples: ['Vercel deploy errors', 'Broken buttons / links', 'Mobile responsive', 'Login / auth bugs', 'API issues', 'Speed improvements'],
-    accent: 'from-amber-400/30 to-rose-500/10',
-    icon: <><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4l-6 6 2.8 2.8 6-6a4 4 0 0 0 5.4-5.4l-2.4 2.4-2.8-2.8z" /></>,
-  },
-  {
-    id: 'ai-automation',
-    tag: 'AI',
-    title: 'AI Web Automation',
-    blurb: 'Bolt AI features and automations onto a site or workflow.',
-    examples: ['AI chatbot', 'RSS / news automation', 'Content summarization', 'Email notifications', 'Admin dashboards', 'OpenAI API integration'],
-    accent: 'from-violet-400/30 to-brand-500/10',
-    icon: <><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1" /></>,
-  },
-  {
-    id: 'web3',
-    tag: 'Web3',
-    title: 'Web3 Work',
-    blurb: 'Front-end and UX for crypto, wallets, NFTs, DAOs, and on-chain data.',
-    examples: ['Token landing page', 'Wallet connect UI', 'NFT / DAO dashboard', 'Crypto news page', 'On-chain data widget', 'Community page'],
-    accent: 'from-accent-400/30 to-brand-400/10',
-    icon: <><path d="M12 2l9 5v10l-9 5-9-5V7z" /><path d="M3 7l9 5 9-5M12 12v10" /></>,
-  },
-  {
-    id: 'app-pwa',
-    tag: 'Launch',
-    title: 'App & PWA Launch',
-    blurb: 'Turn a website into an installable, app-like experience on mobile.',
-    examples: ['PWA setup', 'App-like mobile layout', 'Android APK / AAB', 'Play Store help', 'Manifest & icons', 'Mobile performance'],
-    accent: 'from-accent-400/30 to-emerald-500/10',
-    icon: <><rect x="6" y="2" width="12" height="20" rx="2" /><path d="M11 18h2" /></>,
-  },
-  {
-    id: 'digital-support',
-    tag: 'Support',
-    title: 'Digital Support',
-    blurb: 'Practical setup tasks for small businesses going live online.',
-    examples: ['Small business site', 'Domain connection', 'Payment page setup', 'Email forms', 'Analytics setup', 'Basic SEO'],
-    accent: 'from-brand-300/30 to-accent-400/10',
-    icon: <><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" /></>,
-  },
-]
+const CATEGORIES = WEB_CATEGORIES
 
 const FILTERS = {
   budget: [

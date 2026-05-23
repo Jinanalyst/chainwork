@@ -20,12 +20,12 @@ const tokens = (s) =>
 
 // Heuristic category inference from the hirer's free-text "workType".
 const CATEGORY_HINTS = {
-  'web-build':       ['landing','launch','mvp','portfolio','company','blog','news','ecommerce','shop','store','marketing'],
-  'web-fix':         ['fix','broken','bug','deploy','vercel','responsive','login','auth','api','speed','slow','crash'],
-  'ai-automation':   ['ai','chatbot','gpt','openai','automation','automate','rag','summarize','agent','llm','workflow'],
-  'web3':            ['web3','wallet','token','nft','dao','crypto','solana','ethereum','onchain','solidity','mint'],
-  'app-pwa':         ['pwa','mobile','app','android','ios','playstore','apk','installable','manifest','offline'],
-  'digital-support': ['domain','dns','email','analytics','seo','checkout','stripe','payment','setup'],
+  'web-dev':       ['landing','launch','mvp','website','webapp','dashboard','api','backend','frontend','deploy','vercel','nextjs','react','fix','bug','responsive','login','auth','speed','slow','crash','feature','build','custom','code'],
+  'no-code':       ['webflow','framer','wordpress','shopify','wix','squarespace','no-code','nocode','cms','theme','plugin','elementor','bubble'],
+  'ai-automation': ['ai','chatbot','gpt','openai','automation','automate','rag','summarize','agent','llm','workflow','zapier','n8n','make','llama'],
+  'web3':          ['web3','wallet','token','nft','dao','crypto','solana','ethereum','onchain','solidity','mint','staking','tokenomics','defi'],
+  'ui-ux':         ['design','ui','ux','figma','prototype','wireframe','brand','identity','logo','illustration','redesign','design-system','typography','palette'],
+  'content':       ['copy','copywriting','seo','content','blog','article','newsletter','email','marketing','social','strategy','funnel','editorial'],
 }
 
 export function inferCategories(workType) {

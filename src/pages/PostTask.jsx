@@ -5,14 +5,7 @@ import { PLATFORM_WALLETS, ESCROW_RELEASE_NOTE } from '../lib/platform.js'
 import { matchTalents, inferCategories } from '../lib/matching.js'
 import { navigate } from '../components/ui.jsx'
 
-const CATEGORY_LABEL = {
-  'web-build':       'Web Build',
-  'web-fix':         'Web Fix',
-  'ai-automation':   'AI Web Automation',
-  'web3':            'Web3 Work',
-  'app-pwa':         'App & PWA Launch',
-  'digital-support': 'Digital Support',
-}
+import { CATEGORY_LABEL } from '../data/categories.jsx'
 
 const initials = (n) =>
   (n || '?').split(/\s+/).map((p) => p[0] || '').slice(0, 2).join('').toUpperCase()

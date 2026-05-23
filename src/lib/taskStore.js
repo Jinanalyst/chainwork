@@ -15,7 +15,7 @@ const SEED_TASKS = [
   {
     id: 1,
     title: 'Landing page for SaaS launch',
-    category: 'Web Build',
+    category: 'Web Development',
     status: 'In progress',
     employer: { name: 'Sara Chen', company: 'Northwind Co.', contact: 'sara@northwind.co' },
     talent:   { name: 'Alex Park', email: 'alex@chainwork.test' },
@@ -70,7 +70,7 @@ const SEED_TASKS = [
   {
     id: 3,
     title: 'Fix Vercel deploy + auth bug',
-    category: 'Web Fix',
+    category: 'Web Development',
     status: 'Awaiting review',
     employer: { name: 'Sara Chen', company: 'Northwind Co.', contact: 'sara@northwind.co' },
     talent:   { name: 'Alex Park', email: 'alex@chainwork.test' },
@@ -97,7 +97,7 @@ const SEED_TASKS = [
   {
     id: 4,
     title: 'Domain + email setup',
-    category: 'Digital Support',
+    category: 'Content & Marketing',
     status: 'Completed',
     employer: { name: 'Sara Chen', company: 'Northwind Co.', contact: 'sara@northwind.co' },
     talent:   { name: 'Sophie Dubois', email: 'sophie@chainwork.test' },
@@ -122,7 +122,7 @@ const SEED_TASKS = [
   {
     id: 5,
     title: 'Token landing page redesign',
-    category: 'Web3 Work',
+    category: 'Web3 & Crypto',
     status: 'Open',
     employer: { name: 'Sara Chen', company: 'Northwind Co.', contact: 'sara@northwind.co' },
     talent:   null,
@@ -145,7 +145,7 @@ const SEED_TASKS = [
   {
     id: 6,
     title: 'AI summary widget for news pages',
-    category: 'AI Web Automation',
+    category: 'AI Automation',
     status: 'Open',
     employer: { name: 'Sara Chen', company: 'Northwind Co.', contact: 'sara@northwind.co' },
     talent:   null,

@@ -1,12 +1,14 @@
 /**
  * Mock talent directory.
  *
- * Categories use the same ids as the home page Categories section so we
- * can filter & match consistently:
- *   web-build · web-fix · ai-automation · web3 · app-pwa · digital-support
+ * Categories use the same ids as the canonical list in src/data/categories.jsx
+ * so we can filter & match consistently:
+ *   web-dev · no-code · ai-automation · web3 · ui-ux · content
  *
  * Replace with a Supabase `profiles` query when ready — keep the field shape.
  */
+
+import { CATEGORIES_WITH_ALL } from './categories.jsx'
 
 export const TALENTS = [
   {
@@ -24,7 +26,7 @@ export const TALENTS = [
     verified: true,
     topRated: true,
     availability: 'Available now',
-    categories: ['web-build', 'ai-automation', 'web3'],
+    categories: ['web-dev', 'ai-automation', 'web3'],
     skills: ['React', 'Next.js', 'Tailwind', 'OpenAI API', 'Vercel', 'Solidity'],
     about: 'Ship landing pages, AI chatbots, and Web3 dashboards for early-stage teams.',
     portfolio: ['from-brand-400 to-brand-700', 'from-violet-400 to-brand-500'],
@@ -33,7 +35,7 @@ export const TALENTS = [
     id: 't2',
     name: 'Maya Chen',
     handle: 'mayachen',
-    role: 'Front-end designer-engineer',
+    role: 'Product designer & front-end engineer',
     location: 'San Francisco, US',
     accent: 'from-violet-400 to-brand-500',
     rating: 4.8,
@@ -44,9 +46,9 @@ export const TALENTS = [
     verified: true,
     topRated: true,
     availability: 'Available next week',
-    categories: ['web-build', 'digital-support'],
-    skills: ['Figma', 'React', 'Tailwind', 'Framer Motion', 'Webflow'],
-    about: 'Pixel-perfect landing pages and brand sites with motion that does not get in the way.',
+    categories: ['ui-ux', 'web-dev'],
+    skills: ['Figma', 'Design systems', 'React', 'Tailwind', 'Framer Motion'],
+    about: 'Pixel-perfect product design and brand sites with motion that does not get in the way.',
     portfolio: ['from-accent-400 to-brand-500', 'from-amber-400 to-rose-500'],
   },
   {
@@ -64,7 +66,7 @@ export const TALENTS = [
     verified: true,
     topRated: false,
     availability: 'Available now',
-    categories: ['web-build', 'ai-automation'],
+    categories: ['web-dev', 'ai-automation'],
     skills: ['Next.js', 'Supabase', 'Stripe', 'Tailwind', 'TypeScript'],
     about: 'Take you from idea to deployed MVP in under two weeks. Auth, payments, dashboard — done.',
     portfolio: ['from-brand-300 to-accent-400'],
@@ -84,8 +86,8 @@ export const TALENTS = [
     verified: true,
     topRated: true,
     availability: 'Available now',
-    categories: ['web-fix', 'digital-support'],
-    skills: ['Vercel', 'Next.js', 'Auth', 'Stripe', 'Performance'],
+    categories: ['web-dev', 'no-code'],
+    skills: ['Vercel', 'Next.js', 'Webflow', 'Stripe', 'Performance'],
     about: 'Surgical fixes for broken deploys, auth loops, and slow pages. Fast, friendly, exact.',
     portfolio: ['from-amber-400 to-rose-500'],
   },
@@ -104,7 +106,7 @@ export const TALENTS = [
     verified: true,
     topRated: false,
     availability: 'Limited',
-    categories: ['web-fix', 'web-build', 'app-pwa'],
+    categories: ['web-dev', 'ui-ux'],
     skills: ['React', 'TypeScript', 'Responsive design', 'A11y', 'Cypress'],
     about: 'Responsive, accessible front-ends. Strong on cross-browser quirks and mobile polish.',
     portfolio: ['from-brand-400 to-brand-700'],
@@ -124,7 +126,7 @@ export const TALENTS = [
     verified: true,
     topRated: true,
     availability: 'Available now',
-    categories: ['ai-automation', 'web-build'],
+    categories: ['ai-automation', 'web-dev'],
     skills: ['OpenAI API', 'LangChain', 'RAG', 'Edge Functions', 'Pinecone', 'n8n'],
     about: 'Build production AI features: chatbots, summarizers, automation pipelines.',
     portfolio: ['from-violet-400 to-brand-500'],
@@ -144,7 +146,7 @@ export const TALENTS = [
     verified: true,
     topRated: false,
     availability: 'Available now',
-    categories: ['ai-automation', 'digital-support'],
+    categories: ['ai-automation', 'content'],
     skills: ['n8n', 'Zapier', 'Make', 'Email automation', 'GPT-4', 'Webhooks'],
     about: 'Glue your tools together — RSS to email, lead-capture to CRM, scheduled summaries.',
     portfolio: ['from-accent-400 to-brand-500'],
@@ -164,7 +166,7 @@ export const TALENTS = [
     verified: true,
     topRated: true,
     availability: 'Available next week',
-    categories: ['web3', 'web-build'],
+    categories: ['web3', 'web-dev'],
     skills: ['Wagmi', 'Viem', 'WalletConnect', 'Solana', 'Anchor', 'Foundry'],
     about: 'Token launch sites, wallet-connect UIs, NFT and DAO dashboards.',
     portfolio: ['from-accent-400 to-brand-500', 'from-brand-400 to-brand-700'],
@@ -193,7 +195,7 @@ export const TALENTS = [
     id: 't10',
     name: 'Lina Kowalski',
     handle: 'linak',
-    role: 'PWA & mobile-web engineer',
+    role: 'Webflow & Framer specialist',
     location: 'Warsaw, PL',
     accent: 'from-emerald-400 to-accent-600',
     rating: 4.8,
@@ -204,16 +206,16 @@ export const TALENTS = [
     verified: true,
     topRated: false,
     availability: 'Available now',
-    categories: ['app-pwa', 'web-build'],
-    skills: ['PWA', 'Workbox', 'Capacitor', 'iOS App Store', 'Play Store'],
-    about: 'Turn a website into an installable, app-like mobile experience — Play Store + App Store.',
+    categories: ['no-code', 'web-dev'],
+    skills: ['Webflow', 'Framer', 'Shopify', 'WordPress', 'CMS migration'],
+    about: 'No-code launches that look custom: Webflow, Framer, Shopify, WordPress migrations.',
     portfolio: ['from-emerald-400 to-accent-600'],
   },
   {
     id: 't11',
     name: 'Marcus Tan',
     handle: 'marcust',
-    role: 'Mobile-first web developer',
+    role: 'Brand designer & illustrator',
     location: 'Kuala Lumpur, MY',
     accent: 'from-brand-400 to-accent-400',
     rating: 4.7,
@@ -224,16 +226,16 @@ export const TALENTS = [
     verified: true,
     topRated: false,
     availability: 'Available now',
-    categories: ['app-pwa', 'web-fix'],
-    skills: ['React Native', 'Expo', 'Capacitor', 'Tailwind', 'Mobile UX'],
-    about: 'Mobile-first builds and fixes. Strong on responsive, touch-friendly UIs.',
+    categories: ['ui-ux', 'content'],
+    skills: ['Brand identity', 'Logo design', 'Illustration', 'Figma', 'Adobe Suite'],
+    about: 'Brand identity, logo design, and editorial illustration with a warm, modern feel.',
     portfolio: ['from-accent-400 to-brand-500'],
   },
   {
     id: 't12',
     name: 'Sophie Dubois',
     handle: 'sophied',
-    role: 'Digital launch support',
+    role: 'Copywriter & SEO strategist',
     location: 'Paris, FR',
     accent: 'from-brand-300 to-accent-400',
     rating: 5.0,
@@ -244,19 +246,11 @@ export const TALENTS = [
     verified: true,
     topRated: true,
     availability: 'Available now',
-    categories: ['digital-support', 'web-build'],
-    skills: ['Domain setup', 'DNS', 'Email', 'Analytics', 'SEO', 'Stripe Checkout'],
-    about: 'Get small businesses online: domain, email, payments, analytics — done in a day.',
+    categories: ['content', 'no-code'],
+    skills: ['Landing copy', 'Blog series', 'SEO audit', 'Email sequences', 'Webflow CMS'],
+    about: 'Conversion copy and SEO for early-stage launches. Words that move, in a day or two.',
     portfolio: ['from-brand-300 to-accent-400'],
   },
 ]
 
-export const TALENT_CATEGORIES = [
-  { id: 'all',             title: 'All' },
-  { id: 'web-build',       title: 'Web Build' },
-  { id: 'web-fix',         title: 'Web Fix' },
-  { id: 'ai-automation',   title: 'AI Web Automation' },
-  { id: 'web3',            title: 'Web3 Work' },
-  { id: 'app-pwa',         title: 'App & PWA Launch' },
-  { id: 'digital-support', title: 'Digital Support' },
-]
+export const TALENT_CATEGORIES = CATEGORIES_WITH_ALL
