@@ -2,6 +2,20 @@ import React from 'react'
 import ConversationalForm from '../components/ConversationalForm.jsx'
 import EscrowAddressCard from '../components/EscrowAddressCard.jsx'
 import { PLATFORM_WALLETS, ESCROW_RELEASE_NOTE } from '../lib/platform.js'
+import { matchTalents, inferCategories } from '../lib/matching.js'
+import { navigate } from '../components/ui.jsx'
+
+const CATEGORY_LABEL = {
+  'web-build':       'Web Build',
+  'web-fix':         'Web Fix',
+  'ai-automation':   'AI Web Automation',
+  'web3':            'Web3 Work',
+  'app-pwa':         'App & PWA Launch',
+  'digital-support': 'Digital Support',
+}
+
+const initials = (n) =>
+  (n || '?').split(/\s+/).map((p) => p[0] || '').slice(0, 2).join('').toUpperCase()
 
 const QUESTIONS = [
   {
@@ -60,6 +74,62 @@ const QUESTIONS = [
   },
 ]
 
+const WarmTalentRow = ({ talent }) => (
+  <div className="flex items-center gap-3 rounded-2xl border border-warm-ink/10 bg-white/70 px-4 py-3">
+    <div className={`shrink-0 h-11 w-11 rounded-2xl bg-gradient-to-br ${talent.accent} grid place-items-center text-sm font-bold text-ink-950`}>
+      {initials(talent.name)}
+    </div>
+    <div className="flex-1 min-w-0">
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="font-semibold text-warm-ink truncate">{talent.name}</span>
+        {talent.topRated && (
+          <span className="text-[10px] uppercase tracking-wider rounded-full bg-[#1e5be3]/10 text-[#1e5be3] border border-[#1e5be3]/25 px-1.5 py-0.5">
+            Top-rated
+          </span>
+        )}
+      </div>
+      <div className="text-xs text-warm-ink/65 truncate">{talent.role} · {talent.location}</div>
+      <div className="flex flex-wrap gap-1 mt-1">
+        {talent.skills.slice(0, 3).map((s) => (
+          <span key={s} className="text-[10px] text-warm-ink/70 bg-warm-ink/[0.05] border border-warm-ink/10 rounded-full px-1.5 py-0.5">{s}</span>
+        ))}
+      </div>
+    </div>
+    <div className="text-right shrink-0">
+      <div className="text-xs text-warm-ink/55">From</div>
+      <div className="font-semibold text-warm-ink">${talent.startingPrice}</div>
+    </div>
+  </div>
+)
+
+const MatchedTalents = ({ answers }) => {
+  const matches = matchTalents(answers, { limit: 4 })
+  const cats = inferCategories(answers.workType)
+  if (matches.length === 0) return null
+  return (
+    <div className="max-w-xl mx-auto">
+      <div className="rounded-2xl border border-warm-ink/10 bg-white/70 backdrop-blur p-5 md:p-6">
+        <div className="flex items-center justify-between gap-3 mb-1">
+          <h2 className="text-lg font-semibold text-warm-ink">Matched talents</h2>
+          <a href="#/talents" className="text-xs text-[#1e5be3] hover:underline">Browse all →</a>
+        </div>
+        <p className="text-sm text-warm-ink/65">
+          Based on your brief{cats.length ? <> · best fit in <span className="text-warm-ink font-medium">{CATEGORY_LABEL[cats[0]] || cats[0]}</span></> : null}
+        </p>
+        <div className="mt-4 space-y-2.5">
+          {matches.map((t) => <WarmTalentRow key={t.id} talent={t} />)}
+        </div>
+        <button
+          onClick={() => navigate('#/talents')}
+          className="mt-4 w-full text-center text-xs text-warm-ink/60 hover:text-warm-ink"
+        >
+          See more talents in this category →
+        </button>
+      </div>
+    </div>
+  )
+}
+
 const FundingInstructions = ({ answers }) => {
   const isSplit = answers?.paymentStructure === 'fifty-fifty'
   const budget = (answers?.budget || '').trim()
@@ -104,7 +174,12 @@ export default function PostTask() {
       submitLabel="Post my task"
       successTitle="Your task is live."
       successBody="Send your budget to one of the escrow addresses below to start the work. You'll see offers from trusted workers within a few hours."
-      successExtra={(answers) => <FundingInstructions answers={answers} />}
+      successExtra={(answers) => (
+        <div className="space-y-8">
+          <MatchedTalents answers={answers} />
+          <FundingInstructions answers={answers} />
+        </div>
+      )}
       onSubmit={(answers) => {
         console.log('[ChainWork] task posted:', answers)
       }}

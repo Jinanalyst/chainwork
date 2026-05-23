@@ -6,6 +6,7 @@ import { supabase } from './lib/supabase.js'
 import PostTask from './pages/PostTask.jsx'
 import WorkerDashboard from './pages/WorkerDashboard.jsx'
 import JoinAsWorker from './pages/JoinAsWorker.jsx'
+import Talents from './pages/Talents.jsx'
 
 const UserChip = ({ user, onSignOut }) => {
   const [open, setOpen] = useState(false)
@@ -49,9 +50,10 @@ const Nav = ({ route, user, onSignIn, onSignOut }) => (
         <Wordmark className="text-xl" />
       </a>
       <nav className="hidden md:flex items-center gap-8 text-sm text-white/70">
-        <a href="#/" className={'hover:text-white ' + (route === '#/' ? 'text-white' : '')}>Home</a>
+        <a href="#/"          className={'hover:text-white ' + (route === '#/' ? 'text-white' : '')}>Home</a>
+        <a href="#/talents"   className={'hover:text-white ' + (route.startsWith('#/talents') ? 'text-white' : '')}>Talents</a>
         <a href="#/post-task" className={'hover:text-white ' + (route.startsWith('#/post') ? 'text-white' : '')}>For hirers</a>
-        <a href="#/worker" className={'hover:text-white ' + (route.startsWith('#/worker') ? 'text-white' : '')}>For workers</a>
+        <a href="#/worker"    className={'hover:text-white ' + (route.startsWith('#/worker') ? 'text-white' : '')}>For workers</a>
       </nav>
       <div className="flex items-center gap-3">
         {user ? (
@@ -628,7 +630,9 @@ export default function App() {
   const needsAuth = isOnboarding || route.startsWith('#/worker')
 
   let page
-  if (route.startsWith('#/post-task')) {
+  if (route.startsWith('#/talents')) {
+    page = <Talents />
+  } else if (route.startsWith('#/post-task')) {
     page = user
       ? <PostTask />
       : <AuthGate title="Sign in to post a task" sub="Connect a wallet to keep your tasks, offers, and escrow safe." onSignIn={openSignIn} />
