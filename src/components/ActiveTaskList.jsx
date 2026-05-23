@@ -143,8 +143,10 @@ const Row = ({ label, children }) => (
 
 // ---------- Detail modal ----------
 
-const TaskDetailModal = ({ task, onClose, onAddNote, onMessage }) => {
+const TaskDetailModal = ({ task, onClose, onAddNote, onMessage, onUpdateProgress, onApproveMilestone, onRequestAdjustment }) => {
   const [draft, setDraft] = useState('')
+  const [adjOpen, setAdjOpen] = useState(false)
+  const [adjDraft, setAdjDraft] = useState('')
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
@@ -157,6 +159,16 @@ const TaskDetailModal = ({ task, onClose, onAddNote, onMessage }) => {
     onAddNote(task.id, draft.trim())
     setDraft('')
   }
+
+  const submitAdjustment = () => {
+    if (!adjDraft.trim()) return
+    onRequestAdjustment?.(task.id, adjDraft.trim())
+    setAdjDraft('')
+    setAdjOpen(false)
+  }
+
+  const approve = () => onApproveMilestone?.(task.id)
+  const isCompleted = task.status === 'Completed'
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4">
@@ -189,6 +201,21 @@ const TaskDetailModal = ({ task, onClose, onAddNote, onMessage }) => {
           <p className="text-sm text-white/80 leading-relaxed whitespace-pre-wrap">
             {task.description || <span className="text-white/40">No description provided.</span>}
           </p>
+        </Section>
+
+        {/* Hirer controls — live progress */}
+        <Section title="Hirer controls">
+          <HirerControls
+            task={task}
+            onProgress={(v) => onUpdateProgress?.(task.id, v)}
+            onApprove={approve}
+            onRequestAdjustment={() => setAdjOpen((v) => !v)}
+            adjOpen={adjOpen}
+            adjDraft={adjDraft}
+            setAdjDraft={setAdjDraft}
+            submitAdjustment={submitAdjustment}
+            cancelAdjustment={() => { setAdjOpen(false); setAdjDraft('') }}
+          />
         </Section>
 
         {/* Payment structure */}
@@ -251,16 +278,33 @@ const TaskDetailModal = ({ task, onClose, onAddNote, onMessage }) => {
             <div className="absolute left-1.5 top-1 bottom-1 w-px bg-white/10" />
             {(task.timeline || []).map((t, i) => {
               const isLast = i === task.timeline.length - 1
+              const isAdj  = !!t.adjustment
+              const isApprove = /approved/i.test(t.label)
               return (
                 <li key={t.id || i} className="relative pb-4 last:pb-0">
                   <span className={
                     'absolute -left-[10px] top-1 h-3 w-3 rounded-full ring-4 ring-ink-900 ' +
-                    (isLast ? 'bg-gradient-to-br from-brand-400 to-accent-400' : 'bg-white/30')
+                    (isAdj
+                      ? 'bg-amber-400'
+                      : isApprove
+                        ? 'bg-accent-500'
+                        : isLast
+                          ? 'bg-gradient-to-br from-brand-400 to-accent-400'
+                          : 'bg-white/30')
                   } />
-                  <div className="text-sm text-white/85">{t.label}</div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm text-white/85">{t.label}</span>
+                    {isAdj && <Pill tone="warn">Adjustment</Pill>}
+                    {isApprove && <Pill tone="ok">Approved</Pill>}
+                  </div>
                   <div className="text-[11px] text-white/45">
                     {t.when}{t.by && <span> · {t.by}</span>}
                   </div>
+                  {isAdj && t.note && (
+                    <div className="mt-1.5 rounded-lg border border-amber-400/25 bg-amber-500/[0.06] px-3 py-2 text-xs text-amber-100 leading-relaxed">
+                      {t.note}
+                    </div>
+                  )}
                 </li>
               )
             })}
@@ -465,6 +509,146 @@ const Fact = ({ label, value }) => (
   </div>
 )
 
+/**
+ * Live progress + approval controls. In a two-sided app these would only
+ * render for the hirer; for the MVP demo we surface them on either view
+ * with the "Hirer controls" label so the flow is visible.
+ */
+const HirerControls = ({
+  task,
+  onProgress,
+  onApprove,
+  onRequestAdjustment,
+  adjOpen,
+  adjDraft,
+  setAdjDraft,
+  submitAdjustment,
+  cancelAdjustment,
+}) => {
+  const isCompleted = task.status === 'Completed'
+  const isSplit     = task.paymentStructure === 'fifty-fifty'
+  const progress    = task.progress ?? 0
+  const nextMilestoneLabel =
+    isCompleted ? null :
+    (isSplit && progress < 50) ? 'Approve 50% kickoff' :
+    isSplit                    ? 'Approve final 50%'  :
+                                 'Approve & release 100%'
+
+  return (
+    <div className="space-y-4">
+      {/* Live progress */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-xs text-white/55">
+            Live progress
+            {task.status && <span className="text-white/30"> · status </span>}
+            {task.status && <span className="text-white">{task.status}</span>}
+          </div>
+          <div className="text-sm font-semibold tabular-nums">{progress}%</div>
+        </div>
+        <div className="relative h-3 rounded-full bg-white/10 overflow-hidden">
+          <div
+            className="absolute inset-y-0 left-0 bg-gradient-to-r from-brand-400 to-accent-400 transition-all"
+            style={{ width: `${progress}%` }}
+          />
+          {/* milestone tick at 50 for split tasks */}
+          {isSplit && (
+            <div
+              className="absolute top-0 bottom-0 w-px bg-white/30"
+              style={{ left: '50%' }}
+              title="50% milestone"
+            />
+          )}
+        </div>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          step={5}
+          value={progress}
+          onChange={(e) => onProgress?.(Number(e.target.value))}
+          disabled={isCompleted}
+          className="w-full mt-2 accent-brand-400 disabled:opacity-40 disabled:cursor-not-allowed"
+        />
+        <div className="flex items-center justify-between text-[11px] text-white/45">
+          <span>Drag to update — the card view stays in sync</span>
+          {isSplit && <span>Tick at 50% marks the kickoff milestone</span>}
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+        {isCompleted ? (
+          <div className="text-sm text-accent-200 flex items-center gap-2">
+            <Icon path={<path d="M5 12l4 4 10-10" />} className="h-4 w-4" />
+            Task completed — final payout has been released.
+          </div>
+        ) : (
+          <>
+            <div className="flex flex-wrap gap-2">
+              <button onClick={onApprove} className="btn-primary !py-2 !px-4 text-sm">
+                <Icon path={<path d="M5 12l4 4 10-10" />} className="h-4 w-4" />
+                {nextMilestoneLabel}
+              </button>
+              <button
+                onClick={onRequestAdjustment}
+                className={
+                  'inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold border transition ' +
+                  (adjOpen
+                    ? 'bg-amber-500/20 border-amber-400/40 text-amber-100'
+                    : 'bg-white/[0.04] border-white/15 text-white/85 hover:bg-white/[0.08] hover:border-white/30')
+                }
+              >
+                <Icon path={<><circle cx="12" cy="12" r="9" /><path d="M12 8v4M12 16h.01" /></>} className="h-4 w-4" />
+                {adjOpen ? 'Cancel adjustment' : 'Request adjustment'}
+              </button>
+            </div>
+
+            {adjOpen && (
+              <div className="mt-4 rounded-lg border border-amber-400/25 bg-amber-500/[0.04] p-3">
+                <div className="text-xs text-amber-100/90 mb-2">
+                  What needs to change? The worker will see this in the timeline.
+                </div>
+                <textarea
+                  value={adjDraft}
+                  onChange={(e) => setAdjDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                      e.preventDefault(); submitAdjustment()
+                    }
+                  }}
+                  rows={2}
+                  autoFocus
+                  placeholder="e.g. Hero CTA needs to be bigger on mobile. Also swap the testimonial photo."
+                  className="w-full rounded-lg bg-white/[0.04] border border-white/10 px-3 py-2 text-sm focus:outline-none focus:border-amber-400/50 transition resize-y min-h-[64px]"
+                />
+                <div className="mt-2 flex items-center justify-between">
+                  <span className="text-[11px] text-white/40">⌘/Ctrl + Enter to send</span>
+                  <div className="flex gap-2">
+                    <button onClick={cancelAdjustment} className="btn-ghost !py-1.5 !px-3 text-xs">Cancel</button>
+                    <button
+                      onClick={submitAdjustment}
+                      disabled={!adjDraft.trim()}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-amber-500 hover:bg-amber-400 text-ink-950 font-semibold px-3 py-1.5 text-xs disabled:opacity-50 disabled:cursor-not-allowed transition"
+                    >
+                      Send to worker
+                      <Icon path={<path d="M5 12h14M13 5l7 7-7 7" />} className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <p className="mt-3 text-[11px] text-white/45 leading-relaxed">
+              Approving releases the next milestone payout from escrow. Adjustments add a note to the timeline and keep the funds locked.
+            </p>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
 const PersonCard = ({ role, person, accent }) => (
   <div className="rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3 flex items-center gap-3">
     <Avatar name={person?.name} size="h-10 w-10" accent={accent} />
@@ -515,6 +699,66 @@ export default function ActiveTaskList({
     }
   }
 
+  const updateProgress = (taskId, value) => {
+    const v = Math.max(0, Math.min(100, Number(value) || 0))
+    setItems((prev) => prev.map((t) => t.id === taskId
+      ? { ...t, progress: v, lastActivity: 'just now' }
+      : t))
+  }
+
+  const approveMilestone = (taskId) => {
+    setItems((prev) => prev.map((t) => {
+      if (t.id !== taskId) return t
+      const isSplit = t.paymentStructure === 'fifty-fifty'
+      const cur = t.progress ?? 0
+
+      let nextProgress = 100
+      let nextStatus   = 'Completed'
+      let label        = isSplit ? 'Final 50% approved · escrow released' : '100% approved · escrow released'
+
+      if (isSplit && cur < 50) {
+        nextProgress = Math.max(50, cur)
+        nextStatus   = 'In progress'
+        label        = '50% kickoff approved · first half released'
+      }
+
+      return {
+        ...t,
+        progress:     nextProgress,
+        status:       nextStatus,
+        lastActivity: 'just now',
+        timeline: [...(t.timeline || []), {
+          id: 'tl_' + Date.now(),
+          label,
+          when: 'just now',
+          by:   t.employer?.name || 'Hirer',
+        }],
+      }
+    }))
+  }
+
+  const requestAdjustment = (taskId, note) => {
+    setItems((prev) => prev.map((t) => {
+      if (t.id !== taskId) return t
+      // Hold the next milestone — pull status back to "In progress" so the
+      // worker knows there's something to act on.
+      const nextStatus = t.status === 'Completed' ? t.status : 'In progress'
+      return {
+        ...t,
+        status:       nextStatus,
+        lastActivity: 'just now',
+        timeline: [...(t.timeline || []), {
+          id: 'tl_' + Date.now(),
+          label: 'Adjustment requested',
+          when:  'just now',
+          by:    t.employer?.name || 'Hirer',
+          adjustment: true,
+          note,
+        }],
+      }
+    }))
+  }
+
   const message = (task) => {
     // wire to your messaging route when ready
     console.log('[ChainWork] open thread for', task.id)
@@ -538,6 +782,9 @@ export default function ActiveTaskList({
           onClose={() => setOpenId(null)}
           onAddNote={addNote}
           onMessage={message}
+          onUpdateProgress={updateProgress}
+          onApproveMilestone={approveMilestone}
+          onRequestAdjustment={requestAdjustment}
         />
       )}
     </>
