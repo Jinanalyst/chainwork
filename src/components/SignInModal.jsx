@@ -47,10 +47,12 @@ async function signInEthereum() {
 
 async function signInLinkedIn() {
   if (typeof window === 'undefined') throw new Error('Browser only')
-  // Bring the user back to the same origin + hash route after the OAuth
-  // round-trip. Supabase appends ?code=... to this URL and detectSessionInUrl
-  // exchanges it for a session automatically.
-  const redirectTo = window.location.origin + window.location.pathname + '#/'
+  // IMPORTANT: do NOT include a hash fragment in redirectTo. Supabase
+  // appends ?code=...&state=... and the URL spec puts the query before the
+  // fragment, which can shuffle the order in a way detectSessionInUrl
+  // misses. Send the user back to root; the home page mounts immediately
+  // and onAuthStateChange routes them on from there.
+  const redirectTo = window.location.origin + window.location.pathname
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'linkedin_oidc',
     options: {
@@ -62,7 +64,6 @@ async function signInLinkedIn() {
     console.error('[ChainWork] LinkedIn sign-in failed:', error)
     throw new Error(error.message || 'LinkedIn sign-in failed. Please try again.')
   }
-  // signInWithOAuth navigates away; this return is for completeness.
   return data
 }
 
