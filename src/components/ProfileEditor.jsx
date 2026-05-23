@@ -10,11 +10,11 @@ import { Icon } from './ui.jsx'
 const initials = (n) =>
   (n || '?').split(/\s+/).map((p) => p[0] || '').slice(0, 2).join('').toUpperCase()
 
-const QUESTIONS = [
-  { id: 'name',         prompt: "What's your full name?",                 placeholder: 'Alex Park',                 required: true,  shortLabel: 'Name' },
+export const WORKER_QUESTIONS = [
+  { id: 'name',         prompt: "What's your full name?",                 placeholder: 'Your full name',             required: true,  shortLabel: 'Name' },
   { id: 'role',         prompt: 'What do you do?',                         placeholder: 'Full-stack web + AI worker', required: true,  shortLabel: 'Role',
     hint: 'A short title hirers will see on your profile and offers.' },
-  { id: 'location',     prompt: 'Where are you based?',                    placeholder: 'Seoul, KR',                  required: true,  shortLabel: 'Location' },
+  { id: 'location',     prompt: 'Where are you based?',                    placeholder: 'City, Country',              required: true,  shortLabel: 'Location' },
   { id: 'email',        prompt: "What's your contact email?",              placeholder: 'you@example.com',            required: true,  type: 'email', shortLabel: 'Contact',
     hint: 'Only matched hirers will see this.' },
   { id: 'bio',          prompt: 'Tell us about yourself.',                 placeholder: 'I ship landing pages, AI chatbots, and Web3 dashboards for early-stage teams.', long: true, shortLabel: 'Bio',
@@ -25,35 +25,47 @@ const QUESTIONS = [
     kind: 'socials' },
 ]
 
-const SOCIAL_FIELDS = [
-  { key: 'github',   label: 'GitHub',   placeholder: 'github.com/your-handle' },
+export const DEFAULT_SOCIAL_FIELDS = [
+  { key: 'github',   label: 'GitHub',      placeholder: 'github.com/your-handle' },
   { key: 'twitter',  label: 'X / Twitter', placeholder: 'x.com/your-handle' },
-  { key: 'linkedin', label: 'LinkedIn', placeholder: 'linkedin.com/in/your-handle' },
-  { key: 'website',  label: 'Website',  placeholder: 'yoursite.com' },
+  { key: 'linkedin', label: 'LinkedIn',    placeholder: 'linkedin.com/in/your-handle' },
+  { key: 'website',  label: 'Website',     placeholder: 'yoursite.com' },
 ]
 
-const buildInitial = (initial = {}) => ({
-  name:         initial.name || '',
-  role:         initial.role || '',
-  location:     initial.location || '',
-  email:        initial.email || '',
-  bio:          initial.bio || '',
-  portfolioUrl: initial.portfolioUrl || '',
-  socials: {
-    github:   initial.socials?.github   || '',
-    twitter:  initial.socials?.twitter  || '',
-    linkedin: initial.socials?.linkedin || '',
-    website:  initial.socials?.website  || '',
-  },
-})
+// Build the working profile object from initial values, using the question
+// list to know which keys to seed and the social-field list for socials.
+const buildInitial = (initial = {}, questions, socialFields) => {
+  const out = {}
+  for (const q of questions) {
+    if (q.kind === 'socials') continue
+    out[q.id] = initial[q.id] ?? ''
+  }
+  out.socials = {}
+  for (const f of socialFields) {
+    out.socials[f.key] = initial.socials?.[f.key] || ''
+  }
+  return out
+}
 
-export default function ProfileEditor({ open, initial, onClose, onSave }) {
+export default function ProfileEditor({
+  open,
+  initial,
+  onClose,
+  onSave,
+  questions     = WORKER_QUESTIONS,
+  socialFields  = DEFAULT_SOCIAL_FIELDS,
+  eyebrow       = 'Edit profile',
+}) {
+  const QUESTIONS = questions
+  const SOCIAL_FIELDS = socialFields
   const [idx, setIdx] = useState(0)
-  const [profile, setProfile] = useState(() => buildInitial(initial))
+  const [profile, setProfile] = useState(() => buildInitial(initial, QUESTIONS, SOCIAL_FIELDS))
   const [saving, setSaving] = useState(false)
   const inputRef = useRef(null)
 
-  useEffect(() => { if (open) { setIdx(0); setProfile(buildInitial(initial)); setSaving(false) } }, [open, initial])
+  useEffect(() => {
+    if (open) { setIdx(0); setProfile(buildInitial(initial, QUESTIONS, SOCIAL_FIELDS)); setSaving(false) }
+  }, [open, initial, QUESTIONS, SOCIAL_FIELDS])
 
   useEffect(() => {
     if (!open) return
@@ -114,7 +126,7 @@ export default function ProfileEditor({ open, initial, onClose, onSave }) {
             <Icon path={<path d="M15 18l-6-6 6-6" />} className="h-4 w-4" />
           </button>
           <div className="flex-1">
-            <div className="text-[11px] uppercase tracking-[0.2em] text-accent-400 font-mono mb-2">Edit profile</div>
+            <div className="text-[11px] uppercase tracking-[0.2em] text-accent-400 font-mono mb-2">{eyebrow}</div>
             <div className="h-[3px] rounded-full bg-white/10 overflow-hidden">
               <div className="h-full bg-gradient-to-r from-brand-400 to-accent-400 transition-all duration-500" style={{ width: `${progress}%` }} />
             </div>

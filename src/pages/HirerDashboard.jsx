@@ -10,6 +10,7 @@ import { isLiveChatReady } from '../lib/liveChat.js'
 import LiveChatPanel from '../components/LiveChatPanel.jsx'
 import ProMembershipBadge from '../components/ProMembershipBadge.jsx'
 import RoleSwitcher from '../components/RoleSwitcher.jsx'
+import HirerProfileEditor from '../components/HirerProfileEditor.jsx'
 
 // Shape kept for layout / accent; identity now comes from the signed-in user.
 const HIRER = {
@@ -362,16 +363,53 @@ export default function HirerDashboard() {
   const [tab, setTab] = useState('overview')
   const store = useTaskStore()
   const { user } = useSession()
-  const { profile } = useProfile()
+  const { profile: profileRow, update: updateProfileRow } = useProfile()
 
-  // Identity derived from the signed-in user. Falls back to the wallet
-  // address (shortened) before the profile row has a display_name set.
+  // Editable profile mirror — hydrated from the Supabase row when it loads.
   const walletDisplay = getWalletDisplay(user)
-  const selfName = profile?.display_name
-    || (walletDisplay && walletDisplay.length > 12 ? shortAddress(walletDisplay) : walletDisplay)
-    || ''
-  const selfCompany = profile?.company || ''
-  const selfEmail   = profile?.contact_email || ''
+  const defaultName = walletDisplay && walletDisplay.length > 12 ? shortAddress(walletDisplay) : (walletDisplay || '')
+  const [profile, setProfile] = useState({
+    name: '', company: '', role: '', location: '', email: '', bio: '', websiteUrl: '',
+    socials: { twitter: '', linkedin: '', website: '' },
+  })
+  const [editOpen, setEditOpen] = useState(false)
+  useEffect(() => {
+    setProfile((p) => ({
+      ...p,
+      name:       profileRow?.display_name  || defaultName || p.name,
+      company:    profileRow?.company       || p.company,
+      role:       profileRow?.title         || p.role,
+      location:   profileRow?.location      || p.location,
+      email:      profileRow?.contact_email || p.email,
+      bio:        profileRow?.bio           || p.bio,
+      websiteUrl: profileRow?.portfolio_url || p.websiteUrl,
+      socials: {
+        twitter:  profileRow?.socials?.twitter  || p.socials.twitter,
+        linkedin: profileRow?.socials?.linkedin || p.socials.linkedin,
+        website:  profileRow?.socials?.website  || p.socials.website,
+      },
+    }))
+  }, [profileRow, defaultName])
+
+  const selfName    = profile.name || defaultName || ''
+  const selfCompany = profile.company || ''
+  const selfEmail   = profile.email || ''
+
+  const saveProfile = async (next) => {
+    setProfile(next)
+    const patch = {
+      display_name:  next.name?.trim()       || null,
+      company:       next.company?.trim()    || null,
+      title:         next.role?.trim()       || null,
+      location:      next.location?.trim()   || null,
+      contact_email: next.email?.trim()      || null,
+      bio:           next.bio?.trim()        || null,
+      portfolio_url: next.websiteUrl?.trim() || null,
+      socials:       next.socials || {},
+    }
+    const res = await updateProfileRow(patch)
+    if (!res.ok) alert('Could not save profile: ' + (res.error || 'unknown'))
+  }
 
   const tasks = useMemo(
     () => store.tasks.filter((t) => t.employer?.name === selfName),
@@ -444,15 +482,47 @@ export default function HirerDashboard() {
                 <Pill tone="info">Hirer</Pill>
                 {selfCompany && <Pill>{selfCompany}</Pill>}
               </div>
-              {selfEmail && <div className="mt-1 text-white/70">{selfEmail}</div>}
-              <div className="mt-3 text-sm text-white/55">
-                {stats.activeCount} active · {stats.completedCount} completed
+              {(profile.role || profile.location) && (
+                <div className="mt-1 text-white/70">
+                  {profile.role || '—'}{profile.location && <span> · {profile.location}</span>}
+                </div>
+              )}
+              {profile.bio && <p className="mt-2 text-sm text-white/60 max-w-2xl">{profile.bio}</p>}
+              <div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-white/60">
+                {selfEmail && (
+                  <a href={`mailto:${selfEmail}`} className="hover:text-white transition inline-flex items-center gap-1.5">
+                    <Icon path={<><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 7l9 6 9-6" /></>} className="h-3.5 w-3.5" />
+                    {selfEmail}
+                  </a>
+                )}
+                <span>{stats.activeCount} active · {stats.completedCount} completed</span>
               </div>
+              {(profile.websiteUrl || profile.socials?.twitter || profile.socials?.linkedin || profile.socials?.website) && (
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                  {profile.websiteUrl && (
+                    <a href={profile.websiteUrl.startsWith('http') ? profile.websiteUrl : `https://${profile.websiteUrl}`} target="_blank" rel="noreferrer"
+                       className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.04] border border-white/10 hover:border-white/25 px-2.5 py-1 text-white/80">
+                      <Icon path={<><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" /></>} className="h-3 w-3" />
+                      Website
+                    </a>
+                  )}
+                  {Object.entries(profile.socials || {}).filter(([, v]) => v).map(([k, v]) => (
+                    <a key={k} href={v.startsWith('http') ? v : `https://${v}`} target="_blank" rel="noreferrer"
+                       className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.04] border border-white/10 hover:border-white/25 px-2.5 py-1 text-white/80 capitalize">
+                      {k}
+                    </a>
+                  ))}
+                </div>
+              )}
               <div className="mt-3">
                 <RoleSwitcher otherRole="worker" />
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
+              <button onClick={() => setEditOpen(true)} className="btn-ghost">
+                <Icon path={<><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4z" /></>} className="h-4 w-4" />
+                Edit profile
+              </button>
               <button onClick={() => navigate('#/talents')} className="btn-ghost">Browse talents</button>
               <button onClick={() => navigate('#/post-task')} className="btn-primary">
                 <Icon path={<path d="M12 5v14M5 12h14" />} className="h-4 w-4" />
@@ -577,6 +647,13 @@ export default function HirerDashboard() {
           </Section>
         )}
       </div>
+
+      <HirerProfileEditor
+        open={editOpen}
+        initial={profile}
+        onClose={() => setEditOpen(false)}
+        onSave={saveProfile}
+      />
     </section>
   )
 }
