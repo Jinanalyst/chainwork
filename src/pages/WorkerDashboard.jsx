@@ -368,9 +368,9 @@ export default function WorkerDashboard() {
                 columns="md:grid-cols-2 lg:grid-cols-3"
                 onAddNote={taskAddNote}
                 onUpdateProgress={usingReal ? undefined : taskStore.updateProgress}
-                onApproveMilestone={usingReal ? undefined : taskStore.approveMilestone}
-                onRequestAdjustment={usingReal ? undefined : taskStore.requestAdjustment}
+                onSubmitForReview={usingReal ? undefined : taskStore.submitForReview}
                 selfName={ME.name}
+                viewerRole="worker"
               />
               {!usingReal && !tasksLoading && (
                 <div className="mt-3 text-[11px] text-white/40">

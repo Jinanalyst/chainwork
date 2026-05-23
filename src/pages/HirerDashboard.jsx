@@ -470,9 +470,9 @@ export default function HirerDashboard() {
                 columns="md:grid-cols-2 lg:grid-cols-3"
                 selfName={HIRER.name}
                 onAddNote={(id, body) => { taskStore.addNote(id, body, HIRER.name); return { ok: true } }}
-                onUpdateProgress={taskStore.updateProgress}
                 onApproveMilestone={taskStore.approveMilestone}
                 onRequestAdjustment={taskStore.requestAdjustment}
+                viewerRole="hirer"
               />
             </Section>
 

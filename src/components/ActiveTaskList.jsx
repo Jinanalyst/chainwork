@@ -143,7 +143,7 @@ const Row = ({ label, children }) => (
 
 // ---------- Detail modal ----------
 
-const TaskDetailModal = ({ task, onClose, onAddNote, onMessage, onUpdateProgress, onApproveMilestone, onRequestAdjustment }) => {
+const TaskDetailModal = ({ task, viewerRole = 'hirer', onClose, onAddNote, onMessage, onUpdateProgress, onSubmitForReview, onApproveMilestone, onRequestAdjustment }) => {
   const [draft, setDraft] = useState('')
   const [adjOpen, setAdjOpen] = useState(false)
   const [adjDraft, setAdjDraft] = useState('')
@@ -203,11 +203,13 @@ const TaskDetailModal = ({ task, onClose, onAddNote, onMessage, onUpdateProgress
           </p>
         </Section>
 
-        {/* Hirer controls — live progress */}
-        <Section title="Hirer controls">
-          <HirerControls
+        {/* Role-specific controls */}
+        <Section title={viewerRole === 'worker' ? 'Your progress' : "Worker's progress · approval"}>
+          <TaskControls
             task={task}
+            viewerRole={viewerRole}
             onProgress={(v) => onUpdateProgress?.(task.id, v)}
+            onSubmit={() => onSubmitForReview?.(task.id)}
             onApprove={approve}
             onRequestAdjustment={() => setAdjOpen((v) => !v)}
             adjOpen={adjOpen}
@@ -510,56 +512,46 @@ const Fact = ({ label, value }) => (
 )
 
 /**
- * Live progress + approval controls. In a two-sided app these would only
- * render for the hirer; for the MVP demo we surface them on either view
- * with the "Hirer controls" label so the flow is visible.
+ * Role-aware controls. The hirer owns approvals + adjustment requests;
+ * the worker owns progress reporting and submitting for review.
  */
-const HirerControls = ({
-  task,
-  onProgress,
-  onApprove,
-  onRequestAdjustment,
-  adjOpen,
-  adjDraft,
-  setAdjDraft,
-  submitAdjustment,
-  cancelAdjustment,
-}) => {
-  const isCompleted = task.status === 'Completed'
-  const isSplit     = task.paymentStructure === 'fifty-fifty'
-  const progress    = task.progress ?? 0
-  const nextMilestoneLabel =
-    isCompleted ? null :
-    (isSplit && progress < 50) ? 'Approve 50% kickoff' :
-    isSplit                    ? 'Approve final 50%'  :
-                                 'Approve & release 100%'
+const TaskControls = (props) => {
+  return props.viewerRole === 'worker'
+    ? <WorkerControls {...props} />
+    : <HirerControls  {...props} />
+}
+
+const ProgressBar = ({ progress, isSplit, label, dim }) => (
+  <div>
+    <div className="flex items-center justify-between mb-2">
+      <div className="text-xs text-white/55">{label}</div>
+      <div className="text-sm font-semibold tabular-nums">{progress}%</div>
+    </div>
+    <div className="relative h-3 rounded-full bg-white/10 overflow-hidden">
+      <div
+        className={'absolute inset-y-0 left-0 bg-gradient-to-r from-brand-400 to-accent-400 transition-all ' + (dim ? 'opacity-80' : '')}
+        style={{ width: `${progress}%` }}
+      />
+      {isSplit && (
+        <div className="absolute top-0 bottom-0 w-px bg-white/30" style={{ left: '50%' }} title="50% milestone" />
+      )}
+    </div>
+  </div>
+)
+
+const WorkerControls = ({ task, onProgress, onSubmit }) => {
+  const isCompleted    = task.status === 'Completed'
+  const awaitingReview = task.status === 'Awaiting review'
+  const isSplit        = task.paymentStructure === 'fifty-fifty'
+  const progress       = task.progress ?? 0
+  const readyMilestone = isSplit
+    ? (progress >= 50 ? (progress >= 100 ? 'final delivery' : 'kickoff milestone') : null)
+    : (progress >= 100 ? 'final delivery' : null)
 
   return (
     <div className="space-y-4">
-      {/* Live progress */}
       <div>
-        <div className="flex items-center justify-between mb-2">
-          <div className="text-xs text-white/55">
-            Live progress
-            {task.status && <span className="text-white/30"> · status </span>}
-            {task.status && <span className="text-white">{task.status}</span>}
-          </div>
-          <div className="text-sm font-semibold tabular-nums">{progress}%</div>
-        </div>
-        <div className="relative h-3 rounded-full bg-white/10 overflow-hidden">
-          <div
-            className="absolute inset-y-0 left-0 bg-gradient-to-r from-brand-400 to-accent-400 transition-all"
-            style={{ width: `${progress}%` }}
-          />
-          {/* milestone tick at 50 for split tasks */}
-          {isSplit && (
-            <div
-              className="absolute top-0 bottom-0 w-px bg-white/30"
-              style={{ left: '50%' }}
-              title="50% milestone"
-            />
-          )}
-        </div>
+        <ProgressBar progress={progress} isSplit={isSplit} label="Your reported progress" />
         <input
           type="range"
           min={0}
@@ -571,12 +563,91 @@ const HirerControls = ({
           className="w-full mt-2 accent-brand-400 disabled:opacity-40 disabled:cursor-not-allowed"
         />
         <div className="flex items-center justify-between text-[11px] text-white/45">
-          <span>Drag to update — the card view stays in sync</span>
+          <span>Drag to update — your hirer sees this live</span>
           {isSplit && <span>Tick at 50% marks the kickoff milestone</span>}
         </div>
       </div>
 
-      {/* Actions */}
+      <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+        {isCompleted ? (
+          <div className="text-sm text-accent-200 flex items-center gap-2">
+            <Icon path={<path d="M5 12l4 4 10-10" />} className="h-4 w-4" />
+            Hirer approved — the final payout has been released to your wallet.
+          </div>
+        ) : awaitingReview ? (
+          <div className="text-sm text-amber-100 flex items-center gap-2">
+            <Icon path={<><circle cx="12" cy="12" r="9" /><path d="M12 8v4M12 16h.01" /></>} className="h-4 w-4 text-amber-300" />
+            Submitted for review — waiting for {task.employer?.name || 'the hirer'} to approve.
+          </div>
+        ) : (
+          <>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={onSubmit}
+                disabled={!readyMilestone}
+                className="btn-primary !py-2 !px-4 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                title={readyMilestone ? '' : 'Move the slider to a milestone to submit'}
+              >
+                <Icon path={<path d="M5 12l5 5L20 7" />} className="h-4 w-4" />
+                Submit for review
+              </button>
+              <span className="text-[11px] text-white/45 self-center">
+                {readyMilestone
+                  ? `Ready: ${readyMilestone}.`
+                  : isSplit
+                    ? 'Reach 50% (kickoff) or 100% (final) to submit.'
+                    : 'Reach 100% to submit.'}
+              </span>
+            </div>
+            <p className="mt-3 text-[11px] text-white/45 leading-relaxed">
+              Only the hirer can approve a milestone and release the payout. Submitting puts the task into <span className="text-white/70">Awaiting review</span> on their dashboard.
+            </p>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+const HirerControls = ({
+  task,
+  onProgress,
+  onApprove,
+  onRequestAdjustment,
+  adjOpen,
+  adjDraft,
+  setAdjDraft,
+  submitAdjustment,
+  cancelAdjustment,
+}) => {
+  const isCompleted    = task.status === 'Completed'
+  const awaitingReview = task.status === 'Awaiting review'
+  const isSplit        = task.paymentStructure === 'fifty-fifty'
+  const progress       = task.progress ?? 0
+  const nextMilestoneLabel =
+    isCompleted ? null :
+    (isSplit && progress < 50) ? 'Approve 50% kickoff' :
+    isSplit                    ? 'Approve final 50%'  :
+                                 'Approve & release 100%'
+
+  // Can the hirer meaningfully approve right now?
+  const canApprove =
+    !isCompleted && (
+      awaitingReview ||
+      (isSplit && progress >= 50) ||
+      progress >= 100
+    )
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <ProgressBar progress={progress} isSplit={isSplit} label={`Worker reports · status: ${task.status}`} dim={!awaitingReview} />
+        <div className="mt-2 flex items-center justify-between text-[11px] text-white/45">
+          <span>{task.talent?.name ? `${task.talent.name}'s progress` : 'Worker progress'} · last activity {task.lastActivity}</span>
+          {isSplit && <span>Tick at 50% marks the kickoff milestone</span>}
+        </div>
+      </div>
+
       <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
         {isCompleted ? (
           <div className="text-sm text-accent-200 flex items-center gap-2">
@@ -585,8 +656,21 @@ const HirerControls = ({
           </div>
         ) : (
           <>
+            {awaitingReview && (
+              <div className="mb-3 rounded-lg border border-amber-400/25 bg-amber-500/[0.06] px-3 py-2 text-sm text-amber-100 flex items-center gap-2">
+                <Icon path={<path d="M12 8v4M12 16h.01" />} className="h-4 w-4 text-amber-300" />
+                <span>
+                  {task.talent?.name || 'Worker'} submitted for review. Approve to release the next payout, or request adjustments.
+                </span>
+              </div>
+            )}
             <div className="flex flex-wrap gap-2">
-              <button onClick={onApprove} className="btn-primary !py-2 !px-4 text-sm">
+              <button
+                onClick={onApprove}
+                disabled={!canApprove}
+                className="btn-primary !py-2 !px-4 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                title={canApprove ? '' : 'No milestone ready to approve yet'}
+              >
                 <Icon path={<path d="M5 12l4 4 10-10" />} className="h-4 w-4" />
                 {nextMilestoneLabel}
               </button>
@@ -640,7 +724,7 @@ const HirerControls = ({
             )}
 
             <p className="mt-3 text-[11px] text-white/45 leading-relaxed">
-              Approving releases the next milestone payout from escrow. Adjustments add a note to the timeline and keep the funds locked.
+              Only you can approve — approving releases the next milestone payout from escrow. Adjustments add a note to the timeline and keep the funds locked.
             </p>
           </>
         )}
@@ -671,10 +755,12 @@ export default function ActiveTaskList({
   limit,
   columns = 'md:grid-cols-2 lg:grid-cols-3',
   onAddNote,             // async (taskId, body) => { ok, error }
-  onUpdateProgress,      // (taskId, value) => void  — store/server mutation
-  onApproveMilestone,    // (taskId) => void
-  onRequestAdjustment,   // (taskId, note) => void
+  onUpdateProgress,      // (taskId, value) => void  — worker action
+  onSubmitForReview,     // (taskId) => void          — worker action
+  onApproveMilestone,    // (taskId) => void          — hirer action
+  onRequestAdjustment,   // (taskId, note) => void    — hirer action
   selfName,              // name to attribute optimistic notes to
+  viewerRole = 'hirer',  // 'hirer' | 'worker' — controls which actions show
 }) {
   const [items, setItems] = useState(tasks)
   const [openId, setOpenId] = useState(null)
@@ -785,10 +871,12 @@ export default function ActiveTaskList({
       {open && (
         <TaskDetailModal
           task={open}
+          viewerRole={viewerRole}
           onClose={() => setOpenId(null)}
           onAddNote={addNote}
           onMessage={message}
           onUpdateProgress={updateProgress}
+          onSubmitForReview={onSubmitForReview}
           onApproveMilestone={approveMilestone}
           onRequestAdjustment={requestAdjustment}
         />

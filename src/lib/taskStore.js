@@ -282,6 +282,24 @@ export const taskStore = {
       : t),
   })),
 
+  submitForReview: (taskId) => update((s) => ({
+    ...s,
+    tasks: s.tasks.map((t) => {
+      if (t.id !== taskId) return t
+      return {
+        ...t,
+        status: 'Awaiting review',
+        lastActivity: 'just now',
+        timeline: [...(t.timeline || []), {
+          id: uid('tl'),
+          label: 'Submitted for review',
+          when: 'just now',
+          by: t.talent?.name || 'Worker',
+        }],
+      }
+    }),
+  })),
+
   approveMilestone: (taskId) => update((s) => ({
     ...s,
     tasks: s.tasks.map((t) => {
