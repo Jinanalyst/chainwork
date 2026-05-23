@@ -12,6 +12,7 @@ import JoinAsWorker from './pages/JoinAsWorker.jsx'
 import Talents from './pages/Talents.jsx'
 import HirerDashboard from './pages/HirerDashboard.jsx'
 import AdminPayments from './pages/AdminPayments.jsx'
+import Privacy from './pages/Privacy.jsx'
 import EscrowAddressCard from './components/EscrowAddressCard.jsx'
 import PaymentProofForm from './components/PaymentProofForm.jsx'
 import ProMembershipBadge from './components/ProMembershipBadge.jsx'
@@ -694,9 +695,9 @@ const Footer = () => (
         <span>© {new Date().getFullYear()} <Wordmark className="text-sm" /></span>
       </div>
       <div className="flex items-center gap-6">
-        <a href="#" className="hover:text-white">Privacy</a>
-        <a href="#" className="hover:text-white">Terms</a>
-        <a href="#" className="hover:text-white">Contact</a>
+        <a href="#/privacy" className="hover:text-white">Privacy</a>
+        <a href="#/privacy" className="hover:text-white">Terms</a>
+        <a href="mailto:hello@chainwork.kr" className="hover:text-white">Contact</a>
       </div>
     </div>
   </footer>
@@ -749,7 +750,9 @@ export default function App() {
   const needsAuth = isOnboarding || route.startsWith('#/worker') || route.startsWith('#/hirer') || route.startsWith('#/admin')
 
   let page
-  if (route.startsWith('#/talents')) {
+  if (route.startsWith('#/privacy')) {
+    page = <Privacy />
+  } else if (route.startsWith('#/talents')) {
     page = <Talents />
   } else if (route.startsWith('#/admin/payments')) {
     page = user

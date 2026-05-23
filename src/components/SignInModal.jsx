@@ -176,7 +176,9 @@ export default function SignInModal({ open, onClose, onSignedIn }) {
         )}
 
         <p className="mt-6 text-[11px] text-white/45 text-center">
-          By continuing you agree to ChainWork's Terms and Privacy Policy. We never see your private key.
+          By continuing you agree to ChainWork's Terms and{' '}
+          <a href="#/privacy" className="underline text-white/70 hover:text-white">Privacy Policy</a>.
+          We never see your private key.
         </p>
       </div>
     </div>
