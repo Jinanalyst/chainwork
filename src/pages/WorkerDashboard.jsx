@@ -4,6 +4,8 @@ import ExperienceManager from '../components/ExperienceManager.jsx'
 import PortfolioManager from '../components/PortfolioManager.jsx'
 import ActiveTaskList from '../components/ActiveTaskList.jsx'
 import OfferCard from '../components/OfferCard.jsx'
+import ProfileEditor from '../components/ProfileEditor.jsx'
+import ShareProfileModal from '../components/ShareProfileModal.jsx'
 import { useTasks } from '../hooks/useTasks.js'
 import { useTaskStore } from '../hooks/useTaskStore.js'
 import { taskStore } from '../lib/taskStore.js'
@@ -20,6 +22,28 @@ const STATS = [
 ]
 
 const ME = { name: 'Alex Park' }
+
+const ensureProtocol = (u) => {
+  if (!u) return ''
+  return /^https?:\/\//i.test(u) || /^mailto:/i.test(u) ? u : `https://${u}`
+}
+
+// Default profile values shown until the user edits them. Lifted to state
+// in the component so Edit + Share can mutate / read live values.
+const DEFAULT_PROFILE = {
+  name:         'Alex Park',
+  role:         'Full-stack web + AI worker',
+  location:     'Seoul, KR',
+  email:        'alex@chainwork.test',
+  bio:          'Shipping landing pages, AI chatbots, and Web3 dashboards for early-stage teams. Focus on fast, well-deployed builds.',
+  portfolioUrl: 'https://alexpark.dev',
+  socials: {
+    github:   'github.com/alexpark',
+    twitter:  'x.com/alexpark',
+    linkedin: 'linkedin.com/in/alexpark',
+    website:  'alexpark.dev',
+  },
+}
 
 const ACTIVE_TASKS = [
   {
@@ -262,6 +286,9 @@ const Section = ({ title, children, action }) => (
 
 export default function WorkerDashboard() {
   const [tab, setTab] = useState('overview')
+  const [profile, setProfile] = useState(DEFAULT_PROFILE)
+  const [editOpen, setEditOpen] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
   const { tasks: liveTasks, loading: tasksLoading, addNote } = useTasks()
   const store = useTaskStore()
 
@@ -300,14 +327,19 @@ export default function WorkerDashboard() {
         <div className="card relative overflow-hidden mb-8">
           <div className="absolute -top-24 -right-20 h-64 w-64 rounded-full bg-brand-500/20 blur-3xl" />
           <div className="relative flex flex-col md:flex-row md:items-center gap-6">
-            <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-brand-400 to-accent-400 grid place-items-center text-2xl font-bold text-ink-950 shrink-0">AP</div>
+            <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-brand-400 to-accent-400 grid place-items-center text-2xl font-bold text-ink-950 shrink-0">
+              {(profile.name || '?').split(/\s+/).map((p) => p[0] || '').slice(0, 2).join('').toUpperCase()}
+            </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-2xl md:text-3xl font-bold">Alex Park</h1>
+                <h1 className="text-2xl md:text-3xl font-bold">{profile.name || 'Your name'}</h1>
                 <Pill tone="ok"><Icon path={<path d="M5 12l4 4 10-10" />} className="h-3 w-3" /> Verified</Pill>
                 <Pill tone="info">Top-rated</Pill>
               </div>
-              <div className="mt-1 text-white/70">Full-stack web + AI worker · Seoul, KR</div>
+              <div className="mt-1 text-white/70">
+                {profile.role || '—'}{profile.location && <span> · {profile.location}</span>}
+              </div>
+              {profile.bio && <p className="mt-2 text-sm text-white/60 max-w-2xl">{profile.bio}</p>}
               <div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-white/60">
                 <span className="flex items-center gap-1">
                   <Icon path={<path d="M12 17.3l-6.2 3.7 1.6-7.1L2 9.2l7.2-.6L12 2l2.8 6.6 7.2.6-5.4 4.7 1.6 7.1z" />} className="h-4 w-4 text-amber-300" />
@@ -316,10 +348,38 @@ export default function WorkerDashboard() {
                 <span>Joined Mar 2024</span>
                 <span>97% on-time</span>
               </div>
+              {/* Contact + portfolio + socials surface row */}
+              {(profile.email || profile.portfolioUrl || profile.socials) && (
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                  {profile.email && (
+                    <a href={`mailto:${profile.email}`} className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.04] border border-white/10 hover:border-white/25 px-2.5 py-1 text-white/80">
+                      <Icon path={<><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 7l9 6 9-6" /></>} className="h-3 w-3" />
+                      {profile.email}
+                    </a>
+                  )}
+                  {profile.portfolioUrl && (
+                    <a href={ensureProtocol(profile.portfolioUrl)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.04] border border-white/10 hover:border-white/25 px-2.5 py-1 text-white/80">
+                      <Icon path={<><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" /></>} className="h-3 w-3" />
+                      Portfolio
+                    </a>
+                  )}
+                  {Object.entries(profile.socials || {}).filter(([, v]) => v).map(([k, v]) => (
+                    <a key={k} href={ensureProtocol(v)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.04] border border-white/10 hover:border-white/25 px-2.5 py-1 text-white/80 capitalize">
+                      {k}
+                    </a>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="flex gap-2">
-              <button className="btn-ghost">Edit profile</button>
-              <button className="btn-primary">Share</button>
+              <button onClick={() => setEditOpen(true)} className="btn-ghost">
+                <Icon path={<><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4z" /></>} className="h-4 w-4" />
+                Edit profile
+              </button>
+              <button onClick={() => setShareOpen(true)} className="btn-primary">
+                <Icon path={<><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4" /></>} className="h-4 w-4" />
+                Share
+              </button>
             </div>
           </div>
         </div>
@@ -429,9 +489,9 @@ export default function WorkerDashboard() {
                   columns="md:grid-cols-2"
                   onAddNote={taskAddNote}
                   onUpdateProgress={usingReal ? undefined : taskStore.updateProgress}
-                  onApproveMilestone={usingReal ? undefined : taskStore.approveMilestone}
-                  onRequestAdjustment={usingReal ? undefined : taskStore.requestAdjustment}
+                  onSubmitForReview={usingReal ? undefined : taskStore.submitForReview}
                   selfName={ME.name}
+                  viewerRole="worker"
                 />
                 {!usingReal && (
                   <div className="mt-3 text-[11px] text-white/40">
@@ -496,6 +556,19 @@ export default function WorkerDashboard() {
           </section>
         )}
       </div>
+
+      <ProfileEditor
+        open={editOpen}
+        initial={profile}
+        onClose={() => setEditOpen(false)}
+        onSave={(next) => setProfile(next)}
+      />
+
+      <ShareProfileModal
+        open={shareOpen}
+        profile={profile}
+        onClose={() => setShareOpen(false)}
+      />
     </section>
   )
 }
