@@ -47,7 +47,7 @@ const FilterChips = ({ label, options, value, onChange }) => (
               : 'bg-white/[0.03] text-white/75 border-white/10 hover:border-white/25 hover:text-white')
           }
         >
-          {o.label}
+          {o.label ?? o.title}
         </button>
       )
     })}
