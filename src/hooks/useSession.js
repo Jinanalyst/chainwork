@@ -84,12 +84,22 @@ function fnv1a(s) {
   return h
 }
 
-export function handleFor(user) {
-  const addr = getWalletAddress(user)
-  if (!addr) return ''
-  const h = fnv1a(addr.toLowerCase())
+/**
+ * Build a dashed-words handle from a raw seed (address, uuid, anything).
+ * Same input always lands on the same handle.
+ */
+export function handleFromSeed(seed) {
+  if (!seed) return ''
+  const h = fnv1a(String(seed).toLowerCase())
   const adj  = ADJECTIVES[h % ADJECTIVES.length]
   const noun = NOUNS[Math.floor(h / ADJECTIVES.length) % NOUNS.length]
   const tag  = (h >>> 0).toString(16).slice(-4).padStart(4, '0')
   return `${adj}-${noun}-${tag}`
+}
+
+export function handleFor(userOrSeed) {
+  // Accept either a Supabase user object or a raw seed string.
+  if (!userOrSeed) return ''
+  if (typeof userOrSeed === 'string') return handleFromSeed(stripWeb3Prefix(userOrSeed))
+  return handleFromSeed(getWalletAddress(userOrSeed))
 }

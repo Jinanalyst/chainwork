@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { isSupabaseConfigured, supabase } from '../lib/supabase.js'
+import { handleFor } from './useSession.js'
 
 const ACCENTS = [
   'from-brand-400 to-accent-400',
@@ -57,14 +58,17 @@ const seededNumber = (value, min, max) => {
 
 const normalizeTalent = (row, index) => {
   const text = [row.display_name, row.company, row.bio].filter(Boolean).join(' ')
-  const name = row.display_name || 'ChainWork worker'
+  // Deterministic dashed-words handle from the wallet address (or row id as
+  // last resort). Used as the display name when the worker hasn't set one.
+  const dashedHandle = handleFor(row.wallet_address || row.id)
+  const name = row.display_name || dashedHandle || 'ChainWork worker'
   const role = row.company || 'Verified ChainWork worker'
   const categories = inferCategories(text)
 
   return {
     id: row.id,
     name,
-    handle: (name || row.id).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+    handle: dashedHandle || (name || row.id).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
     role,
     location: 'Remote',
     accent: ACCENTS[index % ACCENTS.length],
@@ -104,7 +108,7 @@ export function useTalents() {
       try {
         const { data, error } = await supabase
           .from('worker_directory')
-          .select('id, display_name, company, bio, avatar_url, updated_at')
+          .select('id, display_name, company, bio, avatar_url, wallet_address, updated_at')
           .order('updated_at', { ascending: false })
           .limit(60)
         if (cancelled) return
