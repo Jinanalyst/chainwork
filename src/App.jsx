@@ -730,7 +730,18 @@ export default function App() {
 
   const openSignIn  = () => setSignInOpen(true)
   const closeSignIn = () => setSignInOpen(false)
-  const signOut     = async () => { if (supabase) await supabase.auth.signOut() }
+  const signOut = async () => {
+    if (!supabase) return
+    // Local-scope sign-out is instant and doesn't depend on a server round
+    // trip, so the UI updates even if the auth API is slow or unreachable.
+    // We still fire-and-forget a global sign-out for token revocation.
+    try { await supabase.auth.signOut({ scope: 'local' }) } catch (e) { console.warn('[signOut] local failed:', e?.message || e) }
+    supabase.auth.signOut().catch(() => {})
+    // Send the user home — dashboards are auth-gated and look broken otherwise.
+    if (typeof window !== 'undefined') {
+      window.location.hash = '#/'
+    }
+  }
 
   // Onboarding routes render their own minimal chrome — hide the global nav/footer.
   const isOnboarding =
