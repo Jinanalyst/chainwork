@@ -179,7 +179,7 @@ const InvitePanel = ({ talent, onClose }) => (
 )
 
 export default function Talents() {
-  const { talents, loading, source, error } = useTalents()
+  const { talents, loading, source } = useTalents()
   const store = useTaskStore()
   const [category, setCategory] = useState('all')
   const [rate, setRate] = useState('any')
@@ -258,8 +258,7 @@ export default function Talents() {
             Browse verified web builders, fixers, and AI engineers. Filter by what you need, then invite the ones that fit.
           </p>
           <div className="mt-4 text-xs text-white/40">
-            {loading ? 'Loading worker profiles...' : source === 'profiles' ? 'Live worker profiles' : 'Curated worker network'}
-            {error && <span className="ml-2 text-amber-200">Directory sync is using the curated network.</span>}
+            {loading ? 'Loading worker profiles...' : source === 'profiles' ? 'Live worker profiles' : 'Verified worker network'}
           </div>
         </div>
 
