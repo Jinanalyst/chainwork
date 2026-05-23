@@ -732,15 +732,35 @@ export default function App() {
   const openSignIn  = () => setSignInOpen(true)
   const closeSignIn = () => setSignInOpen(false)
   const signOut = async () => {
-    if (!supabase) return
-    // Local-scope sign-out is instant and doesn't depend on a server round
-    // trip, so the UI updates even if the auth API is slow or unreachable.
-    // We still fire-and-forget a global sign-out for token revocation.
-    try { await supabase.auth.signOut({ scope: 'local' }) } catch (e) { console.warn('[signOut] local failed:', e?.message || e) }
-    supabase.auth.signOut().catch(() => {})
-    // Send the user home — dashboards are auth-gated and look broken otherwise.
+    // Belt-and-braces sign-out. Some auth setups (OAuth providers, admin
+    // sessions, stale tokens) can leave the Supabase client unable to talk
+    // to the server, so we never let one failing step block the others:
+    //   1. Try a local-scope signOut so onAuthStateChange fires SIGNED_OUT.
+    //   2. Try a global signOut to revoke the token server-side.
+    //   3. Hard-wipe the persisted auth key in localStorage / sessionStorage
+    //      in case (1) silently no-op'd.
+    //   4. Fall back to a full reload to "/" so no stale React state survives.
+    if (supabase) {
+      try { await supabase.auth.signOut({ scope: 'local' }) } catch (e) { console.warn('[signOut] local failed:', e?.message || e) }
+      supabase.auth.signOut().catch(() => {})
+    }
     if (typeof window !== 'undefined') {
-      window.location.hash = '#/'
+      try {
+        const keys = ['chainwork.auth', 'sb-auth-token']
+        for (const storage of [window.localStorage, window.sessionStorage]) {
+          for (const k of keys) { try { storage.removeItem(k) } catch {} }
+          for (let i = storage.length - 1; i >= 0; i--) {
+            const k = storage.key(i)
+            if (k && (/^sb-.*-auth-token/.test(k) || k.startsWith('chainwork.'))) {
+              try { storage.removeItem(k) } catch {}
+            }
+          }
+        }
+      } catch {}
+      // Full reload home so the React tree starts cold — no admin badge,
+      // no role modal lingering from the previous session.
+      window.location.replace(window.location.pathname + '#/')
+      window.location.reload()
     }
   }
 
