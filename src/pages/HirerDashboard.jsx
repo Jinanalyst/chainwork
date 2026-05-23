@@ -4,19 +4,20 @@ import ActiveTaskList from '../components/ActiveTaskList.jsx'
 import { fmtUSD, parseBudget, workerNet } from '../lib/fees.js'
 import { useTaskStore } from '../hooks/useTaskStore.js'
 import { taskStore } from '../lib/taskStore.js'
-import { useSession } from '../hooks/useSession.js'
+import { useSession, getWalletDisplay, shortAddress } from '../hooks/useSession.js'
+import { useProfile } from '../hooks/useProfile.js'
 import { isLiveChatReady } from '../lib/liveChat.js'
 import LiveChatPanel from '../components/LiveChatPanel.jsx'
 import ProMembershipBadge from '../components/ProMembershipBadge.jsx'
+import RoleSwitcher from '../components/RoleSwitcher.jsx'
 
-// ---------- Mock data (replace with Supabase queries when ready) ----------
-
+// Shape kept for layout / accent; identity now comes from the signed-in user.
 const HIRER = {
-  name: 'Sara Chen',
-  company: 'Northwind Co.',
-  email:  'sara@northwind.co',
-  accent: 'from-brand-300 to-brand-500',
-  joined: 'Mar 2024',
+  name:    '',
+  company: '',
+  email:   '',
+  accent:  'from-brand-300 to-brand-500',
+  joined:  '',
 }
 
 // (Mock data kept for reference; the live source is the shared taskStore.)
@@ -304,7 +305,7 @@ const Conversation = ({ thread, onSend, onBack, onOpenTask }) => {
   )
 }
 
-const Messages = ({ threads, selectedId, onSelect, onSend, onOpenTask }) => {
+const Messages = ({ threads, selectedId, onSelect, onSend, onOpenTask, displayName }) => {
   const selected = threads.find((t) => t.id === selectedId) || threads[0]
   // Mobile-first: when a thread is selected on small screens we hide the list.
   const [mobileView, setMobileView] = useState('list') // 'list' | 'thread'
@@ -338,7 +339,7 @@ const Messages = ({ threads, selectedId, onSelect, onSend, onOpenTask }) => {
           <LiveChatPanel
             taskId={selected.taskId}
             role="hirer"
-            displayName={HIRER.name}
+            displayName={displayName}
             title={selected.worker?.name || 'Conversation'}
             subtitle={selected.taskTitle}
           />
@@ -360,22 +361,30 @@ const Messages = ({ threads, selectedId, onSelect, onSend, onOpenTask }) => {
 export default function HirerDashboard() {
   const [tab, setTab] = useState('overview')
   const store = useTaskStore()
+  const { user } = useSession()
+  const { profile } = useProfile()
 
-  // Live from shared store — stays in sync with the worker dashboard.
+  // Identity derived from the signed-in user. Falls back to the wallet
+  // address (shortened) before the profile row has a display_name set.
+  const walletDisplay = getWalletDisplay(user)
+  const selfName = profile?.display_name
+    || (walletDisplay && walletDisplay.length > 12 ? shortAddress(walletDisplay) : walletDisplay)
+    || ''
+  const selfCompany = profile?.company || ''
+  const selfEmail   = profile?.contact_email || ''
+
   const tasks = useMemo(
-    () => store.tasks.filter((t) => t.employer?.name === HIRER.name),
-    [store.tasks],
+    () => store.tasks.filter((t) => t.employer?.name === selfName),
+    [store.tasks, selfName],
   )
   const threads = useMemo(
-    () => store.threads.filter((t) => t.participants?.hirer === HIRER.name),
-    [store.threads],
+    () => store.threads.filter((t) => t.participants?.hirer === selfName),
+    [store.threads, selfName],
   )
 
   const [selectedThread, setSelectedThread] = useState(null)
-  // Default-select the first thread if none chosen yet
   const effectiveSelectedThread = selectedThread || threads[0]?.id
 
-  // Adapt store messages ({ from }) to chat bubbles ({ byMe }) using HIRER as "me"
   const adaptedThreads = useMemo(
     () => threads.map((t) => ({
       ...t,
@@ -383,15 +392,15 @@ export default function HirerDashboard() {
       messages: t.messages.map((m) => ({
         id: m.id,
         by: m.from,
-        byMe: m.from === HIRER.name,
+        byMe: m.from === selfName,
         when: m.when,
         body: m.body,
       })),
     })),
-    [threads],
+    [threads, selfName],
   )
 
-  const sendMessage = (threadId, body) => taskStore.sendMessage(threadId, body, HIRER.name)
+  const sendMessage = (threadId, body) => taskStore.sendMessage(threadId, body, selfName)
 
   const openTaskFromMessage = (taskId) => {
     setTab('tasks')
@@ -427,17 +436,20 @@ export default function HirerDashboard() {
           <div className="absolute -top-24 -right-20 h-64 w-64 rounded-full bg-brand-500/20 blur-3xl" />
           <div className="relative flex flex-col md:flex-row md:items-center gap-6">
             <div className={`h-20 w-20 rounded-2xl bg-gradient-to-br ${HIRER.accent} grid place-items-center text-2xl font-bold text-ink-950 shrink-0`}>
-              {initials(HIRER.name)}
+              {initials(selfName || '?')}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-2xl md:text-3xl font-bold">{HIRER.name}</h1>
+                <h1 className="text-2xl md:text-3xl font-bold">{selfName || 'Your account'}</h1>
                 <Pill tone="info">Hirer</Pill>
-                <Pill>{HIRER.company}</Pill>
+                {selfCompany && <Pill>{selfCompany}</Pill>}
               </div>
-              <div className="mt-1 text-white/70">{HIRER.email}</div>
+              {selfEmail && <div className="mt-1 text-white/70">{selfEmail}</div>}
               <div className="mt-3 text-sm text-white/55">
-                Member since {HIRER.joined} · {stats.activeCount} active · {stats.completedCount} completed
+                {stats.activeCount} active · {stats.completedCount} completed
+              </div>
+              <div className="mt-3">
+                <RoleSwitcher otherRole="worker" />
               </div>
             </div>
             <div className="flex gap-2">
@@ -495,8 +507,8 @@ export default function HirerDashboard() {
                 tasks={tasks.filter((t) => t.status !== 'Completed')}
                 limit={3}
                 columns="md:grid-cols-2 lg:grid-cols-3"
-                selfName={HIRER.name}
-                onAddNote={(id, body) => { taskStore.addNote(id, body, HIRER.name); return { ok: true } }}
+                selfName={selfName}
+                onAddNote={(id, body) => { taskStore.addNote(id, body, selfName); return { ok: true } }}
                 onApproveMilestone={taskStore.approveMilestone}
                 onRequestAdjustment={taskStore.requestAdjustment}
                 viewerRole="hirer"
@@ -533,8 +545,8 @@ export default function HirerDashboard() {
             <ActiveTaskList
               tasks={tasks}
               columns="md:grid-cols-2"
-              selfName={HIRER.name}
-              onAddNote={(id, body) => { taskStore.addNote(id, body, HIRER.name); return { ok: true } }}
+              selfName={selfName}
+              onAddNote={(id, body) => { taskStore.addNote(id, body, selfName); return { ok: true } }}
               onUpdateProgress={taskStore.updateProgress}
               onApproveMilestone={taskStore.approveMilestone}
               onRequestAdjustment={taskStore.requestAdjustment}
@@ -559,6 +571,7 @@ export default function HirerDashboard() {
                 onSelect={setSelectedThread}
                 onSend={sendMessage}
                 onOpenTask={openTaskFromMessage}
+                displayName={selfName}
               />
             )}
           </Section>

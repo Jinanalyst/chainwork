@@ -247,7 +247,9 @@ const SEED_REVIEWS = [
   },
 ]
 
-let state = { tasks: SEED_TASKS, threads: SEED_THREADS, reviews: SEED_REVIEWS }
+// SEED_* arrays above are illustrative shapes only; runtime starts empty
+// so real data drives the dashboards.
+let state = { tasks: [], threads: [], reviews: [] }
 const listeners = new Set()
 const notifyListeners = () => listeners.forEach((fn) => fn())
 const update = (updater) => { state = updater(state); notifyListeners() }

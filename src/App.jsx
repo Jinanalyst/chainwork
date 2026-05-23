@@ -2,7 +2,9 @@ import React, { useMemo, useState, useEffect } from 'react'
 import { LogoMark, Wordmark, Icon, useHashRoute, navigate } from './components/ui.jsx'
 import { CATEGORIES as WEB_CATEGORIES } from './data/categories.jsx'
 import SignInModal from './components/SignInModal.jsx'
+import RoleSelectModal from './components/RoleSelectModal.jsx'
 import { useSession, shortAddress, getWalletDisplay } from './hooks/useSession.js'
+import { useProfile } from './hooks/useProfile.js'
 import { supabase } from './lib/supabase.js'
 import PostTask from './pages/PostTask.jsx'
 import WorkerDashboard from './pages/WorkerDashboard.jsx'
@@ -694,7 +696,16 @@ const Home = () => (
 export default function App() {
   const route = useHashRoute()
   const { user, loading } = useSession()
+  const { profile, loading: profileLoading } = useProfile()
   const [signInOpen, setSignInOpen] = useState(false)
+  const [roleModalOpen, setRoleModalOpen] = useState(false)
+
+  // First-time picker: open once after sign-in when the profile row has no
+  // role_chosen_at. Doesn't block any routes — modal renders on top.
+  useEffect(() => {
+    if (!user || profileLoading) { setRoleModalOpen(false); return }
+    setRoleModalOpen(!profile?.role_chosen_at)
+  }, [user, profile, profileLoading])
 
   const openSignIn  = () => setSignInOpen(true)
   const closeSignIn = () => setSignInOpen(false)
@@ -744,6 +755,7 @@ export default function App() {
       </main>
       {showChrome && <Footer />}
       <SignInModal open={signInOpen} onClose={closeSignIn} onSignedIn={() => closeSignIn()} />
+      <RoleSelectModal open={roleModalOpen} onClose={() => setRoleModalOpen(false)} />
     </div>
   )
 }

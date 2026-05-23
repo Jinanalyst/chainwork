@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Icon, navigate } from '../components/ui.jsx'
 import ExperienceManager from '../components/ExperienceManager.jsx'
 import PortfolioManager from '../components/PortfolioManager.jsx'
@@ -11,22 +11,22 @@ import StarRating from '../components/StarRating.jsx'
 import { useTasks } from '../hooks/useTasks.js'
 import { useTaskStore } from '../hooks/useTaskStore.js'
 import { taskStore } from '../lib/taskStore.js'
-import { useSession } from '../hooks/useSession.js'
+import { useSession, getWalletDisplay, shortAddress } from '../hooks/useSession.js'
+import { useProfile } from '../hooks/useProfile.js'
 import { isLiveChatReady } from '../lib/liveChat.js'
 import LiveChatPanel from '../components/LiveChatPanel.jsx'
+import RoleSwitcher from '../components/RoleSwitcher.jsx'
 import { PLATFORM_FEE_RATE, platformFee, workerNet, fmtUSD } from '../lib/fees.js'
 
-// `gross` stats (subject to the 10% fee) display NET as the headline number
-// with the gross underneath. `value` stats (e.g. cash already in your wallet)
-// skip the breakdown.
+// Headline stats: amounts default to 0 until real data lands.
 const STATS = [
-  { label: 'Lifetime earnings', gross: 48920, delta: '+12% YoY' },
-  { label: 'This month',        gross: 3180,  delta: '+$420 vs last' },
-  { label: 'In escrow',         gross: 1450,  delta: 'Across 3 tasks' },
-  { label: 'Available',         value: 640,   delta: 'Ready to withdraw' },
+  { label: 'Lifetime earnings', gross: 0, delta: 'No payouts yet' },
+  { label: 'This month',        gross: 0, delta: '—' },
+  { label: 'In escrow',         gross: 0, delta: 'No tasks in escrow' },
+  { label: 'Available',         value: 0, delta: 'Ready to withdraw' },
 ]
 
-const ME = { name: 'Alex Park' }
+const ME = { name: '' }
 
 const ensureProtocol = (u) => {
   if (!u) return ''
@@ -34,141 +34,33 @@ const ensureProtocol = (u) => {
 }
 
 // Default profile values shown until the user edits them. Lifted to state
-// in the component so Edit + Share can mutate / read live values.
+// in the component so Edit + Share can mutate / read live values. Hydrated
+// from the Supabase profile row on mount.
 const DEFAULT_PROFILE = {
-  name:         'Alex Park',
-  role:         'Full-stack web + AI worker',
-  location:     'Seoul, KR',
-  email:        'alex@chainwork.test',
-  bio:          'Shipping landing pages, AI chatbots, and Web3 dashboards for early-stage teams. Focus on fast, well-deployed builds.',
-  portfolioUrl: 'https://alexpark.dev',
+  name:         '',
+  role:         '',
+  location:     '',
+  email:        '',
+  bio:          '',
+  portfolioUrl: '',
   socials: {
-    github:   'github.com/alexpark',
-    twitter:  'x.com/alexpark',
-    linkedin: 'linkedin.com/in/alexpark',
-    website:  'alexpark.dev',
+    github:   '',
+    twitter:  '',
+    linkedin: '',
+    website:  '',
   },
 }
 
-const ACTIVE_TASKS = [
-  {
-    id: 1,
-    title: 'Landing page for SaaS launch',
-    category: 'Web Build',
-    status: 'In escrow',
-    employer: { name: 'Sara Chen', company: 'Northwind Co.', contact: 'sara@northwind.co' },
-    talent:   ME,
-    budget: '$950',
-    deadline: 'Jun 4, 2026',
-    lastActivity: '2h ago',
-    progress: 60,
-    paymentStructure: 'fifty-fifty',
-    description: "Single-page launch site for our new SaaS product. Hero, feature grid, pricing teaser, FAQ, and an email signup tied to Loops. Brand assets are ready in Figma — keep it clean, fast, and mobile-first.",
-    skills: ['React', 'Tailwind', 'Vercel', 'Figma'],
-    url: 'https://northwind.co',
-    attachments: [
-      { id: 'a1', label: 'Brand guidelines (Figma)', url: 'https://figma.com' },
-      { id: 'a2', label: 'Reference landing pages',  url: 'https://stripe.com' },
-    ],
-    timeline: [
-      { id: 't1', label: 'Task posted',          when: 'May 18', by: 'Sara Chen' },
-      { id: 't2', label: 'Offer accepted',       when: 'May 19', by: 'Sara Chen' },
-      { id: 't3', label: 'Escrow funded',        when: 'May 19', by: 'System' },
-      { id: 't4', label: 'Milestone 1 delivered', when: 'May 26', by: ME.name },
-      { id: 't5', label: 'Milestone 1 approved', when: 'May 27', by: 'Sara Chen' },
-    ],
-    notes: [
-      { id: 'n1', by: 'Sara Chen', when: 'Yesterday', body: 'Hero is looking great — can the CTA be a touch larger on mobile?' },
-      { id: 'n2', by: ME.name,     when: 'Today',     body: 'Done, bumped to 18px and added more vertical padding. Pushing now.' },
-    ],
-  },
-  {
-    id: 2,
-    title: 'AI chatbot integration',
-    category: 'AI Automation',
-    status: 'In progress',
-    employer: { name: 'Mia Tan', company: 'Verde Wellness', contact: 'mia@verde.co' },
-    talent:   ME,
-    budget: '$1,800',
-    deadline: 'Jun 8, 2026',
-    lastActivity: '1d ago',
-    progress: 25,
-    paymentStructure: 'fifty-fifty',
-    description: "Embed a help chatbot on the product pages. Use OpenAI with a small RAG over the FAQ + product catalog. Needs a streaming UI and lead-capture when the bot can't answer.",
-    skills: ['Next.js', 'OpenAI API', 'Edge Functions'],
-    url: 'https://verde.example.com',
-    attachments: [
-      { id: 'a1', label: 'Product catalog CSV', url: '#' },
-      { id: 'a2', label: 'FAQ doc',             url: '#' },
-    ],
-    timeline: [
-      { id: 't1', label: 'Task posted',    when: 'May 22', by: 'Mia Tan' },
-      { id: 't2', label: 'Offer accepted', when: 'May 23', by: 'Mia Tan' },
-      { id: 't3', label: 'Escrow funded',  when: 'May 23', by: 'System' },
-      { id: 't4', label: 'Discovery call', when: 'May 24', by: 'Mia Tan' },
-    ],
-    notes: [],
-  },
-  {
-    id: 3,
-    title: 'Fix Vercel deploy + auth bug',
-    category: 'Web Fix',
-    status: 'Awaiting review',
-    employer: { name: 'Dan Park', company: 'Lumen Labs', contact: 'dan@lumen.xyz' },
-    talent:   ME,
-    budget: '$280',
-    deadline: 'Today',
-    lastActivity: '20m ago',
-    progress: 90,
-    paymentStructure: 'full-on-completion',
-    description: "Vercel build is failing on the auth route after a Next.js upgrade. Also need to fix a session loop that signs users out on refresh. Repo access provided.",
-    skills: ['Next.js', 'Auth', 'Vercel'],
-    url: 'https://lumen.xyz',
-    attachments: [
-      { id: 'a1', label: 'GitHub repo',  url: 'https://github.com' },
-      { id: 'a2', label: 'Build logs',   url: '#' },
-    ],
-    timeline: [
-      { id: 't1', label: 'Task posted',         when: 'May 26', by: 'Dan Park' },
-      { id: 't2', label: 'Offer accepted',      when: 'May 26', by: 'Dan Park' },
-      { id: 't3', label: 'Escrow funded',       when: 'May 26', by: 'System' },
-      { id: 't4', label: 'Fix submitted for review', when: '20m ago', by: ME.name },
-    ],
-    notes: [
-      { id: 'n1', by: ME.name, when: '20m ago', body: 'Pushed a fix — build is green, sessions persist on refresh. Ready for review.' },
-    ],
-  },
-]
+const ACTIVE_TASKS = []
 
 // Amounts are gross USD. The platform takes 10% — workers receive 90%.
-const PAYOUTS = [
-  { id: 1, when: 'May 18', title: 'Token landing page',      amount: 1200, method: 'USDC', chain: 'Base',     status: 'Paid' },
-  { id: 2, when: 'May 14', title: 'PWA setup for shop site', amount:  540, method: 'USDT', chain: 'Ethereum', status: 'Paid' },
-  { id: 3, when: 'May 09', title: 'Mobile responsive fixes', amount:  180, method: 'USDC', chain: 'Solana',   status: 'Paid' },
-  { id: 4, when: 'May 03', title: 'OpenAI API integration',  amount:  760, method: 'USDT', chain: 'Polygon',  status: 'Paid' },
-]
+const PAYOUTS = []
 
-const PORTFOLIO = [
-  { id: 1, title: 'Northwind launch site',     category: 'Web Build',       client: 'Northwind Co.',  payout: '$950',   color: 'from-brand-400 to-brand-700' },
-  { id: 2, title: 'Verde AI assistant',        category: 'AI Automation',   client: 'Verde Wellness', payout: '$1,800', color: 'from-violet-400 to-brand-500' },
-  { id: 3, title: 'Lumen wallet UI',           category: 'Web3',            client: 'Lumen Labs',     payout: '$2,400', color: 'from-accent-400 to-brand-500' },
-  { id: 4, title: 'Shoply PWA conversion',     category: 'App & PWA',       client: 'Shoply',         payout: '$620',   color: 'from-emerald-400 to-accent-600' },
-  { id: 5, title: 'Auth + checkout fixes',     category: 'Web Fix',         client: 'Pebble Studio',  payout: '$480',   color: 'from-amber-400 to-rose-500' },
-  { id: 6, title: 'Domain + email setup',      category: 'Digital Support', client: 'Bayside Coffee', payout: '$140',   color: 'from-brand-300 to-accent-400' },
-]
+const PORTFOLIO = []
 
-const EXPERIENCE = [
-  { period: '2024 – Present', role: 'Independent web + AI worker', org: 'ChainWork', desc: 'Shipping landing pages, AI chatbots, and Web3 dashboards for early-stage teams.' },
-  { period: '2022 – 2024',    role: 'Senior front-end engineer',   org: 'Pixel & Pine Studio', desc: 'Led front-end for 20+ client launches — Next.js, Tailwind, Vercel.' },
-  { period: '2020 – 2022',    role: 'Full-stack developer',        org: 'Northgate Labs',     desc: 'Built internal AI tooling and dashboards for analytics teams.' },
-  { period: '2018 – 2020',    role: 'Web developer',               org: 'Freelance',          desc: 'Small business sites, Shopify themes, WordPress migrations.' },
-]
+const EXPERIENCE = []
 
-const PAYMENT_METHODS = [
-  { id: 'usdc-base',     token: 'USDC', chain: 'Base',     address: '0xA3…7Cf2', kind: 'Primary',  tint: 'from-brand-400 to-brand-700' },
-  { id: 'usdt-eth',      token: 'USDT', chain: 'Ethereum', address: '0xA3…7Cf2', kind: 'Backup',   tint: 'from-accent-400 to-accent-700' },
-  { id: 'usdc-solana',   token: 'USDC', chain: 'Solana',   address: 'F3a…9Kp1',  kind: 'Backup',   tint: 'from-brand-400 to-brand-700' },
-]
+const PAYMENT_METHODS = []
 
 const Stat = ({ label, gross, value, delta }) => {
   const hasFee  = gross !== undefined
@@ -386,6 +278,8 @@ const WorkerMessages = ({ tasks, offers, displayName }) => {
 
 export default function WorkerDashboard() {
   const [tab, setTab] = useState('overview')
+  const { user } = useSession()
+  const { profile: profileRow } = useProfile()
   const [profile, setProfile] = useState(DEFAULT_PROFILE)
   const [editOpen, setEditOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
@@ -393,9 +287,23 @@ export default function WorkerDashboard() {
   const { tasks: liveTasks, loading: tasksLoading, addNote } = useTasks()
   const store = useTaskStore()
 
+  // Hydrate display name + bio from the signed-in user's profile row.
+  const walletDisplay = getWalletDisplay(user)
+  const defaultName = walletDisplay && walletDisplay.length > 12 ? shortAddress(walletDisplay) : (walletDisplay || '')
+  useEffect(() => {
+    setProfile((p) => ({
+      ...p,
+      name:  profileRow?.display_name || defaultName || p.name,
+      bio:   profileRow?.bio          || p.bio,
+      email: profileRow?.contact_email || p.email,
+    }))
+  }, [profileRow, defaultName])
+
+  const selfName = profile.name || defaultName || ''
+
   const reviews = useMemo(
-    () => store.reviews.filter((r) => r.workerName === ME.name),
-    [store.reviews],
+    () => store.reviews.filter((r) => r.workerName === selfName),
+    [store.reviews, selfName],
   )
   const ratingStats = useMemo(() => {
     if (!reviews.length) return { avg: 0, count: 0 }
@@ -405,26 +313,26 @@ export default function WorkerDashboard() {
 
   // From the shared store, my active/completed tasks + offers I haven't declined.
   const myStoreTasks = useMemo(
-    () => store.tasks.filter((t) => t.talent?.name === ME.name),
-    [store.tasks],
+    () => store.tasks.filter((t) => t.talent?.name === selfName),
+    [store.tasks, selfName],
   )
   const offers = useMemo(
     () => store.tasks.filter(
-      (t) => t.status === 'Open' && !t.talent && !(t.declinedBy || []).includes(ME.name),
+      (t) => t.status === 'Open' && !t.talent && !(t.declinedBy || []).includes(selfName),
     ),
-    [store.tasks],
+    [store.tasks, selfName],
   )
 
   // Show real (Supabase) tasks if available, otherwise the shared mock store.
   const usingReal   = liveTasks.length > 0
   const tasks       = usingReal ? liveTasks : myStoreTasks
-  const taskAddNote = usingReal ? addNote   : (id, body) => taskStore.addNote(id, body, ME.name)
+  const taskAddNote = usingReal ? addNote   : (id, body) => taskStore.addNote(id, body, selfName)
 
   const acceptOffer = async (offer) => {
-    taskStore.acceptOffer(offer.id, { name: ME.name })
+    taskStore.acceptOffer(offer.id, { name: selfName })
     setTab('tasks')
   }
-  const declineOffer = (offer) => taskStore.declineOffer(offer.id, ME.name)
+  const declineOffer = (offer) => taskStore.declineOffer(offer.id, selfName)
 
   return (
     <section className="py-12">
@@ -464,8 +372,9 @@ export default function WorkerDashboard() {
                     ({ratingStats.count} review{ratingStats.count !== 1 ? 's' : ''})
                   </span>
                 </button>
-                <span>Joined Mar 2024</span>
-                <span>97% on-time</span>
+              </div>
+              <div className="mt-3">
+                <RoleSwitcher otherRole="hirer" />
               </div>
               {/* Contact + portfolio + socials surface row */}
               {(profile.email || profile.portfolioUrl || profile.socials) && (
@@ -549,7 +458,7 @@ export default function WorkerDashboard() {
                 onAddNote={taskAddNote}
                 onUpdateProgress={usingReal ? undefined : taskStore.updateProgress}
                 onSubmitForReview={usingReal ? undefined : taskStore.submitForReview}
-                selfName={ME.name}
+                selfName={selfName}
                 viewerRole="worker"
               />
               {!usingReal && !tasksLoading && (
@@ -610,7 +519,7 @@ export default function WorkerDashboard() {
                   onAddNote={taskAddNote}
                   onUpdateProgress={usingReal ? undefined : taskStore.updateProgress}
                   onSubmitForReview={usingReal ? undefined : taskStore.submitForReview}
-                  selfName={ME.name}
+                  selfName={selfName}
                   viewerRole="worker"
                 />
                 {!usingReal && (
@@ -627,7 +536,7 @@ export default function WorkerDashboard() {
           <WorkerMessages
             tasks={tasks}
             offers={offers}
-            displayName={profile.name || ME.name}
+            displayName={profile.name || selfName}
           />
         )}
 
@@ -700,7 +609,7 @@ export default function WorkerDashboard() {
 
       <ReviewsModal
         open={reviewsOpen}
-        workerName={profile.name || ME.name}
+        workerName={profile.name || selfName}
         reviews={reviews}
         onClose={() => setReviewsOpen(false)}
       />
