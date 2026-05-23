@@ -4,12 +4,16 @@ import ExperienceManager from '../components/ExperienceManager.jsx'
 import PortfolioManager from '../components/PortfolioManager.jsx'
 import ActiveTaskList from '../components/ActiveTaskList.jsx'
 import { useTasks } from '../hooks/useTasks.js'
+import { PLATFORM_FEE_RATE, platformFee, workerNet, fmtUSD } from '../lib/fees.js'
 
+// `gross` stats (subject to the 10% fee) display NET as the headline number
+// with the gross underneath. `value` stats (e.g. cash already in your wallet)
+// skip the breakdown.
 const STATS = [
-  { label: 'Lifetime earnings', value: '$48,920', delta: '+12% YoY' },
-  { label: 'This month',        value: '$3,180',  delta: '+$420 vs last' },
-  { label: 'In escrow',         value: '$1,450',  delta: '3 active tasks' },
-  { label: 'Available',         value: '$640',    delta: 'Withdraw any time' },
+  { label: 'Lifetime earnings', gross: 48920, delta: '+12% YoY' },
+  { label: 'This month',        gross: 3180,  delta: '+$420 vs last' },
+  { label: 'In escrow',         gross: 1450,  delta: 'Across 3 tasks' },
+  { label: 'Available',         value: 640,   delta: 'Ready to withdraw' },
 ]
 
 const ME = { name: 'Alex Park' }
@@ -112,11 +116,6 @@ const PAYOUTS = [
   { id: 4, when: 'May 03', title: 'OpenAI API integration',  amount:  760, method: 'USDT', chain: 'Polygon',  status: 'Paid' },
 ]
 
-const PLATFORM_FEE_RATE = 0.10
-const platformFee = (gross) => Math.round(gross * PLATFORM_FEE_RATE * 100) / 100
-const workerNet   = (gross) => Math.round((gross - platformFee(gross)) * 100) / 100
-const fmtUSD = (n) => '$' + n.toLocaleString(undefined, { maximumFractionDigits: 2 })
-
 const PORTFOLIO = [
   { id: 1, title: 'Northwind launch site',     category: 'Web Build',       client: 'Northwind Co.',  payout: '$950',   color: 'from-brand-400 to-brand-700' },
   { id: 2, title: 'Verde AI assistant',        category: 'AI Automation',   client: 'Verde Wellness', payout: '$1,800', color: 'from-violet-400 to-brand-500' },
@@ -139,13 +138,30 @@ const PAYMENT_METHODS = [
   { id: 'usdc-solana',   token: 'USDC', chain: 'Solana',   address: 'F3a…9Kp1',  kind: 'Backup',   tint: 'from-brand-400 to-brand-700' },
 ]
 
-const Stat = ({ label, value, delta }) => (
-  <div className="card">
-    <div className="text-xs uppercase tracking-wider text-white/45">{label}</div>
-    <div className="text-2xl md:text-3xl font-bold mt-1 gradient-text">{value}</div>
-    <div className="text-[11px] text-white/55 mt-1">{delta}</div>
-  </div>
-)
+const Stat = ({ label, gross, value, delta }) => {
+  const hasFee  = gross !== undefined
+  const display = hasFee ? workerNet(gross) : value
+  return (
+    <div className="card">
+      <div className="text-xs uppercase tracking-wider text-white/45 flex items-center gap-2">
+        {label}
+        {hasFee && (
+          <span className="rounded-full bg-white/[0.05] border border-white/10 px-1.5 py-0.5 text-[9px] text-white/55">NET</span>
+        )}
+      </div>
+      <div className="text-2xl md:text-3xl font-bold mt-1 gradient-text">{fmtUSD(display)}</div>
+      {hasFee ? (
+        <div className="text-[11px] text-white/55 mt-1">
+          {fmtUSD(gross)} gross
+          <span className="text-white/30"> · </span>
+          {fmtUSD(platformFee(gross))} fee
+        </div>
+      ) : (
+        <div className="text-[11px] text-white/55 mt-1">{delta}</div>
+      )}
+    </div>
+  )
+}
 
 const Pill = ({ children, tone = 'default' }) => {
   const tones = {
@@ -373,7 +389,7 @@ export default function WorkerDashboard() {
                 {STATS.map((s) => <Stat key={s.label} {...s} />)}
               </div>
               <div className="mt-4 flex flex-wrap gap-3">
-                <button className="btn-primary">Withdraw $640</button>
+                <button className="btn-primary">Withdraw {fmtUSD(640)}</button>
                 <button className="btn-ghost">Set auto-payout</button>
               </div>
             </Section>

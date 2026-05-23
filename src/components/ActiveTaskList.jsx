@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Icon } from './ui.jsx'
 import EscrowAddressCard from './EscrowAddressCard.jsx'
 import { PLATFORM_WALLETS, ESCROW_RELEASE_NOTE } from '../lib/platform.js'
+import { PLATFORM_FEE_RATE, platformFee, workerNet, fmtUSD, parseBudget } from '../lib/fees.js'
 
 const uid = () =>
   (typeof crypto !== 'undefined' && crypto.randomUUID)
@@ -26,19 +27,22 @@ const PAYMENT_STRUCTURE_SHORT = {
 }
 
 /**
- * Whether each release milestone has already been paid out.
- * Conservative — we only count it as "released" once a clear status implies it.
+ * Whether each release milestone has already been paid out, plus the
+ * gross USD slice and the worker's net after the platform fee.
  */
 const releaseStepsFor = (task) => {
   const reached = (...statuses) => statuses.includes(task.status)
+  const totalGross = parseBudget(task.budget)
+
   if (task.paymentStructure === 'fifty-fifty') {
+    const half = Math.round((totalGross / 2) * 100) / 100
     return [
-      { label: '50% at kickoff',  released: reached('In progress', 'Awaiting review', 'Completed') },
-      { label: '50% on approval', released: reached('Completed') },
+      { label: '50% at kickoff',  gross: half,        released: reached('In progress', 'Awaiting review', 'Completed') },
+      { label: '50% on approval', gross: totalGross - half, released: reached('Completed') },
     ]
   }
   return [
-    { label: '100% on approval', released: reached('Completed') },
+    { label: '100% on approval', gross: totalGross, released: reached('Completed') },
   ]
 }
 
@@ -385,11 +389,12 @@ const EscrowPanel = ({ task }) => {
 }
 
 const PaymentStructure = ({ task }) => {
-  const steps = releaseStepsFor(task)
+  const steps        = releaseStepsFor(task)
   const releasedCount = steps.filter((s) => s.released).length
-  const totalCount = steps.length
-  const percent = Math.round((releasedCount / totalCount) * 100)
-  const label = PAYMENT_STRUCTURE_LABEL[task.paymentStructure] || task.paymentStructure
+  const percent      = Math.round((releasedCount / steps.length) * 100)
+  const label        = PAYMENT_STRUCTURE_LABEL[task.paymentStructure] || task.paymentStructure
+  const totalGross   = parseBudget(task.budget)
+  const totalNet     = workerNet(totalGross)
 
   return (
     <div>
@@ -401,40 +406,53 @@ const PaymentStructure = ({ task }) => {
         <div className="text-xs text-white/55">
           Released <span className="text-white font-semibold">{percent}%</span>
           <span className="text-white/35"> of </span>
-          <span className="text-white">{task.budget}</span>
+          <span className="text-white">{fmtUSD(totalGross)}</span>
+          <span className="text-white/30"> · </span>
+          <span className="text-accent-300">{fmtUSD(totalNet)} to worker</span>
         </div>
       </div>
 
       <div className="flex gap-1.5">
-        {steps.map((s, i) => (
-          <div
-            key={i}
-            className={
-              'flex-1 rounded-md px-3 py-2 text-[11px] border ' +
-              (s.released
-                ? 'bg-accent-500/15 border-accent-500/40 text-accent-200'
-                : 'bg-white/[0.03] border-white/10 text-white/55')
-            }
-          >
-            <div className="flex items-center gap-1.5">
-              {s.released ? (
-                <Icon path={<path d="M5 12l4 4 10-10" />} className="h-3 w-3" />
-              ) : (
-                <span className="h-2 w-2 rounded-full bg-white/30" />
-              )}
-              <span className="font-medium">{s.label}</span>
+        {steps.map((s, i) => {
+          const fee = platformFee(s.gross)
+          const net = workerNet(s.gross)
+          return (
+            <div
+              key={i}
+              className={
+                'flex-1 rounded-md px-3 py-2.5 text-[11px] border ' +
+                (s.released
+                  ? 'bg-accent-500/15 border-accent-500/40 text-accent-200'
+                  : 'bg-white/[0.03] border-white/10 text-white/65')
+              }
+            >
+              <div className="flex items-center gap-1.5">
+                {s.released ? (
+                  <Icon path={<path d="M5 12l4 4 10-10" />} className="h-3 w-3" />
+                ) : (
+                  <span className="h-2 w-2 rounded-full bg-white/30" />
+                )}
+                <span className="font-medium">{s.label}</span>
+              </div>
+              <div className="mt-1.5 text-sm font-semibold text-white">
+                {fmtUSD(net)} <span className="text-[10px] font-normal text-white/55">to worker</span>
+              </div>
+              <div className="mt-0.5 text-[10px] text-white/45">
+                {fmtUSD(s.gross)} gross · {fmtUSD(fee)} fee
+              </div>
+              <div className="mt-1 text-[10px] uppercase tracking-wider opacity-75">
+                {s.released ? 'Released' : 'Pending'}
+              </div>
             </div>
-            <div className="mt-0.5 text-[10px] uppercase tracking-wider opacity-75">
-              {s.released ? 'Released' : 'Pending'}
-            </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       <p className="mt-3 text-xs text-white/55 leading-relaxed">
         {task.paymentStructure === 'fifty-fifty'
           ? 'Half of the budget releases when work kicks off; the rest is held in escrow until approval.'
           : 'The full budget is held in escrow and releases the moment you approve the work.'}
+        <span className="text-white/40"> ChainWork takes a {Math.round(PLATFORM_FEE_RATE * 100)}% platform fee on each release.</span>
       </p>
     </div>
   )
