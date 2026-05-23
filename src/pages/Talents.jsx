@@ -299,7 +299,17 @@ export default function Talents() {
           </div>
         </div>
 
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div className="card text-center py-16 text-white/55 text-sm">Loading talents…</div>
+        ) : talents.length === 0 ? (
+          <div className="card text-center py-16">
+            <div className="text-white/80">No talents yet.</div>
+            <p className="text-xs text-white/45 mt-1 max-w-md mx-auto">
+              Once workers sign in and complete their profile they'll appear here.
+            </p>
+            <a href="#/join-as-worker" className="btn-primary mt-5 inline-flex">Join as a worker</a>
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="card text-center py-16">
             <div className="text-white/70">No talents match those filters.</div>
             <button

@@ -3,8 +3,6 @@
  * later if signal isn't strong enough.
  */
 
-import { TALENTS } from '../data/talents.js'
-
 const STOP = new Set([
   'the','and','for','with','from','that','this','our','need','want','have',
   'are','was','will','you','your','use','using','any','some','also','want',
@@ -70,8 +68,9 @@ export function scoreTalent(talent, answers = {}) {
   return score
 }
 
-export function matchTalents(answers, { limit = 4 } = {}) {
-  return TALENTS
+export function matchTalents(answers, talents, { limit = 4 } = {}) {
+  if (!Array.isArray(talents) || !talents.length) return []
+  return talents
     .map((t) => ({ talent: t, score: scoreTalent(t, answers) }))
     .sort((a, b) => b.score - a.score)
     .slice(0, limit)

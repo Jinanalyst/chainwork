@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { isSupabaseConfigured, supabase } from '../lib/supabase.js'
-import { TALENTS as CURATED_TALENTS } from '../data/talents.js'
 
 const ACCENTS = [
   'from-brand-400 to-accent-400',
@@ -87,50 +86,51 @@ const normalizeTalent = (row, index) => {
 
 export function useTalents() {
   const [state, setState] = useState({
-    talents: CURATED_TALENTS,
+    talents: [],
     loading: isSupabaseConfigured,
-    source: 'curated',
+    source: 'profiles',
     error: null,
   })
 
   useEffect(() => {
     let cancelled = false
+    if (!isSupabaseConfigured) {
+      setState({ talents: [], loading: false, source: 'profiles', error: 'Supabase not configured' })
+      return
+    }
 
     const load = async () => {
-      if (!isSupabaseConfigured) {
-        setState({ talents: CURATED_TALENTS, loading: false, source: 'curated', error: null })
-        return
-      }
-
       setState((s) => ({ ...s, loading: true, error: null }))
-      const { data, error } = await supabase
-        .from('worker_directory')
-        .select('id, display_name, company, bio, avatar_url, updated_at')
-        .order('updated_at', { ascending: false })
-        .limit(60)
-
-      if (cancelled) return
-
-      if (error || !data?.length) {
+      try {
+        const { data, error } = await supabase
+          .from('worker_directory')
+          .select('id, display_name, company, bio, avatar_url, updated_at')
+          .order('updated_at', { ascending: false })
+          .limit(60)
+        if (cancelled) return
+        if (error) {
+          setState({ talents: [], loading: false, source: 'profiles', error: error.message })
+          return
+        }
         setState({
-          talents: CURATED_TALENTS,
+          talents: (data || []).map(normalizeTalent),
           loading: false,
-          source: 'curated',
-          error: error?.message || null,
+          source: 'profiles',
+          error: null,
         })
-        return
+      } catch (e) {
+        if (cancelled) return
+        setState({ talents: [], loading: false, source: 'profiles', error: e?.message || String(e) })
       }
-
-      setState({
-        talents: data.map(normalizeTalent),
-        loading: false,
-        source: 'profiles',
-        error: null,
-      })
     }
 
     load()
-    return () => { cancelled = true }
+    // Safety net so the page never sits on a stuck spinner.
+    const fallback = setTimeout(() => {
+      if (!cancelled) setState((s) => ({ ...s, loading: false }))
+    }, 6000)
+
+    return () => { cancelled = true; clearTimeout(fallback) }
   }, [])
 
   return useMemo(() => state, [state])

@@ -6,6 +6,7 @@ import ProMembershipBadge from '../components/ProMembershipBadge.jsx'
 import { PLATFORM_WALLETS, ESCROW_RELEASE_NOTE, taskReference, getProMembership } from '../lib/platform.js'
 import { matchTalents, inferCategories } from '../lib/matching.js'
 import { navigate } from '../components/ui.jsx'
+import { useTalents } from '../hooks/useTalents.js'
 
 import { CATEGORY_LABEL } from '../data/categories.jsx'
 
@@ -98,9 +99,10 @@ const WarmTalentRow = ({ talent }) => (
 )
 
 const MatchedTalents = ({ answers }) => {
-  const matches = matchTalents(answers, { limit: 4 })
+  const { talents, loading } = useTalents()
+  const matches = matchTalents(answers, talents, { limit: 4 })
   const cats = inferCategories(answers.workType)
-  if (matches.length === 0) return null
+  if (loading || matches.length === 0) return null
   return (
     <div className="max-w-xl mx-auto">
       <div className="rounded-2xl border border-warm-ink/10 bg-white/70 backdrop-blur p-5 md:p-6">
