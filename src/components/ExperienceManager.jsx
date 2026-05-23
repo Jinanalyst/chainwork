@@ -68,25 +68,24 @@ const toRow = (e, ownerId) => ({
     })),
 })
 
-export default function ExperienceManager() {
+export default function ExperienceManager({ ownerId: ownerIdProp = null } = {}) {
   const [entries, setEntries] = useState(INITIAL)
   const [editing, setEditing] = useState(null)
   const [detail, setDetail]   = useState(null)
   const [loading, setLoading] = useState(true)
-  const [ownerId, setOwnerId] = useState(null)
+  const [ownerId, setOwnerId] = useState(ownerIdProp)
+
+  useEffect(() => { setOwnerId(ownerIdProp) }, [ownerIdProp])
 
   useEffect(() => {
     let cancelled = false
     async function load() {
-      if (!supabase) return
+      if (!supabase || !ownerIdProp) return
       try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (cancelled || !user) return
-        setOwnerId(user.id)
         const { data, error } = await supabase
           .from('experience_items')
           .select('*')
-          .eq('owner_id', user.id)
+          .eq('owner_id', ownerIdProp)
           .order('position', { ascending: true })
           .order('created_at', { ascending: false })
         if (cancelled) return
@@ -98,9 +97,15 @@ export default function ExperienceManager() {
         if (!cancelled) setLoading(false)
       }
     }
+    setLoading(true)
     load()
-    return () => { cancelled = true }
-  }, [])
+    const fallback = setTimeout(() => { if (!cancelled) setLoading(false) }, 6000)
+    return () => { cancelled = true; clearTimeout(fallback) }
+  }, [ownerIdProp])
+
+  useEffect(() => {
+    if (!supabase || !ownerIdProp) setLoading(false)
+  }, [ownerIdProp])
 
   const startAdd  = () => setEditing(blankEntry())
   const startEdit = (entry) => setEditing(structuredClone(entry))

@@ -99,26 +99,27 @@ const toRow = (p, ownerId) => ({
   cover:       p.cover || null,
 })
 
-export default function PortfolioManager() {
+export default function PortfolioManager({ ownerId: ownerIdProp = null } = {}) {
   const [projects, setProjects] = useState(INITIAL)
   const [editing, setEditing]   = useState(null)
   const [detail, setDetail]     = useState(null)
   const [loading, setLoading]   = useState(true)
-  const [ownerId, setOwnerId]   = useState(null)
+  const [ownerId, setOwnerId]   = useState(ownerIdProp)
 
-  // Load this user's portfolio from Supabase.
+  useEffect(() => { setOwnerId(ownerIdProp) }, [ownerIdProp])
+
+  // Load this user's portfolio from Supabase. ownerId comes from the parent
+  // (WorkerDashboard) which already has the session — no extra auth round
+  // trip here so the spinner can't hang on a slow token refresh.
   useEffect(() => {
     let cancelled = false
     async function load() {
-      if (!supabase) return
+      if (!supabase || !ownerIdProp) return
       try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (cancelled || !user) return
-        setOwnerId(user.id)
         const { data, error } = await supabase
           .from('portfolio_items')
           .select('*')
-          .eq('owner_id', user.id)
+          .eq('owner_id', ownerIdProp)
           .order('position', { ascending: true })
           .order('created_at', { ascending: false })
         if (cancelled) return
@@ -130,9 +131,17 @@ export default function PortfolioManager() {
         if (!cancelled) setLoading(false)
       }
     }
+    setLoading(true)
     load()
-    return () => { cancelled = true }
-  }, [])
+    // Safety net: never sit on the spinner forever.
+    const fallback = setTimeout(() => { if (!cancelled) setLoading(false) }, 6000)
+    return () => { cancelled = true; clearTimeout(fallback) }
+  }, [ownerIdProp])
+
+  // When there's no signed-in user we have nothing to load — clear the spinner.
+  useEffect(() => {
+    if (!supabase || !ownerIdProp) setLoading(false)
+  }, [ownerIdProp])
 
   const startAdd  = () => setEditing(blankProject())
   const startEdit = (p) => setEditing(structuredClone(p))

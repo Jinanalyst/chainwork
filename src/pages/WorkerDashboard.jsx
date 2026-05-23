@@ -626,13 +626,13 @@ export default function WorkerDashboard() {
 
         {tab === 'portfolio' && (
           <section className="mb-10">
-            <PortfolioManager />
+            <PortfolioManager ownerId={user?.id || null} />
           </section>
         )}
 
         {tab === 'experience' && (
           <section className="mb-10">
-            <ExperienceManager />
+            <ExperienceManager ownerId={user?.id || null} />
           </section>
         )}
       </div>
