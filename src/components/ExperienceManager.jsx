@@ -78,24 +78,25 @@ export default function ExperienceManager() {
   useEffect(() => {
     let cancelled = false
     async function load() {
-      if (!supabase) { setLoading(false); return }
-      const { data: { user } } = await supabase.auth.getUser()
-      if (cancelled) return
-      if (!user) { setLoading(false); return }
-      setOwnerId(user.id)
-      const { data, error } = await supabase
-        .from('experience_items')
-        .select('*')
-        .eq('owner_id', user.id)
-        .order('position', { ascending: true })
-        .order('created_at', { ascending: false })
-      if (cancelled) return
-      if (error) {
-        console.warn('[experience] load failed:', error.message)
-      } else {
-        setEntries((data || []).map(fromRow))
+      if (!supabase) return
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (cancelled || !user) return
+        setOwnerId(user.id)
+        const { data, error } = await supabase
+          .from('experience_items')
+          .select('*')
+          .eq('owner_id', user.id)
+          .order('position', { ascending: true })
+          .order('created_at', { ascending: false })
+        if (cancelled) return
+        if (error) console.warn('[experience] load failed:', error.message)
+        else setEntries((data || []).map(fromRow))
+      } catch (e) {
+        console.warn('[experience] load threw:', e?.message || e)
+      } finally {
+        if (!cancelled) setLoading(false)
       }
-      setLoading(false)
     }
     load()
     return () => { cancelled = true }

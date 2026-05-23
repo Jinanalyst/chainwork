@@ -110,24 +110,25 @@ export default function PortfolioManager() {
   useEffect(() => {
     let cancelled = false
     async function load() {
-      if (!supabase) { setLoading(false); return }
-      const { data: { user } } = await supabase.auth.getUser()
-      if (cancelled) return
-      if (!user) { setLoading(false); return }
-      setOwnerId(user.id)
-      const { data, error } = await supabase
-        .from('portfolio_items')
-        .select('*')
-        .eq('owner_id', user.id)
-        .order('position', { ascending: true })
-        .order('created_at', { ascending: false })
-      if (cancelled) return
-      if (error) {
-        console.warn('[portfolio] load failed:', error.message)
-      } else {
-        setProjects((data || []).map(fromRow))
+      if (!supabase) return
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (cancelled || !user) return
+        setOwnerId(user.id)
+        const { data, error } = await supabase
+          .from('portfolio_items')
+          .select('*')
+          .eq('owner_id', user.id)
+          .order('position', { ascending: true })
+          .order('created_at', { ascending: false })
+        if (cancelled) return
+        if (error) console.warn('[portfolio] load failed:', error.message)
+        else setProjects((data || []).map(fromRow))
+      } catch (e) {
+        console.warn('[portfolio] load threw:', e?.message || e)
+      } finally {
+        if (!cancelled) setLoading(false)
       }
-      setLoading(false)
     }
     load()
     return () => { cancelled = true }
