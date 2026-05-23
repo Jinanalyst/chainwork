@@ -4,145 +4,14 @@ import ActiveTaskList from '../components/ActiveTaskList.jsx'
 import { fmtUSD, parseBudget, workerNet } from '../lib/fees.js'
 import { useTaskStore } from '../hooks/useTaskStore.js'
 import { taskStore } from '../lib/taskStore.js'
-import { useSession } from '../hooks/useSession.js'
+import { useSession, getWalletDisplay, shortAddress } from '../hooks/useSession.js'
+import { useProfile } from '../hooks/useProfile.js'
 import { isLiveChatReady } from '../lib/liveChat.js'
 import LiveChatPanel from '../components/LiveChatPanel.jsx'
 import ProMembershipBadge from '../components/ProMembershipBadge.jsx'
+import RoleSwitcher from '../components/RoleSwitcher.jsx'
 
-// ---------- Mock data (replace with Supabase queries when ready) ----------
-
-const HIRER = {
-  name: 'Sara Chen',
-  company: 'Northwind Co.',
-  email:  'sara@northwind.co',
-  accent: 'from-brand-300 to-brand-500',
-  joined: 'Mar 2024',
-}
-
-// (Mock data kept for reference; the live source is the shared taskStore.)
-// eslint-disable-next-line no-unused-vars
-const _DEMO_POSTED_TASKS = [
-  {
-    id: 1,
-    title: 'Landing page for SaaS launch',
-    category: 'Web Build',
-    status: 'In progress',
-    employer: { name: HIRER.name, company: HIRER.company, contact: HIRER.email },
-    talent:   { name: 'Alex Park' },
-    budget: '$950',
-    deadline: 'Jun 4, 2026',
-    lastActivity: '2h ago',
-    progress: 60,
-    paymentStructure: 'fifty-fifty',
-    description: 'Single-page launch site for our new SaaS product. Hero, feature grid, pricing teaser, FAQ, and an email signup tied to Loops.',
-    skills: ['React', 'Tailwind', 'Vercel', 'Figma'],
-    url: 'https://northwind.co',
-    attachments: [
-      { id: 'a1', label: 'Brand guidelines (Figma)', url: 'https://figma.com' },
-      { id: 'a2', label: 'Reference landing pages',  url: 'https://stripe.com' },
-    ],
-    timeline: [
-      { id: 't1', label: 'Task posted',          when: 'May 18', by: HIRER.name },
-      { id: 't2', label: 'Offer accepted',       when: 'May 19', by: HIRER.name },
-      { id: 't3', label: 'Escrow funded',        when: 'May 19', by: 'System' },
-      { id: 't4', label: 'Milestone 1 delivered', when: 'May 26', by: 'Alex Park' },
-      { id: 't5', label: '50% kickoff approved · first half released', when: 'May 27', by: HIRER.name },
-    ],
-    notes: [
-      { id: 'n1', by: HIRER.name,  when: 'Yesterday', body: 'Hero is looking great — can the CTA be a touch larger on mobile?' },
-      { id: 'n2', by: 'Alex Park', when: 'Today',     body: 'Done, bumped to 18px and added more vertical padding. Pushing now.' },
-    ],
-  },
-  {
-    id: 2,
-    title: 'AI chatbot integration',
-    category: 'AI Automation',
-    status: 'In escrow',
-    employer: { name: HIRER.name, company: HIRER.company, contact: HIRER.email },
-    talent:   { name: 'Kenji Tanaka' },
-    budget: '$1,800',
-    deadline: 'Jun 14, 2026',
-    lastActivity: '1d ago',
-    progress: 20,
-    paymentStructure: 'fifty-fifty',
-    description: 'Embed a help chatbot on the product pages. OpenAI + small RAG over the FAQ and product catalog.',
-    skills: ['Next.js', 'OpenAI API', 'Edge Functions'],
-    url: 'https://northwind.co/help',
-    attachments: [{ id: 'a1', label: 'FAQ doc', url: '#' }],
-    timeline: [
-      { id: 't1', label: 'Task posted',    when: 'May 22', by: HIRER.name },
-      { id: 't2', label: 'Offer accepted', when: 'May 23', by: HIRER.name },
-      { id: 't3', label: 'Escrow funded',  when: 'May 23', by: 'System' },
-      { id: 't4', label: 'Discovery call', when: 'May 24', by: 'Kenji Tanaka' },
-    ],
-    notes: [],
-  },
-  {
-    id: 3,
-    title: 'Domain + email setup',
-    category: 'Digital Support',
-    status: 'Completed',
-    employer: { name: HIRER.name, company: HIRER.company, contact: HIRER.email },
-    talent:   { name: 'Sophie Dubois' },
-    budget: '$140',
-    deadline: 'May 10',
-    lastActivity: '12d ago',
-    progress: 100,
-    paymentStructure: 'full-on-completion',
-    description: 'Connect a custom domain and set up branded email + analytics for the marketing site.',
-    skills: ['Domain setup', 'DNS', 'Email', 'Analytics'],
-    url: 'https://northwind.co',
-    attachments: [],
-    timeline: [
-      { id: 't1', label: 'Task posted',    when: 'May 5', by: HIRER.name },
-      { id: 't2', label: 'Offer accepted', when: 'May 5', by: HIRER.name },
-      { id: 't3', label: 'Escrow funded',  when: 'May 5', by: 'System' },
-      { id: 't4', label: '100% approved · escrow released', when: 'May 10', by: HIRER.name },
-    ],
-    notes: [],
-  },
-]
-
-const INITIAL_THREADS = [
-  {
-    id: 'th1',
-    taskId: 1,
-    taskTitle: 'Landing page for SaaS launch',
-    worker: { name: 'Alex Park', accent: 'from-brand-400 to-accent-400' },
-    unread: 0,
-    messages: [
-      { id: 1, by: 'Alex Park',   byMe: false, when: '2d ago',    body: 'Started on the hero — your Figma assets look great.' },
-      { id: 2, by: HIRER.name,    byMe: true,  when: '2d ago',    body: 'Awesome, can you make the CTA larger on mobile?' },
-      { id: 3, by: 'Alex Park',   byMe: false, when: 'Yesterday', body: 'Done — bumped to 18px and added more padding.' },
-      { id: 4, by: HIRER.name,    byMe: true,  when: 'Yesterday', body: 'Perfect. One more — can the testimonial photo swap for the new one in the brand folder?' },
-      { id: 5, by: 'Alex Park',   byMe: false, when: '2h ago',    body: 'Done. Pushing now — should be live in 5 min.' },
-    ],
-  },
-  {
-    id: 'th2',
-    taskId: 2,
-    taskTitle: 'AI chatbot integration',
-    worker: { name: 'Kenji Tanaka', accent: 'from-violet-500 to-accent-500' },
-    unread: 2,
-    messages: [
-      { id: 1, by: 'Kenji Tanaka', byMe: false, when: '3d ago', body: 'Thanks for the brief — quick question about the FAQ format. Markdown OK?' },
-      { id: 2, by: HIRER.name,     byMe: true,  when: '3d ago', body: 'Yes Markdown is fine. I can also export plain text if easier.' },
-      { id: 3, by: 'Kenji Tanaka', byMe: false, when: '1d ago', body: 'Got the RAG pipeline wired. Will share a preview link tomorrow.' },
-      { id: 4, by: 'Kenji Tanaka', byMe: false, when: '1d ago', body: 'One thing — do you want streaming responses or full-message?' },
-    ],
-  },
-  {
-    id: 'th3',
-    taskId: 3,
-    taskTitle: 'Domain + email setup',
-    worker: { name: 'Sophie Dubois', accent: 'from-brand-300 to-accent-400' },
-    unread: 0,
-    messages: [
-      { id: 1, by: 'Sophie Dubois', byMe: false, when: 'May 9',  body: 'All set! DNS propagated, email working, analytics tracking. Let me know if anything is off.' },
-      { id: 2, by: HIRER.name,      byMe: true,  when: 'May 10', body: 'Looks great — approved!' },
-    ],
-  },
-]
+const HIRER_ACCENT = 'from-brand-300 to-brand-500'
 
 // ---------- Helpers ----------
 
@@ -304,7 +173,7 @@ const Conversation = ({ thread, onSend, onBack, onOpenTask }) => {
   )
 }
 
-const Messages = ({ threads, selectedId, onSelect, onSend, onOpenTask }) => {
+const Messages = ({ threads, selectedId, onSelect, onSend, onOpenTask, selfName }) => {
   const selected = threads.find((t) => t.id === selectedId) || threads[0]
   // Mobile-first: when a thread is selected on small screens we hide the list.
   const [mobileView, setMobileView] = useState('list') // 'list' | 'thread'
@@ -338,7 +207,7 @@ const Messages = ({ threads, selectedId, onSelect, onSend, onOpenTask }) => {
           <LiveChatPanel
             taskId={selected.taskId}
             role="hirer"
-            displayName={HIRER.name}
+            displayName={selfName}
             title={selected.worker?.name || 'Conversation'}
             subtitle={selected.taskTitle}
           />
@@ -360,22 +229,30 @@ const Messages = ({ threads, selectedId, onSelect, onSend, onOpenTask }) => {
 export default function HirerDashboard() {
   const [tab, setTab] = useState('overview')
   const store = useTaskStore()
+  const { user } = useSession()
+  const { profile } = useProfile()
 
-  // Live from shared store — stays in sync with the worker dashboard.
+  // Identity derived from the signed-in user. Falls back to the wallet
+  // address (shortened) before the profile row has a display_name set.
+  const walletDisplay = getWalletDisplay(user)
+  const selfName = profile?.display_name
+    || (walletDisplay && walletDisplay.length > 12 ? shortAddress(walletDisplay) : walletDisplay)
+    || 'You'
+  const selfCompany = profile?.company || null
+  const selfEmail   = profile?.contact_email || null
+
   const tasks = useMemo(
-    () => store.tasks.filter((t) => t.employer?.name === HIRER.name),
-    [store.tasks],
+    () => store.tasks.filter((t) => t.employer?.name === selfName),
+    [store.tasks, selfName],
   )
   const threads = useMemo(
-    () => store.threads.filter((t) => t.participants?.hirer === HIRER.name),
-    [store.threads],
+    () => store.threads.filter((t) => t.participants?.hirer === selfName),
+    [store.threads, selfName],
   )
 
   const [selectedThread, setSelectedThread] = useState(null)
-  // Default-select the first thread if none chosen yet
   const effectiveSelectedThread = selectedThread || threads[0]?.id
 
-  // Adapt store messages ({ from }) to chat bubbles ({ byMe }) using HIRER as "me"
   const adaptedThreads = useMemo(
     () => threads.map((t) => ({
       ...t,
@@ -383,15 +260,15 @@ export default function HirerDashboard() {
       messages: t.messages.map((m) => ({
         id: m.id,
         by: m.from,
-        byMe: m.from === HIRER.name,
+        byMe: m.from === selfName,
         when: m.when,
         body: m.body,
       })),
     })),
-    [threads],
+    [threads, selfName],
   )
 
-  const sendMessage = (threadId, body) => taskStore.sendMessage(threadId, body, HIRER.name)
+  const sendMessage = (threadId, body) => taskStore.sendMessage(threadId, body, selfName)
 
   const openTaskFromMessage = (taskId) => {
     setTab('tasks')
@@ -426,18 +303,21 @@ export default function HirerDashboard() {
         <div className="card relative overflow-hidden mb-8">
           <div className="absolute -top-24 -right-20 h-64 w-64 rounded-full bg-brand-500/20 blur-3xl" />
           <div className="relative flex flex-col md:flex-row md:items-center gap-6">
-            <div className={`h-20 w-20 rounded-2xl bg-gradient-to-br ${HIRER.accent} grid place-items-center text-2xl font-bold text-ink-950 shrink-0`}>
-              {initials(HIRER.name)}
+            <div className={`h-20 w-20 rounded-2xl bg-gradient-to-br ${HIRER_ACCENT} grid place-items-center text-2xl font-bold text-ink-950 shrink-0`}>
+              {initials(selfName)}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-2xl md:text-3xl font-bold">{HIRER.name}</h1>
+                <h1 className="text-2xl md:text-3xl font-bold">{selfName}</h1>
                 <Pill tone="info">Hirer</Pill>
-                <Pill>{HIRER.company}</Pill>
+                {selfCompany && <Pill>{selfCompany}</Pill>}
               </div>
-              <div className="mt-1 text-white/70">{HIRER.email}</div>
+              {selfEmail && <div className="mt-1 text-white/70">{selfEmail}</div>}
               <div className="mt-3 text-sm text-white/55">
-                Member since {HIRER.joined} · {stats.activeCount} active · {stats.completedCount} completed
+                {stats.activeCount} active · {stats.completedCount} completed
+              </div>
+              <div className="mt-3">
+                <RoleSwitcher otherRole="worker" />
               </div>
             </div>
             <div className="flex gap-2">
@@ -495,8 +375,8 @@ export default function HirerDashboard() {
                 tasks={tasks.filter((t) => t.status !== 'Completed')}
                 limit={3}
                 columns="md:grid-cols-2 lg:grid-cols-3"
-                selfName={HIRER.name}
-                onAddNote={(id, body) => { taskStore.addNote(id, body, HIRER.name); return { ok: true } }}
+                selfName={selfName}
+                onAddNote={(id, body) => { taskStore.addNote(id, body, selfName); return { ok: true } }}
                 onApproveMilestone={taskStore.approveMilestone}
                 onRequestAdjustment={taskStore.requestAdjustment}
                 viewerRole="hirer"
@@ -533,8 +413,8 @@ export default function HirerDashboard() {
             <ActiveTaskList
               tasks={tasks}
               columns="md:grid-cols-2"
-              selfName={HIRER.name}
-              onAddNote={(id, body) => { taskStore.addNote(id, body, HIRER.name); return { ok: true } }}
+              selfName={selfName}
+              onAddNote={(id, body) => { taskStore.addNote(id, body, selfName); return { ok: true } }}
               onUpdateProgress={taskStore.updateProgress}
               onApproveMilestone={taskStore.approveMilestone}
               onRequestAdjustment={taskStore.requestAdjustment}
@@ -559,6 +439,7 @@ export default function HirerDashboard() {
                 onSelect={setSelectedThread}
                 onSend={sendMessage}
                 onOpenTask={openTaskFromMessage}
+                selfName={selfName}
               />
             )}
           </Section>
