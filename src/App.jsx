@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useState, useEffect } from 'react'
 import { LogoMark, Wordmark, Icon, useHashRoute, navigate } from './components/ui.jsx'
 import { CATEGORIES as WEB_CATEGORIES } from './data/categories.jsx'
 import SignInModal from './components/SignInModal.jsx'
@@ -9,14 +9,22 @@ import WorkerDashboard from './pages/WorkerDashboard.jsx'
 import JoinAsWorker from './pages/JoinAsWorker.jsx'
 import Talents from './pages/Talents.jsx'
 import HirerDashboard from './pages/HirerDashboard.jsx'
+import AdminPayments from './pages/AdminPayments.jsx'
 import EscrowAddressCard from './components/EscrowAddressCard.jsx'
 import PaymentProofForm from './components/PaymentProofForm.jsx'
-import { PLATFORM_WALLETS, proReference } from './lib/platform.js'
+import { PLATFORM_WALLETS, proReference, isCurrentUserAdmin } from './lib/platform.js'
 
 const UserChip = ({ user, onSignOut }) => {
   const [open, setOpen] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
   const display = getWalletDisplay(user)
   const label = display && display.length > 12 ? shortAddress(display) : display
+  useEffect(() => {
+    if (!user) { setIsAdmin(false); return }
+    let cancelled = false
+    isCurrentUserAdmin().then((v) => { if (!cancelled) setIsAdmin(v) })
+    return () => { cancelled = true }
+  }, [user?.id])
   return (
     <div className="relative">
       <button
@@ -38,6 +46,9 @@ const UserChip = ({ user, onSignOut }) => {
             <a href="#/hirer"     onClick={() => setOpen(false)} className="block px-4 py-2.5 text-sm hover:bg-white/5">Hirer dashboard</a>
             <a href="#/worker"    onClick={() => setOpen(false)} className="block px-4 py-2.5 text-sm hover:bg-white/5">Worker dashboard</a>
             <a href="#/post-task" onClick={() => setOpen(false)} className="block px-4 py-2.5 text-sm hover:bg-white/5">Post a task</a>
+            {isAdmin && (
+              <a href="#/admin/payments" onClick={() => setOpen(false)} className="block px-4 py-2.5 text-sm hover:bg-white/5 border-t border-white/5 text-accent-200">Admin · Payment proofs</a>
+            )}
             <button onClick={() => { setOpen(false); onSignOut() }} className="w-full text-left px-4 py-2.5 text-sm hover:bg-white/5 border-t border-white/5 text-rose-200">
               Sign out
             </button>
@@ -685,11 +696,15 @@ export default function App() {
   // Onboarding routes render their own minimal chrome — hide the global nav/footer.
   const isOnboarding =
     route.startsWith('#/post-task') || route.startsWith('#/join-as-worker')
-  const needsAuth = isOnboarding || route.startsWith('#/worker') || route.startsWith('#/hirer')
+  const needsAuth = isOnboarding || route.startsWith('#/worker') || route.startsWith('#/hirer') || route.startsWith('#/admin')
 
   let page
   if (route.startsWith('#/talents')) {
     page = <Talents />
+  } else if (route.startsWith('#/admin/payments')) {
+    page = user
+      ? <AdminPayments />
+      : <AuthGate title="Sign in to access admin" sub="Admin tools require a signed-in account flagged as admin." onSignIn={openSignIn} />
   } else if (route.startsWith('#/hirer')) {
     page = user
       ? <HirerDashboard />

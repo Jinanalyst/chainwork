@@ -11,15 +11,19 @@ export default function PaymentProofForm({ reference, kind = 'task', amount, the
   const [txHash, setTxHash] = useState('')
   const [from, setFrom]     = useState('')
   const [submitted, setSubmitted] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
 
   const warm = theme === 'warm'
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault()
     const trimmed = txHash.trim()
-    if (!trimmed) return
+    if (!trimmed || busy) return
     const wallet = PLATFORM_WALLETS.find((w) => w.id === token)
-    savePaymentProof({
+    setBusy(true)
+    setError('')
+    const res = await savePaymentProof({
       reference,
       kind,
       amount: amount || null,
@@ -29,6 +33,11 @@ export default function PaymentProofForm({ reference, kind = 'task', amount, the
       chain: wallet?.chain,
       toAddress: wallet?.address,
     })
+    setBusy(false)
+    if (res && res.ok === false && res.reason !== 'no-supabase') {
+      setError(res.reason || 'Could not save — please try again.')
+      return
+    }
     setSubmitted(true)
     onSubmitted?.({ reference, txHash: trimmed })
   }
@@ -121,11 +130,18 @@ export default function PaymentProofForm({ reference, kind = 'task', amount, the
         Memo recommended: include <code className="font-mono">{reference}</code> in the tx memo (Tron) or transaction note.
       </div>
 
+      {error && (
+        <div className={warm ? 'mt-3 text-xs text-red-600' : 'mt-3 text-xs text-red-300'}>
+          {error}
+        </div>
+      )}
+
       <button
         type="submit"
-        className={warm ? 'btn-primary mt-4 w-full justify-center' : 'btn-primary mt-4 w-full justify-center'}
+        disabled={busy}
+        className="btn-primary mt-4 w-full justify-center disabled:opacity-60 disabled:cursor-not-allowed"
       >
-        Submit proof
+        {busy ? 'Submitting…' : 'Submit proof'}
       </button>
     </form>
   )

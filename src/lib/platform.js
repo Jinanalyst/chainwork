@@ -38,6 +38,8 @@ export const ESCROW_RELEASE_NOTE =
 export const truncateAddress = (a) =>
   a && a.length > 14 ? `${a.slice(0, 6)}…${a.slice(-6)}` : (a || '')
 
+import { supabase } from './supabase.js'
+
 /**
  * Payment references / memos.
  *
@@ -85,13 +87,10 @@ export function proReference(user, hires) {
 
 const PROOF_STORAGE_KEY = 'chainwork.paymentProofs.v1'
 
-export function savePaymentProof(proof) {
+function saveProofLocal(proof) {
   if (typeof window === 'undefined') return
-  const list = loadPaymentProofs()
-  list.unshift({
-    ...proof,
-    submittedAt: new Date().toISOString(),
-  })
+  const list = loadPaymentProofsLocal()
+  list.unshift({ ...proof, submittedAt: new Date().toISOString() })
   try {
     window.localStorage.setItem(PROOF_STORAGE_KEY, JSON.stringify(list.slice(0, 200)))
   } catch {
@@ -99,7 +98,7 @@ export function savePaymentProof(proof) {
   }
 }
 
-export function loadPaymentProofs() {
+export function loadPaymentProofsLocal() {
   if (typeof window === 'undefined') return []
   try {
     const raw = window.localStorage.getItem(PROOF_STORAGE_KEY)
@@ -107,4 +106,78 @@ export function loadPaymentProofs() {
   } catch {
     return []
   }
+}
+
+/**
+ * Save a payment proof. Writes to Supabase when configured + the user is
+ * signed in; always mirrors to localStorage so the hirer sees their own
+ * submissions even if the network call fails.
+ */
+export async function savePaymentProof(proof) {
+  saveProofLocal(proof)
+  if (!supabase) return { ok: false, reason: 'no-supabase' }
+  const { data: sess } = await supabase.auth.getUser()
+  const uid = sess?.user?.id || null
+  const row = {
+    user_id:     uid,
+    kind:        proof.kind || 'task',
+    reference:   proof.reference,
+    amount_text: proof.amount || null,
+    token:       proof.token || null,
+    chain:       proof.chain || null,
+    to_address:  proof.toAddress || null,
+    from_wallet: proof.fromWallet || null,
+    tx_hash:     proof.txHash,
+  }
+  const { error } = await supabase.from('payment_proofs').insert(row)
+  if (error) {
+    console.warn('[payment_proofs] insert failed:', error.message)
+    return { ok: false, reason: error.message }
+  }
+  return { ok: true }
+}
+
+/** Load all proofs visible to the current user (own rows + all if admin). */
+export async function fetchPaymentProofs({ status } = {}) {
+  if (!supabase) return []
+  let q = supabase.from('payment_proofs').select('*').order('created_at', { ascending: false })
+  if (status) q = q.eq('status', status)
+  const { data, error } = await q
+  if (error) {
+    console.warn('[payment_proofs] fetch failed:', error.message)
+    return []
+  }
+  return data || []
+}
+
+export async function setPaymentProofStatus(id, status, notes) {
+  if (!supabase) return { ok: false, reason: 'no-supabase' }
+  const { data: sess } = await supabase.auth.getUser()
+  const uid = sess?.user?.id || null
+  const patch = {
+    status,
+    notes:       notes ?? null,
+    verified_at: status === 'pending' ? null : new Date().toISOString(),
+    verified_by: status === 'pending' ? null : uid,
+  }
+  const { error } = await supabase.from('payment_proofs').update(patch).eq('id', id)
+  if (error) {
+    console.warn('[payment_proofs] update failed:', error.message)
+    return { ok: false, reason: error.message }
+  }
+  return { ok: true }
+}
+
+export async function isCurrentUserAdmin() {
+  if (!supabase) return false
+  const { data: sess } = await supabase.auth.getUser()
+  const uid = sess?.user?.id
+  if (!uid) return false
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('is_admin')
+    .eq('id', uid)
+    .maybeSingle()
+  if (error) return false
+  return !!data?.is_admin
 }
