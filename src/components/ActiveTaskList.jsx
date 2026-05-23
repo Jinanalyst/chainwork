@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Icon } from './ui.jsx'
 import EscrowAddressCard from './EscrowAddressCard.jsx'
 import PaymentProofForm from './PaymentProofForm.jsx'
+import WorkerPayoutPanel from './WorkerPayoutPanel.jsx'
 import LeaveReviewModal from './LeaveReviewModal.jsx'
 import StarRating from './StarRating.jsx'
 import { PLATFORM_WALLETS, ESCROW_RELEASE_NOTE, taskReference } from '../lib/platform.js'
@@ -268,6 +269,12 @@ const TaskDetailModal = ({ task, viewerRole = 'hirer', onClose, onAddNote, onMes
         {/* Escrow — platform addresses for the hirer to fund into */}
         <Section title="Escrow">
           <EscrowPanel task={task} />
+          {/* Hirer-only: where ChainWork sends the payout once approved. */}
+          {viewerRole === 'hirer' && task.talent?.id && (
+            <div className="mt-4">
+              <WorkerPayoutPanel taskId={task.id} workerName={task.talent?.name} />
+            </div>
+          )}
         </Section>
 
         {/* Skills */}
