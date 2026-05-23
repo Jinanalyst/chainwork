@@ -670,8 +670,11 @@ export default function ActiveTaskList({
   tasks,
   limit,
   columns = 'md:grid-cols-2 lg:grid-cols-3',
-  onAddNote,          // async (taskId, body) => { ok, error }
-  selfName,           // name to attribute optimistic notes to
+  onAddNote,             // async (taskId, body) => { ok, error }
+  onUpdateProgress,      // (taskId, value) => void  — store/server mutation
+  onApproveMilestone,    // (taskId) => void
+  onRequestAdjustment,   // (taskId, note) => void
+  selfName,              // name to attribute optimistic notes to
 }) {
   const [items, setItems] = useState(tasks)
   const [openId, setOpenId] = useState(null)
@@ -701,12 +704,14 @@ export default function ActiveTaskList({
 
   const updateProgress = (taskId, value) => {
     const v = Math.max(0, Math.min(100, Number(value) || 0))
+    if (onUpdateProgress) { onUpdateProgress(taskId, v); return }
     setItems((prev) => prev.map((t) => t.id === taskId
       ? { ...t, progress: v, lastActivity: 'just now' }
       : t))
   }
 
   const approveMilestone = (taskId) => {
+    if (onApproveMilestone) { onApproveMilestone(taskId); return }
     setItems((prev) => prev.map((t) => {
       if (t.id !== taskId) return t
       const isSplit = t.paymentStructure === 'fifty-fifty'
@@ -738,6 +743,7 @@ export default function ActiveTaskList({
   }
 
   const requestAdjustment = (taskId, note) => {
+    if (onRequestAdjustment) { onRequestAdjustment(taskId, note); return }
     setItems((prev) => prev.map((t) => {
       if (t.id !== taskId) return t
       // Hold the next milestone — pull status back to "In progress" so the

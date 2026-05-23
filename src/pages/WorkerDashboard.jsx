@@ -1,9 +1,12 @@
-import React, { useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { Icon, navigate } from '../components/ui.jsx'
 import ExperienceManager from '../components/ExperienceManager.jsx'
 import PortfolioManager from '../components/PortfolioManager.jsx'
 import ActiveTaskList from '../components/ActiveTaskList.jsx'
+import OfferCard from '../components/OfferCard.jsx'
 import { useTasks } from '../hooks/useTasks.js'
+import { useTaskStore } from '../hooks/useTaskStore.js'
+import { taskStore } from '../lib/taskStore.js'
 import { PLATFORM_FEE_RATE, platformFee, workerNet, fmtUSD } from '../lib/fees.js'
 
 // `gross` stats (subject to the 10% fee) display NET as the headline number
@@ -260,12 +263,30 @@ const Section = ({ title, children, action }) => (
 export default function WorkerDashboard() {
   const [tab, setTab] = useState('overview')
   const { tasks: liveTasks, loading: tasksLoading, addNote } = useTasks()
+  const store = useTaskStore()
 
-  // Show real tasks if available, otherwise fall back to mock so the dashboard
-  // still feels alive on first sign-in. addNote is only wired when real.
-  const usingReal = liveTasks.length > 0
-  const tasks       = usingReal ? liveTasks : ACTIVE_TASKS
-  const taskAddNote = usingReal ? addNote   : undefined
+  // From the shared store, my active/completed tasks + offers I haven't declined.
+  const myStoreTasks = useMemo(
+    () => store.tasks.filter((t) => t.talent?.name === ME.name),
+    [store.tasks],
+  )
+  const offers = useMemo(
+    () => store.tasks.filter(
+      (t) => t.status === 'Open' && !t.talent && !(t.declinedBy || []).includes(ME.name),
+    ),
+    [store.tasks],
+  )
+
+  // Show real (Supabase) tasks if available, otherwise the shared mock store.
+  const usingReal   = liveTasks.length > 0
+  const tasks       = usingReal ? liveTasks : myStoreTasks
+  const taskAddNote = usingReal ? addNote   : (id, body) => taskStore.addNote(id, body, ME.name)
+
+  const acceptOffer = async (offer) => {
+    taskStore.acceptOffer(offer.id, { name: ME.name })
+    setTab('tasks')
+  }
+  const declineOffer = (offer) => taskStore.declineOffer(offer.id, ME.name)
 
   return (
     <section className="py-12">
@@ -308,6 +329,7 @@ export default function WorkerDashboard() {
           <div className="flex gap-1 min-w-max">
             {[
               ['overview',   'Overview'],
+              ['offers',     `Offers${offers.length ? ` (${offers.length})` : ''}`],
               ['tasks',      'Active tasks'],
               ['payments',   'Payments'],
               ['portfolio',  'Portfolio'],
@@ -345,6 +367,9 @@ export default function WorkerDashboard() {
                 limit={3}
                 columns="md:grid-cols-2 lg:grid-cols-3"
                 onAddNote={taskAddNote}
+                onUpdateProgress={usingReal ? undefined : taskStore.updateProgress}
+                onApproveMilestone={usingReal ? undefined : taskStore.approveMilestone}
+                onRequestAdjustment={usingReal ? undefined : taskStore.requestAdjustment}
                 selfName={ME.name}
               />
               {!usingReal && !tasksLoading && (
@@ -354,10 +379,43 @@ export default function WorkerDashboard() {
               )}
             </Section>
 
+            {offers.length > 0 && (
+              <Section
+                title={`Incoming offers (${offers.length})`}
+                action={<button onClick={() => setTab('offers')} className="text-sm text-brand-300 hover:text-white">See all →</button>}
+              >
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {offers.slice(0, 3).map((o) => (
+                    <OfferCard key={o.id} offer={o} onAccept={acceptOffer} onDecline={declineOffer} />
+                  ))}
+                </div>
+              </Section>
+            )}
+
             <Section title="Recent payouts" action={<button onClick={() => setTab('payments')} className="text-sm text-brand-300 hover:text-white">View all →</button>}>
               <PayoutTable rows={PAYOUTS} />
             </Section>
           </>
+        )}
+
+        {tab === 'offers' && (
+          <Section
+            title={`Incoming offers${offers.length ? ` (${offers.length})` : ''}`}
+            action={<span className="text-xs text-white/45">Matched to your skills · accept to start work</span>}
+          >
+            {offers.length === 0 ? (
+              <div className="card text-center py-12">
+                <div className="text-white/70">No open offers right now.</div>
+                <div className="text-xs text-white/45 mt-1">We'll surface new matches here as hirers post them.</div>
+              </div>
+            ) : (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {offers.map((o) => (
+                  <OfferCard key={o.id} offer={o} onAccept={acceptOffer} onDecline={declineOffer} />
+                ))}
+              </div>
+            )}
+          </Section>
         )}
 
         {tab === 'tasks' && (
@@ -370,6 +428,9 @@ export default function WorkerDashboard() {
                   tasks={tasks}
                   columns="md:grid-cols-2"
                   onAddNote={taskAddNote}
+                  onUpdateProgress={usingReal ? undefined : taskStore.updateProgress}
+                  onApproveMilestone={usingReal ? undefined : taskStore.approveMilestone}
+                  onRequestAdjustment={usingReal ? undefined : taskStore.requestAdjustment}
                   selfName={ME.name}
                 />
                 {!usingReal && (

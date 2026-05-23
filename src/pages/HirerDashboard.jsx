@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Icon, navigate } from '../components/ui.jsx'
 import ActiveTaskList from '../components/ActiveTaskList.jsx'
 import { fmtUSD, parseBudget, workerNet } from '../lib/fees.js'
+import { useTaskStore } from '../hooks/useTaskStore.js'
+import { taskStore } from '../lib/taskStore.js'
 
 // ---------- Mock data (replace with Supabase queries when ready) ----------
 
@@ -13,7 +15,9 @@ const HIRER = {
   joined: 'Mar 2024',
 }
 
-const POSTED_TASKS = [
+// (Mock data kept for reference; the live source is the shared taskStore.)
+// eslint-disable-next-line no-unused-vars
+const _DEMO_POSTED_TASKS = [
   {
     id: 1,
     title: 'Landing page for SaaS launch',
@@ -332,15 +336,39 @@ const Messages = ({ threads, selectedId, onSelect, onSend, onOpenTask }) => {
 
 export default function HirerDashboard() {
   const [tab, setTab] = useState('overview')
-  const [tasks, setTasks] = useState(POSTED_TASKS)
-  const [threads, setThreads] = useState(INITIAL_THREADS)
-  const [selectedThread, setSelectedThread] = useState(INITIAL_THREADS[0]?.id)
+  const store = useTaskStore()
 
-  const sendMessage = (threadId, body) => {
-    setThreads((prev) => prev.map((t) => t.id === threadId
-      ? { ...t, messages: [...t.messages, { id: Date.now(), by: HIRER.name, byMe: true, when: 'just now', body }] }
-      : t))
-  }
+  // Live from shared store — stays in sync with the worker dashboard.
+  const tasks = useMemo(
+    () => store.tasks.filter((t) => t.employer?.name === HIRER.name),
+    [store.tasks],
+  )
+  const threads = useMemo(
+    () => store.threads.filter((t) => t.participants?.hirer === HIRER.name),
+    [store.threads],
+  )
+
+  const [selectedThread, setSelectedThread] = useState(null)
+  // Default-select the first thread if none chosen yet
+  const effectiveSelectedThread = selectedThread || threads[0]?.id
+
+  // Adapt store messages ({ from }) to chat bubbles ({ byMe }) using HIRER as "me"
+  const adaptedThreads = useMemo(
+    () => threads.map((t) => ({
+      ...t,
+      worker: { name: t.participants?.worker, accent: t.workerAccent },
+      messages: t.messages.map((m) => ({
+        id: m.id,
+        by: m.from,
+        byMe: m.from === HIRER.name,
+        when: m.when,
+        body: m.body,
+      })),
+    })),
+    [threads],
+  )
+
+  const sendMessage = (threadId, body) => taskStore.sendMessage(threadId, body, HIRER.name)
 
   const openTaskFromMessage = (taskId) => {
     setTab('tasks')
@@ -441,6 +469,10 @@ export default function HirerDashboard() {
                 limit={3}
                 columns="md:grid-cols-2 lg:grid-cols-3"
                 selfName={HIRER.name}
+                onAddNote={(id, body) => { taskStore.addNote(id, body, HIRER.name); return { ok: true } }}
+                onUpdateProgress={taskStore.updateProgress}
+                onApproveMilestone={taskStore.approveMilestone}
+                onRequestAdjustment={taskStore.requestAdjustment}
               />
             </Section>
 
@@ -449,13 +481,18 @@ export default function HirerDashboard() {
               action={<button onClick={() => setTab('messages')} className="text-sm text-brand-300 hover:text-white">Open inbox →</button>}
             >
               <div className="card !p-3 space-y-1">
-                {threads.slice(0, 3).map((t) => (
+                {adaptedThreads.slice(0, 3).map((t) => (
                   <ThreadRow
                     key={t.id}
                     thread={t}
                     onClick={() => { setSelectedThread(t.id); setTab('messages') }}
                   />
                 ))}
+                {adaptedThreads.length === 0 && (
+                  <div className="text-sm text-white/55 px-3 py-6 text-center">
+                    No messages yet — once a worker accepts an offer, a chat opens here.
+                  </div>
+                )}
               </div>
             </Section>
           </>
@@ -466,22 +503,37 @@ export default function HirerDashboard() {
             title="My tasks"
             action={<button onClick={() => navigate('#/post-task')} className="text-sm text-brand-300 hover:text-white">+ Post another</button>}
           >
-            <ActiveTaskList tasks={tasks} columns="md:grid-cols-2" selfName={HIRER.name} />
+            <ActiveTaskList
+              tasks={tasks}
+              columns="md:grid-cols-2"
+              selfName={HIRER.name}
+              onAddNote={(id, body) => { taskStore.addNote(id, body, HIRER.name); return { ok: true } }}
+              onUpdateProgress={taskStore.updateProgress}
+              onApproveMilestone={taskStore.approveMilestone}
+              onRequestAdjustment={taskStore.requestAdjustment}
+            />
           </Section>
         )}
 
         {tab === 'messages' && (
           <Section
             title="Messages"
-            action={<span className="text-xs text-white/45">{threads.length} conversation{threads.length !== 1 ? 's' : ''}</span>}
+            action={<span className="text-xs text-white/45">{adaptedThreads.length} conversation{adaptedThreads.length !== 1 ? 's' : ''}</span>}
           >
-            <Messages
-              threads={threads}
-              selectedId={selectedThread}
-              onSelect={setSelectedThread}
-              onSend={sendMessage}
-              onOpenTask={openTaskFromMessage}
-            />
+            {adaptedThreads.length === 0 ? (
+              <div className="card text-center py-12">
+                <div className="text-white/70">No conversations yet.</div>
+                <div className="text-xs text-white/45 mt-1">A chat opens once a worker accepts one of your tasks.</div>
+              </div>
+            ) : (
+              <Messages
+                threads={adaptedThreads}
+                selectedId={effectiveSelectedThread}
+                onSelect={setSelectedThread}
+                onSend={sendMessage}
+                onOpenTask={openTaskFromMessage}
+              />
+            )}
           </Section>
         )}
       </div>
