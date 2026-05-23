@@ -509,34 +509,106 @@ const Payments = () => {
   )
 }
 
-const CTA = () => (
-  <section id="cta" className="py-24">
-    <div className="mx-auto max-w-5xl px-6">
-      <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-brand-700/40 via-ink-800 to-accent-600/30 p-10 md:p-16 text-center">
-        <div className="absolute inset-0 grid-overlay opacity-50" />
-        <div className="relative">
-          <h2 className="text-3xl md:text-5xl font-bold">Be early to the next link.</h2>
-          <p className="mt-4 text-white/80 max-w-xl mx-auto">
-            Join the ChainWork early-access list. We're onboarding clients and workers in small batches.
-          </p>
-          <form
-            onSubmit={(e) => { e.preventDefault(); alert('Thanks — we\'ll be in touch.') }}
-            className="mt-8 flex flex-col sm:flex-row gap-3 max-w-md mx-auto"
-          >
-            <input
-              type="email"
-              required
-              placeholder="you@company.com"
-              className="flex-1 rounded-full bg-white/5 border border-white/15 px-5 py-3 placeholder:text-white/40 focus:outline-none focus:border-brand-300"
-            />
-            <button type="submit" className="btn-primary">Request access</button>
-          </form>
-          <p className="mt-4 text-xs text-white/50">No spam. Unsubscribe anytime.</p>
+const CTA = () => {
+  const PRICE_PER_HIRE = 300
+  const MIN_HIRES = 1
+  const MAX_HIRES = 100
+  const [hires, setHires] = useState(5)
+  const total = hires * PRICE_PER_HIRE
+  const percent = ((hires - MIN_HIRES) / (MAX_HIRES - MIN_HIRES)) * 100
+  const estimatedStandardFees = hires * 2500 * 0.10
+  const savings = Math.max(0, estimatedStandardFees - total)
+
+  return (
+    <section id="pro" className="py-24">
+      <div className="mx-auto max-w-6xl px-6">
+        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-brand-700/40 via-ink-800 to-accent-600/30 p-8 md:p-14">
+          <div className="absolute inset-0 grid-overlay opacity-50" />
+          <div className="relative grid md:grid-cols-2 gap-10 items-center">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-accent-400/40 bg-accent-400/10 px-3 py-1 text-xs uppercase tracking-[0.18em] text-accent-200">
+                <span className="h-1.5 w-1.5 rounded-full bg-accent-300" />
+                ChainWork Pro
+              </div>
+              <h2 className="mt-4 text-3xl md:text-5xl font-bold leading-tight">
+                Hire more, <span className="bg-gradient-to-r from-brand-300 to-accent-300 bg-clip-text text-transparent">pay less</span>.
+              </h2>
+              <p className="mt-4 text-white/75 max-w-lg">
+                ChainWork Pro is a yearly membership built for teams that hire at scale. Replace per‑contract platform fees with a flat annual rate — just <span className="text-white font-semibold">$300 per hire</span>, billed once a year.
+              </p>
+              <ul className="mt-6 space-y-2 text-sm text-white/75">
+                {[
+                  'Flat $300 / hire / year — no per‑task platform fees',
+                  'Priority access to vetted talent & faster escrow release',
+                  'Dedicated account manager and dispute fast‑track',
+                ].map((b) => (
+                  <li key={b} className="flex items-start gap-2">
+                    <Icon path={<path d="M5 12l5 5L20 7" />} className="h-4 w-4 text-accent-300 shrink-0 mt-0.5" />
+                    <span>{b}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-ink-900/70 backdrop-blur p-6 md:p-8">
+              <div className="flex items-baseline justify-between">
+                <div className="text-xs uppercase tracking-[0.2em] text-white/50">Freelancers to hire</div>
+                <div className="font-mono text-2xl font-bold tabular-nums">{hires}</div>
+              </div>
+
+              <div className="mt-4">
+                <input
+                  type="range"
+                  min={MIN_HIRES}
+                  max={MAX_HIRES}
+                  step={1}
+                  value={hires}
+                  onChange={(e) => setHires(Number(e.target.value))}
+                  className="cw-range w-full"
+                  style={{ '--cw-range-fill': `${percent}%` }}
+                  aria-label="Number of freelancers to hire per year"
+                />
+                <div className="mt-2 flex justify-between text-[11px] text-white/40 font-mono">
+                  <span>{MIN_HIRES}</span>
+                  <span>25</span>
+                  <span>50</span>
+                  <span>75</span>
+                  <span>{MAX_HIRES}+</span>
+                </div>
+              </div>
+
+              <div className="mt-6 rounded-xl border border-white/10 bg-white/[0.03] p-5">
+                <div className="flex items-center justify-between text-sm text-white/70">
+                  <span>{hires} × $300 / year</span>
+                  <span className="font-mono tabular-nums">${total.toLocaleString()}</span>
+                </div>
+                <div className="mt-3 flex items-baseline justify-between">
+                  <span className="text-xs uppercase tracking-[0.2em] text-white/50">Yearly membership</span>
+                  <span className="font-mono text-4xl font-bold tabular-nums bg-gradient-to-r from-brand-300 to-accent-300 bg-clip-text text-transparent">
+                    ${total.toLocaleString()}
+                  </span>
+                </div>
+                {savings > 0 && (
+                  <div className="mt-3 text-xs text-accent-200">
+                    Est. savings vs. standard fees: <span className="font-mono">${savings.toLocaleString()}</span> / year
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={() => alert(`ChainWork Pro — ${hires} hires / year · $${total.toLocaleString()}\nWe'll be in touch to activate your membership.`)}
+                className="btn-primary mt-6 w-full justify-center"
+              >
+                Get ChainWork Pro
+              </button>
+              <p className="mt-3 text-center text-xs text-white/45">Billed yearly · cancel before renewal anytime</p>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-  </section>
-)
+    </section>
+  )
+}
 
 const Footer = () => (
   <footer className="border-t border-white/5 py-12">

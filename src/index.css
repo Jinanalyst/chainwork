@@ -50,3 +50,55 @@ body {
 .card {
   @apply rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur p-6 hover:border-white/20 hover:bg-white/[0.05] transition;
 }
+
+.cw-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    #5eead4 0%,
+    #4a8cff var(--cw-range-fill, 0%),
+    rgba(255, 255, 255, 0.08) var(--cw-range-fill, 0%),
+    rgba(255, 255, 255, 0.08) 100%
+  );
+  outline: none;
+  cursor: grab;
+}
+.cw-range:active { cursor: grabbing; }
+
+.cw-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 22px;
+  width: 22px;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 2px solid #4a8cff;
+  box-shadow: 0 0 0 6px rgba(74, 140, 255, 0.18), 0 8px 24px rgba(74, 140, 255, 0.35);
+  cursor: grab;
+  transition: transform 0.15s ease;
+}
+.cw-range::-webkit-slider-thumb:hover { transform: scale(1.08); }
+.cw-range:active::-webkit-slider-thumb { cursor: grabbing; transform: scale(1.12); }
+
+.cw-range::-moz-range-thumb {
+  height: 22px;
+  width: 22px;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 2px solid #4a8cff;
+  box-shadow: 0 0 0 6px rgba(74, 140, 255, 0.18), 0 8px 24px rgba(74, 140, 255, 0.35);
+  cursor: grab;
+}
+.cw-range::-moz-range-track {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+.cw-range::-moz-range-progress {
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(to right, #5eead4, #4a8cff);
+}
