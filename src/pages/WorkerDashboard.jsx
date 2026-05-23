@@ -17,6 +17,7 @@ import { isLiveChatReady } from '../lib/liveChat.js'
 import LiveChatPanel from '../components/LiveChatPanel.jsx'
 import RoleSwitcher from '../components/RoleSwitcher.jsx'
 import PayoutWalletCard from '../components/PayoutWalletCard.jsx'
+import AvatarUploader from '../components/AvatarUploader.jsx'
 import { PLATFORM_FEE_RATE, platformFee, workerNet, fmtUSD } from '../lib/fees.js'
 
 // Headline stats: amounts default to 0 until real data lands.
@@ -376,9 +377,12 @@ export default function WorkerDashboard() {
         <div className="card relative overflow-hidden mb-8">
           <div className="absolute -top-24 -right-20 h-64 w-64 rounded-full bg-brand-500/20 blur-3xl" />
           <div className="relative flex flex-col md:flex-row md:items-center gap-6">
-            <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-brand-400 to-accent-400 grid place-items-center text-2xl font-bold text-ink-950 shrink-0">
-              {(profile.name || handle || '?').split(/[\s-]+/).map((p) => p[0] || '').slice(0, 2).join('').toUpperCase()}
-            </div>
+            <AvatarUploader
+              name={profile.name || handle}
+              ownerId={user?.id || null}
+              size="h-20 w-20 text-2xl rounded-2xl"
+              accent="from-brand-400 to-accent-400"
+            />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-2xl md:text-3xl font-bold">{profile.name || handle || 'Your name'}</h1>
