@@ -8,6 +8,8 @@
  * and the UI doesn't change.
  */
 
+import { notify, dashboardUrl } from './notify.js'
+
 const SEED_TASKS = [
   // ---------- Active tasks (talent assigned) ----------
   {
@@ -16,7 +18,7 @@ const SEED_TASKS = [
     category: 'Web Build',
     status: 'In progress',
     employer: { name: 'Sara Chen', company: 'Northwind Co.', contact: 'sara@northwind.co' },
-    talent:   { name: 'Alex Park' },
+    talent:   { name: 'Alex Park', email: 'alex@chainwork.test' },
     budget: '$950',
     deadline: 'Jun 4, 2026',
     lastActivity: '2h ago',
@@ -47,7 +49,7 @@ const SEED_TASKS = [
     category: 'AI Automation',
     status: 'In escrow',
     employer: { name: 'Sara Chen', company: 'Northwind Co.', contact: 'sara@northwind.co' },
-    talent:   { name: 'Kenji Tanaka' },
+    talent:   { name: 'Kenji Tanaka', email: 'kenji@chainwork.test' },
     budget: '$1,800',
     deadline: 'Jun 14, 2026',
     lastActivity: '1d ago',
@@ -71,7 +73,7 @@ const SEED_TASKS = [
     category: 'Web Fix',
     status: 'Awaiting review',
     employer: { name: 'Sara Chen', company: 'Northwind Co.', contact: 'sara@northwind.co' },
-    talent:   { name: 'Alex Park' },
+    talent:   { name: 'Alex Park', email: 'alex@chainwork.test' },
     budget: '$280',
     deadline: 'Today',
     lastActivity: '20m ago',
@@ -98,7 +100,7 @@ const SEED_TASKS = [
     category: 'Digital Support',
     status: 'Completed',
     employer: { name: 'Sara Chen', company: 'Northwind Co.', contact: 'sara@northwind.co' },
-    talent:   { name: 'Sophie Dubois' },
+    talent:   { name: 'Sophie Dubois', email: 'sophie@chainwork.test' },
     budget: '$140',
     deadline: 'May 10',
     lastActivity: '12d ago',
@@ -169,6 +171,7 @@ const SEED_THREADS = [
   {
     id: 'th1', taskId: 1, taskTitle: 'Landing page for SaaS launch',
     participants: { hirer: 'Sara Chen', worker: 'Alex Park' },
+    emails:       { hirer: 'sara@northwind.co', worker: 'alex@chainwork.test' },
     workerAccent: 'from-brand-400 to-accent-400',
     hirerAccent:  'from-brand-300 to-brand-500',
     unread: 0,
@@ -183,6 +186,7 @@ const SEED_THREADS = [
   {
     id: 'th2', taskId: 2, taskTitle: 'AI chatbot integration',
     participants: { hirer: 'Sara Chen', worker: 'Kenji Tanaka' },
+    emails:       { hirer: 'sara@northwind.co', worker: 'kenji@chainwork.test' },
     workerAccent: 'from-violet-500 to-accent-500',
     hirerAccent:  'from-brand-300 to-brand-500',
     unread: 2,
@@ -196,6 +200,7 @@ const SEED_THREADS = [
   {
     id: 'th3', taskId: 3, taskTitle: 'Fix Vercel deploy + auth bug',
     participants: { hirer: 'Sara Chen', worker: 'Alex Park' },
+    emails:       { hirer: 'sara@northwind.co', worker: 'alex@chainwork.test' },
     workerAccent: 'from-brand-400 to-accent-400',
     hirerAccent:  'from-brand-300 to-brand-500',
     unread: 1,
@@ -231,40 +236,51 @@ export const taskStore = {
   ),
 
   // ---------- Mutations ----------
-  acceptOffer: (taskId, worker) => update((s) => {
-    const task = s.tasks.find((t) => t.id === taskId)
-    if (!task) return s
-    const accent = accentFor(worker.name)
-    const updatedTask = {
-      ...task,
-      talent: { name: worker.name },
-      status: 'In escrow',
-      lastActivity: 'just now',
-      timeline: [
-        ...(task.timeline || []),
-        { id: uid('tl'), label: 'Offer accepted', when: 'just now', by: worker.name },
-        { id: uid('tl'), label: 'Escrow funded',  when: 'just now', by: 'System' },
-      ],
+  acceptOffer: (taskId, worker) => {
+    let task
+    update((s) => {
+      task = s.tasks.find((t) => t.id === taskId)
+      if (!task) return s
+      const accent = accentFor(worker.name)
+      const updatedTask = {
+        ...task,
+        talent: { name: worker.name, email: worker.email || task.talent?.email || null },
+        status: 'In escrow',
+        lastActivity: 'just now',
+        timeline: [
+          ...(task.timeline || []),
+          { id: uid('tl'), label: 'Offer accepted', when: 'just now', by: worker.name },
+          { id: uid('tl'), label: 'Escrow funded',  when: 'just now', by: 'System' },
+        ],
+      }
+      const newThread = {
+        id: uid('th'),
+        taskId,
+        taskTitle: task.title,
+        participants: { hirer: task.employer?.name, worker: worker.name },
+        emails:       { hirer: task.employer?.contact, worker: worker.email || null },
+        workerAccent: accent,
+        hirerAccent:  'from-brand-300 to-brand-500',
+        unread: 0,
+        messages: [
+          { id: uid('m'), from: worker.name, when: 'just now',
+            body: `Hi ${task.employer?.name?.split(' ')[0] || 'there'} — accepted! Excited to get started. I'll send a kickoff plan shortly.` },
+        ],
+      }
+      return {
+        ...s,
+        tasks:   s.tasks.map((t) => t.id === taskId ? updatedTask : t),
+        threads: [...s.threads, newThread],
+      }
+    })
+    if (task) {
+      notify('offer_accepted', task.employer?.contact, {
+        taskTitle:    task.title,
+        workerName:   worker.name,
+        dashboardUrl: dashboardUrl('/hirer'),
+      })
     }
-    const newThread = {
-      id: uid('th'),
-      taskId,
-      taskTitle: task.title,
-      participants: { hirer: task.employer?.name, worker: worker.name },
-      workerAccent: accent,
-      hirerAccent:  'from-brand-300 to-brand-500',
-      unread: 0,
-      messages: [
-        { id: uid('m'), from: worker.name, when: 'just now',
-          body: `Hi ${task.employer?.name?.split(' ')[0] || 'there'} — accepted! Excited to get started. I'll send a kickoff plan shortly.` },
-      ],
-    }
-    return {
-      ...s,
-      tasks:   s.tasks.map((t) => t.id === taskId ? updatedTask : t),
-      threads: [...s.threads, newThread],
-    }
-  }),
+  },
 
   declineOffer: (taskId, workerName) => update((s) => ({
     ...s,
@@ -282,65 +298,107 @@ export const taskStore = {
       : t),
   })),
 
-  submitForReview: (taskId) => update((s) => ({
-    ...s,
-    tasks: s.tasks.map((t) => {
-      if (t.id !== taskId) return t
+  submitForReview: (taskId) => {
+    let task
+    update((s) => {
+      task = s.tasks.find((t) => t.id === taskId)
       return {
-        ...t,
-        status: 'Awaiting review',
-        lastActivity: 'just now',
-        timeline: [...(t.timeline || []), {
-          id: uid('tl'),
-          label: 'Submitted for review',
-          when: 'just now',
-          by: t.talent?.name || 'Worker',
-        }],
+        ...s,
+        tasks: s.tasks.map((t) => {
+          if (t.id !== taskId) return t
+          return {
+            ...t,
+            status: 'Awaiting review',
+            lastActivity: 'just now',
+            timeline: [...(t.timeline || []), {
+              id: uid('tl'),
+              label: 'Submitted for review',
+              when: 'just now',
+              by: t.talent?.name || 'Worker',
+            }],
+          }
+        }),
       }
-    }),
-  })),
+    })
+    if (task) {
+      notify('submitted_for_review', task.employer?.contact, {
+        taskTitle:    task.title,
+        workerName:   task.talent?.name || 'A worker',
+        dashboardUrl: dashboardUrl('/hirer'),
+      })
+    }
+  },
 
-  approveMilestone: (taskId) => update((s) => ({
-    ...s,
-    tasks: s.tasks.map((t) => {
-      if (t.id !== taskId) return t
-      const isSplit = t.paymentStructure === 'fifty-fifty'
-      const cur = t.progress ?? 0
-      let nextProgress = 100
-      let nextStatus   = 'Completed'
-      let label        = isSplit ? 'Final 50% approved · escrow released' : '100% approved · escrow released'
-      if (isSplit && cur < 50) {
-        nextProgress = Math.max(50, cur)
-        nextStatus   = 'In progress'
-        label        = '50% kickoff approved · first half released'
-      }
+  approveMilestone: (taskId) => {
+    let task, milestoneLabel
+    update((s) => {
+      task = s.tasks.find((t) => t.id === taskId)
       return {
-        ...t,
-        progress: nextProgress,
-        status: nextStatus,
-        lastActivity: 'just now',
-        timeline: [...(t.timeline || []), {
-          id: uid('tl'), label, when: 'just now', by: t.employer?.name || 'Hirer',
-        }],
+        ...s,
+        tasks: s.tasks.map((t) => {
+          if (t.id !== taskId) return t
+          const isSplit = t.paymentStructure === 'fifty-fifty'
+          const cur = t.progress ?? 0
+          let nextProgress = 100
+          let nextStatus   = 'Completed'
+          let label        = isSplit ? 'Final 50% approved · escrow released' : '100% approved · escrow released'
+          if (isSplit && cur < 50) {
+            nextProgress = Math.max(50, cur)
+            nextStatus   = 'In progress'
+            label        = '50% kickoff approved · first half released'
+          }
+          milestoneLabel = label
+          return {
+            ...t,
+            progress: nextProgress,
+            status: nextStatus,
+            lastActivity: 'just now',
+            timeline: [...(t.timeline || []), {
+              id: uid('tl'), label, when: 'just now', by: t.employer?.name || 'Hirer',
+            }],
+          }
+        }),
       }
-    }),
-  })),
+    })
+    if (task?.talent?.email) {
+      notify('milestone_approved', task.talent.email, {
+        taskTitle:    task.title,
+        hirerName:    task.employer?.name || 'The hirer',
+        milestone:    milestoneLabel,
+        dashboardUrl: dashboardUrl('/worker'),
+      })
+    }
+  },
 
-  requestAdjustment: (taskId, note) => update((s) => ({
-    ...s,
-    tasks: s.tasks.map((t) => {
-      if (t.id !== taskId) return t
+  requestAdjustment: (taskId, note) => {
+    let task
+    update((s) => {
+      task = s.tasks.find((t) => t.id === taskId)
       return {
-        ...t,
-        status: t.status === 'Completed' ? t.status : 'In progress',
-        lastActivity: 'just now',
-        timeline: [...(t.timeline || []), {
-          id: uid('tl'), label: 'Adjustment requested', when: 'just now',
-          by: t.employer?.name || 'Hirer', adjustment: true, note,
-        }],
+        ...s,
+        tasks: s.tasks.map((t) => {
+          if (t.id !== taskId) return t
+          return {
+            ...t,
+            status: t.status === 'Completed' ? t.status : 'In progress',
+            lastActivity: 'just now',
+            timeline: [...(t.timeline || []), {
+              id: uid('tl'), label: 'Adjustment requested', when: 'just now',
+              by: t.employer?.name || 'Hirer', adjustment: true, note,
+            }],
+          }
+        }),
       }
-    }),
-  })),
+    })
+    if (task?.talent?.email) {
+      notify('adjustment_requested', task.talent.email, {
+        taskTitle:    task.title,
+        hirerName:    task.employer?.name || 'The hirer',
+        note,
+        dashboardUrl: dashboardUrl('/worker'),
+      })
+    }
+  },
 
   addNote: (taskId, body, authorName) => update((s) => ({
     ...s,
@@ -350,15 +408,36 @@ export const taskStore = {
     }),
   })),
 
-  sendMessage: (threadId, body, from) => update((s) => ({
-    ...s,
-    threads: s.threads.map((th) => th.id !== threadId ? th : {
-      ...th,
-      // Sender's own send marks the thread read (other party "saw" it implicitly).
-      unread: 0,
-      messages: [...th.messages, { id: uid('m'), from, when: 'just now', body }],
-    }),
-  })),
+  sendMessage: (threadId, body, from) => {
+    let thread
+    update((s) => {
+      thread = s.threads.find((t) => t.id === threadId)
+      return {
+        ...s,
+        threads: s.threads.map((th) => th.id !== threadId ? th : {
+          ...th,
+          unread: 0,
+          messages: [...th.messages, { id: uid('m'), from, when: 'just now', body }],
+        }),
+      }
+    })
+    if (thread) {
+      // Email the *other* participant.
+      const isHirer = thread.participants?.hirer === from
+      const recipientEmail = isHirer
+        ? thread.emails?.worker
+        : thread.emails?.hirer
+      const recipientHash  = isHirer ? '/worker' : '/hirer'
+      if (recipientEmail) {
+        notify('new_message', recipientEmail, {
+          taskTitle:    thread.taskTitle,
+          fromName:     from,
+          preview:      body.length > 240 ? body.slice(0, 240) + '…' : body,
+          dashboardUrl: dashboardUrl(recipientHash),
+        })
+      }
+    }
+  },
 
   markThreadRead: (threadId) => update((s) => ({
     ...s,
