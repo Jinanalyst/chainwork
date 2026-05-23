@@ -9,6 +9,9 @@ import WorkerDashboard from './pages/WorkerDashboard.jsx'
 import JoinAsWorker from './pages/JoinAsWorker.jsx'
 import Talents from './pages/Talents.jsx'
 import HirerDashboard from './pages/HirerDashboard.jsx'
+import EscrowAddressCard from './components/EscrowAddressCard.jsx'
+import PaymentProofForm from './components/PaymentProofForm.jsx'
+import { PLATFORM_WALLETS, proReference } from './lib/platform.js'
 
 const UserChip = ({ user, onSignOut }) => {
   const [open, setOpen] = useState(false)
@@ -514,10 +517,13 @@ const CTA = () => {
   const MIN_HIRES = 1
   const MAX_HIRES = 100
   const [hires, setHires] = useState(5)
+  const [showPay, setShowPay] = useState(false)
+  const { user } = useSession()
   const total = hires * PRICE_PER_HIRE
   const percent = ((hires - MIN_HIRES) / (MAX_HIRES - MIN_HIRES)) * 100
   const estimatedStandardFees = hires * 2500 * 0.10
   const savings = Math.max(0, estimatedStandardFees - total)
+  const proRef = proReference(user, hires)
 
   return (
     <section id="pro" className="py-24">
@@ -596,14 +602,43 @@ const CTA = () => {
               </div>
 
               <button
-                onClick={() => alert(`ChainWork Pro — ${hires} hires / year · $${total.toLocaleString()}\nWe'll be in touch to activate your membership.`)}
+                onClick={() => setShowPay((v) => !v)}
                 className="btn-primary mt-6 w-full justify-center"
               >
-                Get ChainWork Pro
+                {showPay ? 'Hide payment details' : 'Get ChainWork Pro'}
               </button>
               <p className="mt-3 text-center text-xs text-white/45">Billed yearly · cancel before renewal anytime</p>
             </div>
           </div>
+
+          {showPay && (
+            <div className="relative mt-10 grid md:grid-cols-2 gap-6">
+              <div className="rounded-2xl border border-white/10 bg-ink-900/70 backdrop-blur p-6">
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <div>
+                    <div className="text-[11px] uppercase tracking-[0.2em] text-white/50">Membership reference</div>
+                    <code className="block mt-1 text-lg font-mono font-semibold text-accent-200">{proRef}</code>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[11px] uppercase tracking-[0.2em] text-white/50">To pay</div>
+                    <div className="font-mono text-xl font-bold tabular-nums">${total.toLocaleString()}</div>
+                  </div>
+                </div>
+                <p className="text-xs text-white/55 leading-relaxed mb-4">
+                  This reference encodes your account and the <span className="text-white">{hires}-hire</span> plan. Include it as the transaction memo so we activate the right membership.
+                </p>
+                <div className="grid sm:grid-cols-1 gap-3">
+                  {PLATFORM_WALLETS.map((w) => (
+                    <EscrowAddressCard key={w.id} wallet={w} reference={proRef} />
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <PaymentProofForm reference={proRef} kind="pro-membership" amount={`$${total.toLocaleString()}`} />
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </section>

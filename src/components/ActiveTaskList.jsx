@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react'
 import { Icon } from './ui.jsx'
 import EscrowAddressCard from './EscrowAddressCard.jsx'
+import PaymentProofForm from './PaymentProofForm.jsx'
 import LeaveReviewModal from './LeaveReviewModal.jsx'
 import StarRating from './StarRating.jsx'
-import { PLATFORM_WALLETS, ESCROW_RELEASE_NOTE } from '../lib/platform.js'
+import { PLATFORM_WALLETS, ESCROW_RELEASE_NOTE, taskReference } from '../lib/platform.js'
 import { PLATFORM_FEE_RATE, platformFee, workerNet, fmtUSD, parseBudget } from '../lib/fees.js'
 import { taskStore } from '../lib/taskStore.js'
 import { useTaskStore } from '../hooks/useTaskStore.js'
@@ -461,21 +462,35 @@ const EscrowPanel = ({ task }) => {
         </div>
       </div>
 
-      {isOpen && (
-        <>
-          <div className="text-[11px] uppercase tracking-wider text-white/45 mb-2">
-            Platform escrow addresses
-          </div>
-          <p className="text-xs text-white/55 mb-3">
-            Hirer: send <span className="text-white">{task.budget}</span> to one of these to fund the work. <strong>USDC → Base</strong>, <strong>USDT → Tron (TRC20)</strong>.
-          </p>
-          <div className="grid sm:grid-cols-2 gap-3">
-            {PLATFORM_WALLETS.map((w) => (
-              <EscrowAddressCard key={w.id} wallet={w} />
-            ))}
-          </div>
-        </>
-      )}
+      {isOpen && (() => {
+        const reference = taskReference(task.id || task.title)
+        return (
+          <>
+            <div className="text-[11px] uppercase tracking-wider text-white/45 mb-2">
+              Platform escrow addresses
+            </div>
+            <p className="text-xs text-white/55 mb-3">
+              Hirer: send <span className="text-white">{task.budget}</span> to one of these to fund the work. <strong>USDC → Base</strong>, <strong>USDT → Tron (TRC20)</strong>.
+            </p>
+
+            <div className="mb-3 rounded-lg border border-brand-400/30 bg-brand-500/10 px-3 py-2">
+              <div className="text-[10px] uppercase tracking-[0.18em] text-white/55">Task reference</div>
+              <code className="block text-sm font-mono font-semibold text-brand-200">{reference}</code>
+              <div className="mt-0.5 text-[11px] text-white/55">Include in the tx memo so we credit the payment to this task.</div>
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-3">
+              {PLATFORM_WALLETS.map((w) => (
+                <EscrowAddressCard key={w.id} wallet={w} reference={reference} />
+              ))}
+            </div>
+
+            <div className="mt-4">
+              <PaymentProofForm reference={reference} kind="task" amount={task.budget} />
+            </div>
+          </>
+        )
+      })()}
     </div>
   )
 }

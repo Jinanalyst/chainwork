@@ -1,7 +1,8 @@
 import React from 'react'
 import ConversationalForm from '../components/ConversationalForm.jsx'
 import EscrowAddressCard from '../components/EscrowAddressCard.jsx'
-import { PLATFORM_WALLETS, ESCROW_RELEASE_NOTE } from '../lib/platform.js'
+import PaymentProofForm from '../components/PaymentProofForm.jsx'
+import { PLATFORM_WALLETS, ESCROW_RELEASE_NOTE, taskReference } from '../lib/platform.js'
 import { matchTalents, inferCategories } from '../lib/matching.js'
 import { navigate } from '../components/ui.jsx'
 
@@ -123,11 +124,11 @@ const MatchedTalents = ({ answers }) => {
   )
 }
 
-const FundingInstructions = ({ answers }) => {
+const FundingInstructions = ({ answers, reference }) => {
   const isSplit = answers?.paymentStructure === 'fifty-fifty'
   const budget = (answers?.budget || '').trim()
   return (
-    <div className="max-w-xl mx-auto">
+    <div className="max-w-xl mx-auto space-y-4">
       <div className="rounded-2xl border border-warm-ink/10 bg-white/70 backdrop-blur p-5 md:p-6">
         <div className="flex items-center gap-2 mb-3">
           <div className="h-8 w-8 rounded-full bg-[#1e5be3]/10 border border-[#1e5be3]/30 grid place-items-center text-[#1e5be3]">
@@ -145,9 +146,17 @@ const FundingInstructions = ({ answers }) => {
         </p>
         <p className="mt-2 text-xs text-warm-ink/55">{ESCROW_RELEASE_NOTE}</p>
 
+        <div className="mt-4 rounded-xl bg-[#1e5be3]/10 border border-[#1e5be3]/30 px-4 py-3 text-sm text-warm-ink">
+          <div className="text-[10px] uppercase tracking-[0.18em] text-warm-ink/55">Your task reference</div>
+          <code className="block mt-0.5 text-base font-mono font-semibold text-[#1e5be3]">{reference}</code>
+          <div className="mt-1 text-[11px] text-warm-ink/55">
+            Include this code in the transaction memo so we credit the payment to this task.
+          </div>
+        </div>
+
         <div className="mt-5 space-y-3">
           {PLATFORM_WALLETS.map((w) => (
-            <EscrowAddressCard key={w.id} wallet={w} theme="warm" />
+            <EscrowAddressCard key={w.id} wallet={w} theme="warm" reference={reference} />
           ))}
         </div>
 
@@ -155,6 +164,8 @@ const FundingInstructions = ({ answers }) => {
           <strong>Double-check the chain.</strong> USDC goes to the Base address. USDT goes to the Tron (TRC20) address. Sending on the wrong network can result in lost funds.
         </div>
       </div>
+
+      <PaymentProofForm reference={reference} kind="task" amount={budget} theme="warm" />
     </div>
   )
 }
@@ -167,12 +178,15 @@ export default function PostTask() {
       submitLabel="Post my task"
       successTitle="Your task is live."
       successBody="Send your budget to one of the escrow addresses below to start the work. You'll see offers from trusted workers within a few hours."
-      successExtra={(answers) => (
-        <div className="space-y-8">
-          <MatchedTalents answers={answers} />
-          <FundingInstructions answers={answers} />
-        </div>
-      )}
+      successExtra={(answers) => {
+        const reference = taskReference(answers?._taskId || answers?.workType || Date.now())
+        return (
+          <div className="space-y-8">
+            <MatchedTalents answers={answers} />
+            <FundingInstructions answers={answers} reference={reference} />
+          </div>
+        )
+      }}
       onSubmit={(answers) => {
         console.log('[ChainWork] task posted:', answers)
       }}

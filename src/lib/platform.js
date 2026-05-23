@@ -37,3 +37,74 @@ export const ESCROW_RELEASE_NOTE =
 
 export const truncateAddress = (a) =>
   a && a.length > 14 ? `${a.slice(0, 6)}…${a.slice(-6)}` : (a || '')
+
+/**
+ * Payment references / memos.
+ *
+ * Each payment to a shared platform wallet carries a unique short code so we
+ * can attribute incoming USDC/USDT to the right hirer, task, or Pro
+ * membership. Hirers include the code in the on-chain memo (Tron supports
+ * memos natively) and ALSO submit the tx hash via the proof form so an admin
+ * can verify on-chain even when the memo is missing.
+ *
+ *   CW-T-XXXXXX  → task escrow funding
+ *   CW-U-XXXXXX  → per-user / per-hirer reference
+ *   CW-P-XXXXXX  → ChainWork Pro yearly membership (with hire count suffix)
+ */
+
+// Deterministic short hash → 6 char base32-ish code. Same seed → same code.
+const REF_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ' // no 0/1/I/O
+function shortHash(seed) {
+  const s = String(seed || '')
+  let h = 2166136261 >>> 0
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i)
+    h = Math.imul(h, 16777619) >>> 0
+  }
+  let out = ''
+  for (let i = 0; i < 6; i++) {
+    out += REF_ALPHABET[h % REF_ALPHABET.length]
+    h = Math.floor(h / REF_ALPHABET.length) || (h * 2654435761) >>> 0
+  }
+  return out
+}
+
+export function taskReference(taskId) {
+  return `CW-T-${shortHash(`task:${taskId || Date.now()}`)}`
+}
+
+export function userReference(user) {
+  const seed = user?.id || user?.email || user?.user_metadata?.wallet_address || 'anon'
+  return `CW-U-${shortHash(`user:${seed}`)}`
+}
+
+export function proReference(user, hires) {
+  const base = shortHash(`pro:${user?.id || user?.email || 'anon'}`)
+  return `CW-P-${base}-N${hires}`
+}
+
+const PROOF_STORAGE_KEY = 'chainwork.paymentProofs.v1'
+
+export function savePaymentProof(proof) {
+  if (typeof window === 'undefined') return
+  const list = loadPaymentProofs()
+  list.unshift({
+    ...proof,
+    submittedAt: new Date().toISOString(),
+  })
+  try {
+    window.localStorage.setItem(PROOF_STORAGE_KEY, JSON.stringify(list.slice(0, 200)))
+  } catch {
+    // quota / private mode — ignore
+  }
+}
+
+export function loadPaymentProofs() {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = window.localStorage.getItem(PROOF_STORAGE_KEY)
+    return raw ? JSON.parse(raw) : []
+  } catch {
+    return []
+  }
+}

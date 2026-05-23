@@ -6,8 +6,9 @@ import { Icon } from './ui.jsx'
  * Theme: 'dark' (default — for the Task Detail modal) | 'warm' (for the
  * post-task success page).
  */
-export default function EscrowAddressCard({ wallet, theme = 'dark' }) {
+export default function EscrowAddressCard({ wallet, theme = 'dark', reference }) {
   const [copied, setCopied] = useState(false)
+  const [refCopied, setRefCopied] = useState(false)
 
   const copy = async () => {
     try {
@@ -18,6 +19,19 @@ export default function EscrowAddressCard({ wallet, theme = 'dark' }) {
       // ignore clipboard errors
     }
   }
+
+  const copyRef = async () => {
+    if (!reference) return
+    try {
+      await navigator.clipboard.writeText(reference)
+      setRefCopied(true)
+      setTimeout(() => setRefCopied(false), 1500)
+    } catch {
+      // ignore
+    }
+  }
+
+  const memoLabel = wallet.chainShort === 'TRC20' ? 'Tron memo' : 'Payment memo'
 
   if (theme === 'warm') {
     return (
@@ -54,6 +68,25 @@ export default function EscrowAddressCard({ wallet, theme = 'dark' }) {
             )}
           </button>
         </div>
+        {reference && (
+          <div className="mt-3 rounded-xl bg-[#1e5be3]/[0.06] border border-[#1e5be3]/30 px-3 py-2">
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <div className="text-[10px] uppercase tracking-[0.18em] text-warm-ink/55">{memoLabel}</div>
+                <code className="block text-xs md:text-sm font-mono text-warm-ink font-semibold truncate">{reference}</code>
+              </div>
+              <button
+                onClick={copyRef}
+                className="shrink-0 inline-flex items-center gap-1 text-[11px] font-medium rounded-full bg-warm-ink/85 text-white px-2.5 py-1 hover:bg-warm-ink transition"
+              >
+                {refCopied ? 'Copied' : 'Copy memo'}
+              </button>
+            </div>
+            <div className="mt-1 text-[11px] text-warm-ink/55 leading-snug">
+              Paste this in the {wallet.chainShort === 'TRC20' ? 'memo / message' : 'transaction note'} field so we can credit the payment to your account.
+            </div>
+          </div>
+        )}
         {wallet.explorer && (
           <a
             href={wallet.explorer}
@@ -102,6 +135,25 @@ export default function EscrowAddressCard({ wallet, theme = 'dark' }) {
           )}
         </button>
       </div>
+      {reference && (
+        <div className="mt-3 rounded-lg bg-brand-500/10 border border-brand-400/30 px-3 py-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <div className="text-[10px] uppercase tracking-[0.18em] text-white/55">{memoLabel}</div>
+              <code className="block text-xs font-mono text-white font-semibold truncate">{reference}</code>
+            </div>
+            <button
+              onClick={copyRef}
+              className="shrink-0 inline-flex items-center gap-1 text-[11px] font-medium rounded-full bg-white/15 hover:bg-white/25 text-white px-2.5 py-1 transition"
+            >
+              {refCopied ? 'Copied' : 'Copy memo'}
+            </button>
+          </div>
+          <div className="mt-1 text-[10px] text-white/55 leading-snug">
+            Paste in the {wallet.chainShort === 'TRC20' ? 'memo / message' : 'transaction note'} field so the payment is credited correctly.
+          </div>
+        </div>
+      )}
       {wallet.explorer && (
         <a
           href={wallet.explorer}
