@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Icon } from './ui.jsx'
 import { supabase } from '../lib/supabase.js'
+import { uploadPortfolioFiles, deletePortfolioFile } from '../lib/storage.js'
 
 /**
  * Editable portfolio of work samples.
@@ -82,9 +83,19 @@ const toRow = (p, ownerId) => ({
   skills:      p.skills || [],
   url:         p.url || null,
   proof:       p.proof || [],
-  // Media here is held as object URLs — only persist proof and metadata.
-  // Once Supabase Storage is wired this should write the uploaded URLs.
-  media:       (p.media || []).filter((m) => /^https?:\/\//i.test(m.url || '')),
+  // Persist only uploaded entries (http(s) URL). Skip in-flight optimistic
+  // placeholders (blob: URLs / uploading=true).
+  media:       (p.media || [])
+    .filter((m) => !m.uploading && /^https?:\/\//i.test(m.url || ''))
+    .map((m) => ({
+      id:           m.id,
+      kind:         m.kind,
+      url:          m.url,
+      storage_path: m.storage_path || null,
+      name:         m.name || null,
+      sizeKb:       m.sizeKb || null,
+      caption:      m.caption || '',
+    })),
   cover:       p.cover || null,
 })
 
@@ -155,10 +166,13 @@ export default function PortfolioManager() {
   }
 
   const remove = async (id) => {
+    const target = projects.find((p) => p.id === id)
     if (supabase && ownerId) {
       const { error } = await supabase.from('portfolio_items').delete().eq('id', id)
       if (error) { alert('Could not delete: ' + error.message); return }
     }
+    // Best-effort cleanup of any uploaded media tied to this row.
+    ;(target?.media || []).forEach((m) => { if (m.storage_path) deletePortfolioFile(m.storage_path) })
     setProjects((prev) => prev.filter((p) => p.id !== id))
     setEditing(null)
   }
@@ -199,6 +213,7 @@ export default function PortfolioManager() {
       {editing && (
         <EditModal
           project={editing}
+          ownerId={ownerId}
           onChange={setEditing}
           onSave={save}
           onCancel={cancel}
@@ -341,9 +356,13 @@ const Row = ({ label, children }) => (
 
 // ---------- Edit modal ----------
 
-const EditModal = ({ project, onChange, onSave, onCancel, onDelete }) => {
+const EditModal = ({ project, ownerId, onChange, onSave, onCancel, onDelete }) => {
   const update = (k, v) => onChange({ ...project, [k]: v })
   const fileInputRef = useRef(null)
+  // Latest media list — accessed inside upload callbacks via a ref so we
+  // don't capture stale closures.
+  const mediaRef = useRef(project.media || [])
+  useEffect(() => { mediaRef.current = project.media || [] }, [project.media])
   const [dragOver, setDragOver] = useState(false)
   const [skillsDraft, setSkillsDraft] = useState('')
 
@@ -362,11 +381,63 @@ const EditModal = ({ project, onChange, onSave, onCancel, onDelete }) => {
   }
   const removeSkill = (s) => update('skills', project.skills.filter((x) => x !== s))
 
-  const addFiles = (fileList) => {
+  const addFiles = async (fileList) => {
     if (!fileList || !fileList.length) return
-    update('media', [...(project.media || []), ...filesToMedia(fileList)])
+    const files = Array.from(fileList)
+
+    // Optimistic placeholders: show the local preview immediately while the
+    // upload runs in the background. Each placeholder carries a temporary
+    // blob URL + `uploading: true`.
+    const placeholders = files.map((f) => ({
+      id:        uid(),
+      kind:      f.type.startsWith('video/') ? 'video' : 'image',
+      url:       URL.createObjectURL(f),
+      name:      f.name,
+      sizeKb:    Math.round(f.size / 1024),
+      caption:   '',
+      uploading: true,
+    }))
+    mediaRef.current = [...(project.media || []), ...placeholders]
+    update('media', mediaRef.current)
+
+    if (!ownerId) {
+      // Not signed in — keep optimistic entries as local-only previews.
+      mediaRef.current = mediaRef.current.map((m) =>
+        placeholders.some((p) => p.id === m.id) ? { ...m, uploading: false } : m
+      )
+      update('media', mediaRef.current)
+      return
+    }
+
+    const results = await uploadPortfolioFiles(files, ownerId)
+    let next = mediaRef.current.slice()
+    results.forEach((res, i) => {
+      const placeholder = placeholders[i]
+      const idx = next.findIndex((m) => m.id === placeholder.id)
+      if (idx < 0) return
+      if (res.ok) {
+        try { URL.revokeObjectURL(placeholder.url) } catch {}
+        next[idx] = res.media
+      } else {
+        try { URL.revokeObjectURL(placeholder.url) } catch {}
+        next.splice(idx, 1)
+        console.warn('[portfolio] upload failed:', res.error, res.name)
+      }
+    })
+    mediaRef.current = next
+    update('media', next)
+
+    const failed = results.filter((r) => !r.ok)
+    if (failed.length) {
+      alert(`${failed.length} file(s) failed to upload: ${failed.map((f) => f.name || '').join(', ')}`)
+    }
   }
-  const removeMedia = (id) => update('media', (project.media || []).filter((m) => m.id !== id))
+  const removeMedia = (id) => {
+    const m = (project.media || []).find((x) => x.id === id)
+    if (m?.storage_path) deletePortfolioFile(m.storage_path)
+    else if (m?.url?.startsWith('blob:')) { try { URL.revokeObjectURL(m.url) } catch {} }
+    update('media', (project.media || []).filter((m) => m.id !== id))
+  }
   const setCaption = (id, caption) =>
     update('media', (project.media || []).map((m) => (m.id === id ? { ...m, caption } : m)))
 
@@ -518,6 +589,14 @@ const EditModal = ({ project, onChange, onSave, onCancel, onDelete }) => {
                           Cover
                         </span>
                       )}
+                      {m.uploading && (
+                        <div className="absolute inset-0 grid place-items-center bg-ink-950/55 backdrop-blur-sm text-[11px] text-white">
+                          <span className="inline-flex items-center gap-1.5">
+                            <span className="h-1.5 w-1.5 rounded-full bg-brand-300 animate-pulse" />
+                            Uploading…
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <div className="p-2">
                       <input
@@ -532,7 +611,7 @@ const EditModal = ({ project, onChange, onSave, onCancel, onDelete }) => {
               </div>
             )}
             <p className="text-[11px] text-white/45 mt-2">
-              Uploads are local-only in this preview — wire Supabase Storage to make them permanent.
+              Images and videos are stored in Supabase Storage and survive reloads. Sign in to upload.
             </p>
           </Field>
         </div>

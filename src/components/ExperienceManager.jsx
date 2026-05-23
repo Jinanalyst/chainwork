@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Icon } from './ui.jsx'
 import { supabase } from '../lib/supabase.js'
+import { uploadPortfolioFiles, deletePortfolioFile } from '../lib/storage.js'
 
 /**
  * Editable work-experience timeline with portfolio-style media uploads.
@@ -53,8 +54,18 @@ const toRow = (e, ownerId) => ({
   role:        e.role || null,
   org:         e.org || null,
   description: e.desc || null,
-  // Local object-URL media isn't persistable; keep only http(s) entries.
-  media:       (e.media || []).filter((m) => /^https?:\/\//i.test(m.url || '')),
+  // Persist uploaded entries only; skip in-flight optimistic placeholders.
+  media:       (e.media || [])
+    .filter((m) => !m.uploading && /^https?:\/\//i.test(m.url || ''))
+    .map((m) => ({
+      id:           m.id,
+      kind:         m.kind,
+      url:          m.url,
+      storage_path: m.storage_path || null,
+      name:         m.name || null,
+      sizeKb:       m.sizeKb || null,
+      caption:      m.caption || '',
+    })),
 })
 
 export default function ExperienceManager() {
@@ -122,10 +133,12 @@ export default function ExperienceManager() {
   }
 
   const remove = async (id) => {
+    const target = entries.find((e) => e.id === id)
     if (supabase && ownerId) {
       const { error } = await supabase.from('experience_items').delete().eq('id', id)
       if (error) { alert('Could not delete: ' + error.message); return }
     }
+    ;(target?.media || []).forEach((m) => { if (m.storage_path) deletePortfolioFile(m.storage_path) })
     setEntries((prev) => prev.filter((e) => e.id !== id))
     setEditing(null)
   }
@@ -173,6 +186,7 @@ export default function ExperienceManager() {
       {editing && (
         <EditModal
           entry={editing}
+          ownerId={ownerId}
           onChange={setEditing}
           onSave={save}
           onCancel={cancel}
@@ -254,10 +268,12 @@ const MediaThumb = ({ media, onClick }) => (
 
 // ---------- Edit modal ----------
 
-const EditModal = ({ entry, onChange, onSave, onCancel, onDelete }) => {
+const EditModal = ({ entry, ownerId, onChange, onSave, onCancel, onDelete }) => {
   const update = (k, v) => onChange({ ...entry, [k]: v })
   const fileInputRef = useRef(null)
   const [dragOver, setDragOver] = useState(false)
+  const mediaRef = useRef(entry.media || [])
+  useEffect(() => { mediaRef.current = entry.media || [] }, [entry.media])
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onCancel() }
@@ -265,13 +281,53 @@ const EditModal = ({ entry, onChange, onSave, onCancel, onDelete }) => {
     return () => window.removeEventListener('keydown', onKey)
   }, [onCancel])
 
-  const addFiles = (fileList) => {
+  const addFiles = async (fileList) => {
     if (!fileList || !fileList.length) return
-    const newItems = filesToMedia(fileList)
-    update('media', [...(entry.media || []), ...newItems])
+    const files = Array.from(fileList)
+
+    const placeholders = files.map((f) => ({
+      id:        uid(),
+      kind:      f.type.startsWith('video/') ? 'video' : 'image',
+      url:       URL.createObjectURL(f),
+      name:      f.name,
+      sizeKb:    Math.round(f.size / 1024),
+      caption:   '',
+      uploading: true,
+    }))
+    mediaRef.current = [...(entry.media || []), ...placeholders]
+    update('media', mediaRef.current)
+
+    if (!ownerId) {
+      mediaRef.current = mediaRef.current.map((m) =>
+        placeholders.some((p) => p.id === m.id) ? { ...m, uploading: false } : m
+      )
+      update('media', mediaRef.current)
+      return
+    }
+
+    const results = await uploadPortfolioFiles(files, ownerId)
+    let next = mediaRef.current.slice()
+    results.forEach((res, i) => {
+      const placeholder = placeholders[i]
+      const idx = next.findIndex((m) => m.id === placeholder.id)
+      if (idx < 0) return
+      try { URL.revokeObjectURL(placeholder.url) } catch {}
+      if (res.ok) next[idx] = res.media
+      else        { next.splice(idx, 1); console.warn('[experience] upload failed:', res.error, res.name) }
+    })
+    mediaRef.current = next
+    update('media', next)
+
+    const failed = results.filter((r) => !r.ok)
+    if (failed.length) {
+      alert(`${failed.length} file(s) failed to upload: ${failed.map((f) => f.name || '').join(', ')}`)
+    }
   }
 
   const removeMedia = (id) => {
+    const m = (entry.media || []).find((x) => x.id === id)
+    if (m?.storage_path) deletePortfolioFile(m.storage_path)
+    else if (m?.url?.startsWith('blob:')) { try { URL.revokeObjectURL(m.url) } catch {} }
     update('media', (entry.media || []).filter((m) => m.id !== id))
   }
 
@@ -360,6 +416,14 @@ const EditModal = ({ entry, onChange, onSave, onCancel, onDelete }) => {
                       <span className="absolute bottom-1.5 left-1.5 text-[10px] uppercase tracking-wider bg-ink-950/70 text-white/80 rounded px-1.5 py-0.5">
                         {m.kind}
                       </span>
+                      {m.uploading && (
+                        <div className="absolute inset-0 grid place-items-center bg-ink-950/55 backdrop-blur-sm text-[11px] text-white">
+                          <span className="inline-flex items-center gap-1.5">
+                            <span className="h-1.5 w-1.5 rounded-full bg-brand-300 animate-pulse" />
+                            Uploading…
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <div className="p-2">
                       <input
