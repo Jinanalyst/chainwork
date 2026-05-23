@@ -1,8 +1,9 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import ConversationalForm from '../components/ConversationalForm.jsx'
 import EscrowAddressCard from '../components/EscrowAddressCard.jsx'
 import PaymentProofForm from '../components/PaymentProofForm.jsx'
-import { PLATFORM_WALLETS, ESCROW_RELEASE_NOTE, taskReference } from '../lib/platform.js'
+import ProMembershipBadge from '../components/ProMembershipBadge.jsx'
+import { PLATFORM_WALLETS, ESCROW_RELEASE_NOTE, taskReference, getProMembership } from '../lib/platform.js'
 import { matchTalents, inferCategories } from '../lib/matching.js'
 import { navigate } from '../components/ui.jsx'
 
@@ -124,6 +125,44 @@ const MatchedTalents = ({ answers }) => {
   )
 }
 
+const ProCoveredCard = ({ pro }) => (
+  <div className="max-w-xl mx-auto">
+    <div className="rounded-2xl border border-[#1e5be3]/30 bg-[#1e5be3]/[0.06] p-5 md:p-6">
+      <div className="flex items-center gap-2">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-[#1e5be3] text-white px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-[0.15em]">
+          Covered by Pro
+        </span>
+        <code className="font-mono text-xs text-warm-ink/65">{pro.reference}</code>
+      </div>
+      <h2 className="mt-3 text-lg font-semibold text-warm-ink">No escrow funding needed for this hire.</h2>
+      <p className="mt-1 text-sm text-warm-ink/65 leading-relaxed">
+        This task counts as <strong className="text-warm-ink">1 of your {pro.hiresIncluded}</strong> ChainWork Pro hires. After this post you'll have{' '}
+        <strong className="text-warm-ink">{Math.max(0, pro.hiresRemaining - 1)} hires remaining</strong> until renewal.
+      </p>
+      <div className="mt-4">
+        <ProMembershipBadge variant="warm" />
+      </div>
+    </div>
+  </div>
+)
+
+const ProGate = ({ answers, reference }) => {
+  const [pro, setPro] = useState(undefined)
+  useEffect(() => {
+    let cancelled = false
+    getProMembership().then((p) => { if (!cancelled) setPro(p) })
+    return () => { cancelled = true }
+  }, [])
+
+  if (pro === undefined) {
+    return <div className="max-w-xl mx-auto text-center text-warm-ink/55 text-sm">Checking membership…</div>
+  }
+  if (pro && pro.active && pro.hiresRemaining > 0) {
+    return <ProCoveredCard pro={pro} />
+  }
+  return <FundingInstructions answers={answers} reference={reference} />
+}
+
 const FundingInstructions = ({ answers, reference }) => {
   const isSplit = answers?.paymentStructure === 'fifty-fifty'
   const budget = (answers?.budget || '').trim()
@@ -183,7 +222,7 @@ export default function PostTask() {
         return (
           <div className="space-y-8">
             <MatchedTalents answers={answers} />
-            <FundingInstructions answers={answers} reference={reference} />
+            <ProGate answers={answers} reference={reference} />
           </div>
         )
       }}

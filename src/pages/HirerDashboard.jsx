@@ -7,6 +7,7 @@ import { taskStore } from '../lib/taskStore.js'
 import { useSession } from '../hooks/useSession.js'
 import { isLiveChatReady } from '../lib/liveChat.js'
 import LiveChatPanel from '../components/LiveChatPanel.jsx'
+import ProMembershipBadge from '../components/ProMembershipBadge.jsx'
 
 // ---------- Mock data (replace with Supabase queries when ready) ----------
 
@@ -480,6 +481,10 @@ export default function HirerDashboard() {
                 <Stat label="Completed"     value={stats.completedCount} hint="All-time" valueClass="text-white" />
                 <Stat label="Total spent"   value={fmtUSD(stats.totalSpent)} hint="Paid out to workers" />
               </div>
+            </Section>
+
+            <Section title="Membership">
+              <ProMembershipBadge />
             </Section>
 
             <Section

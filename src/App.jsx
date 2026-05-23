@@ -12,6 +12,7 @@ import HirerDashboard from './pages/HirerDashboard.jsx'
 import AdminPayments from './pages/AdminPayments.jsx'
 import EscrowAddressCard from './components/EscrowAddressCard.jsx'
 import PaymentProofForm from './components/PaymentProofForm.jsx'
+import ProMembershipBadge from './components/ProMembershipBadge.jsx'
 import { PLATFORM_WALLETS, proReference, isCurrentUserAdmin } from './lib/platform.js'
 
 const UserChip = ({ user, onSignOut }) => {
@@ -565,6 +566,12 @@ const CTA = () => {
                   </li>
                 ))}
               </ul>
+
+              {user && (
+                <div className="mt-6">
+                  <ProMembershipBadge />
+                </div>
+              )}
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-ink-900/70 backdrop-blur p-6 md:p-8">

@@ -168,6 +168,33 @@ export async function setPaymentProofStatus(id, status, notes) {
   return { ok: true }
 }
 
+/**
+ * Pro membership status for the signed-in user.
+ * Returns null when not signed in or Supabase isn't configured.
+ * Returns { active:false } when the user has never had a verified Pro proof.
+ */
+export async function getProMembership() {
+  if (!supabase) return null
+  const { data: sess } = await supabase.auth.getUser()
+  if (!sess?.user) return null
+  const { data, error } = await supabase.rpc('pro_status')
+  if (error) {
+    console.warn('[pro_status] rpc failed:', error.message)
+    return { active: false }
+  }
+  const row = Array.isArray(data) ? data[0] : data
+  if (!row || row.active == null) return { active: false }
+  return {
+    active:          !!row.active,
+    reference:       row.reference,
+    activatedAt:     row.activated_at,
+    expiresAt:       row.expires_at,
+    hiresIncluded:   row.hires_included ?? 0,
+    hiresUsed:       row.hires_used ?? 0,
+    hiresRemaining:  row.hires_remaining ?? 0,
+  }
+}
+
 export async function isCurrentUserAdmin() {
   if (!supabase) return false
   const { data: sess } = await supabase.auth.getUser()
