@@ -1,11 +1,12 @@
 /**
- * Mock talent directory.
+ * Curated fallback talent directory.
  *
  * Categories use the same ids as the canonical list in src/data/categories.jsx
  * so we can filter & match consistently:
  *   web-dev · no-code · ai-automation · web3 · ui-ux · content
  *
- * Replace with a Supabase `profiles` query when ready — keep the field shape.
+ * The Talents page reads live public worker profiles first; this list keeps
+ * matching and browsing useful when a deployment has not published profiles.
  */
 
 import { CATEGORIES_WITH_ALL } from './categories.jsx'
@@ -55,7 +56,7 @@ export const TALENTS = [
     id: 't3',
     name: 'Jordan Lee',
     handle: 'jordanlee',
-    role: 'MVP builder',
+    role: 'Launch engineer',
     location: 'Berlin, DE',
     accent: 'from-emerald-400 to-accent-600',
     rating: 4.7,
@@ -68,7 +69,7 @@ export const TALENTS = [
     availability: 'Available now',
     categories: ['web-dev', 'ai-automation'],
     skills: ['Next.js', 'Supabase', 'Stripe', 'Tailwind', 'TypeScript'],
-    about: 'Take you from idea to deployed MVP in under two weeks. Auth, payments, dashboard — done.',
+    about: 'Take you from idea to deployed product in under two weeks. Auth, payments, dashboard, and deployment included.',
     portfolio: ['from-brand-300 to-accent-400'],
   },
   {
