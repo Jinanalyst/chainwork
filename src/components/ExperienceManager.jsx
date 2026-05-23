@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Icon } from './ui.jsx'
+import { supabase } from '../lib/supabase.js'
 
 /**
  * Editable work-experience timeline with portfolio-style media uploads.
@@ -14,40 +15,8 @@ const uid = () =>
     ? crypto.randomUUID()
     : `id_${Math.random().toString(36).slice(2)}_${Date.now()}`
 
-const INITIAL = [
-  {
-    id: uid(),
-    period: '2024 – Present',
-    role: 'Independent web + AI worker',
-    org: 'ChainWork',
-    desc: 'Shipping landing pages, AI chatbots, and Web3 dashboards for early-stage teams. Focus on small, fast, well-deployed builds.',
-    media: [],
-  },
-  {
-    id: uid(),
-    period: '2022 – 2024',
-    role: 'Senior front-end engineer',
-    org: 'Pixel & Pine Studio',
-    desc: 'Led front-end for 20+ client launches — Next.js, Tailwind, Vercel. Owned design-system, accessibility, and Core Web Vitals.',
-    media: [],
-  },
-  {
-    id: uid(),
-    period: '2020 – 2022',
-    role: 'Full-stack developer',
-    org: 'Northgate Labs',
-    desc: 'Built internal AI tooling and dashboards for analytics teams. Python + Next.js + Postgres.',
-    media: [],
-  },
-  {
-    id: uid(),
-    period: '2018 – 2020',
-    role: 'Web developer',
-    org: 'Freelance',
-    desc: 'Small business sites, Shopify themes, WordPress migrations.',
-    media: [],
-  },
-]
+// Loaded from Supabase per-user; nothing is seeded.
+const INITIAL = []
 
 const blankEntry = () => ({
   id: uid(),
@@ -68,24 +37,95 @@ const filesToMedia = (fileList) =>
     sizeKb: Math.round(f.size / 1024),
   }))
 
+const fromRow = (r) => ({
+  id:     r.id,
+  period: r.period || '',
+  role:   r.role || '',
+  org:    r.org || '',
+  desc:   r.description || '',
+  media:  Array.isArray(r.media) ? r.media : [],
+})
+
+const toRow = (e, ownerId) => ({
+  id:          e.id,
+  owner_id:    ownerId,
+  period:      e.period || null,
+  role:        e.role || null,
+  org:         e.org || null,
+  description: e.desc || null,
+  // Local object-URL media isn't persistable; keep only http(s) entries.
+  media:       (e.media || []).filter((m) => /^https?:\/\//i.test(m.url || '')),
+})
+
 export default function ExperienceManager() {
   const [entries, setEntries] = useState(INITIAL)
-  const [editing, setEditing] = useState(null) // entry being edited
-  const [detail, setDetail] = useState(null)   // { entry, mediaIndex }
+  const [editing, setEditing] = useState(null)
+  const [detail, setDetail]   = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [ownerId, setOwnerId] = useState(null)
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      if (!supabase) { setLoading(false); return }
+      const { data: { user } } = await supabase.auth.getUser()
+      if (cancelled) return
+      if (!user) { setLoading(false); return }
+      setOwnerId(user.id)
+      const { data, error } = await supabase
+        .from('experience_items')
+        .select('*')
+        .eq('owner_id', user.id)
+        .order('position', { ascending: true })
+        .order('created_at', { ascending: false })
+      if (cancelled) return
+      if (error) {
+        console.warn('[experience] load failed:', error.message)
+      } else {
+        setEntries((data || []).map(fromRow))
+      }
+      setLoading(false)
+    }
+    load()
+    return () => { cancelled = true }
+  }, [])
 
   const startAdd  = () => setEditing(blankEntry())
   const startEdit = (entry) => setEditing(structuredClone(entry))
   const cancel    = () => setEditing(null)
 
-  const save = (entry) => {
+  const save = async (entry) => {
+    if (!supabase || !ownerId) {
+      setEntries((prev) => {
+        const exists = prev.some((e) => e.id === entry.id)
+        return exists ? prev.map((e) => (e.id === entry.id ? entry : e)) : [entry, ...prev]
+      })
+      setEditing(null)
+      return
+    }
+    const row = toRow(entry, ownerId)
+    const { data, error } = await supabase
+      .from('experience_items')
+      .upsert(row, { onConflict: 'id' })
+      .select()
+      .maybeSingle()
+    if (error) {
+      alert('Could not save entry: ' + error.message)
+      return
+    }
+    const saved = fromRow(data)
     setEntries((prev) => {
-      const exists = prev.some((e) => e.id === entry.id)
-      return exists ? prev.map((e) => (e.id === entry.id ? entry : e)) : [entry, ...prev]
+      const exists = prev.some((e) => e.id === saved.id)
+      return exists ? prev.map((e) => (e.id === saved.id ? saved : e)) : [saved, ...prev]
     })
     setEditing(null)
   }
 
-  const remove = (id) => {
+  const remove = async (id) => {
+    if (supabase && ownerId) {
+      const { error } = await supabase.from('experience_items').delete().eq('id', id)
+      if (error) { alert('Could not delete: ' + error.message); return }
+    }
     setEntries((prev) => prev.filter((e) => e.id !== id))
     setEditing(null)
   }
@@ -103,7 +143,11 @@ export default function ExperienceManager() {
         </button>
       </div>
 
-      {entries.length === 0 && (
+      {loading && (
+        <div className="card text-center py-12 text-white/60 text-sm">Loading…</div>
+      )}
+
+      {!loading && entries.length === 0 && (
         <div className="card text-center py-12">
           <div className="text-white/70">No experience added yet.</div>
           <button onClick={startAdd} className="btn-primary mt-4">Add your first entry</button>

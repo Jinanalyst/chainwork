@@ -279,7 +279,7 @@ const WorkerMessages = ({ tasks, offers, displayName }) => {
 export default function WorkerDashboard() {
   const [tab, setTab] = useState('overview')
   const { user } = useSession()
-  const { profile: profileRow } = useProfile()
+  const { profile: profileRow, update: updateProfileRow } = useProfile()
   const [profile, setProfile] = useState(DEFAULT_PROFILE)
   const [editOpen, setEditOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
@@ -293,11 +293,39 @@ export default function WorkerDashboard() {
   useEffect(() => {
     setProfile((p) => ({
       ...p,
-      name:  profileRow?.display_name || defaultName || p.name,
-      bio:   profileRow?.bio          || p.bio,
-      email: profileRow?.contact_email || p.email,
+      name:         profileRow?.display_name  || defaultName || p.name,
+      role:         profileRow?.title         || p.role,
+      location:     profileRow?.location      || p.location,
+      bio:          profileRow?.bio           || p.bio,
+      email:        profileRow?.contact_email || p.email,
+      portfolioUrl: profileRow?.portfolio_url || p.portfolioUrl,
+      socials: {
+        github:   profileRow?.socials?.github   || p.socials.github,
+        twitter:  profileRow?.socials?.twitter  || p.socials.twitter,
+        linkedin: profileRow?.socials?.linkedin || p.socials.linkedin,
+        website:  profileRow?.socials?.website  || p.socials.website,
+      },
     }))
   }, [profileRow, defaultName])
+
+  // ProfileEditor → Supabase upsert. Optimistic local update first; if the
+  // row write fails we surface an alert and reload from the source of truth.
+  const saveProfile = async (next) => {
+    setProfile(next)
+    const patch = {
+      display_name:  next.name?.trim()         || null,
+      title:         next.role?.trim()         || null,
+      location:      next.location?.trim()     || null,
+      bio:           next.bio?.trim()          || null,
+      contact_email: next.email?.trim()        || null,
+      portfolio_url: next.portfolioUrl?.trim() || null,
+      socials:       next.socials || {},
+    }
+    const res = await updateProfileRow(patch)
+    if (!res.ok) {
+      alert('Could not save profile: ' + (res.error || 'unknown'))
+    }
+  }
 
   const selfName = profile.name || defaultName || ''
 
@@ -352,8 +380,12 @@ export default function WorkerDashboard() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-2xl md:text-3xl font-bold">{profile.name || 'Your name'}</h1>
-                <Pill tone="ok"><Icon path={<path d="M5 12l4 4 10-10" />} className="h-3 w-3" /> Verified</Pill>
-                <Pill tone="info">Top-rated</Pill>
+                {profileRow?.is_verified && (
+                  <Pill tone="ok"><Icon path={<path d="M5 12l4 4 10-10" />} className="h-3 w-3" /> Verified</Pill>
+                )}
+                {ratingStats.count >= 5 && ratingStats.avg >= 4.5 && (
+                  <Pill tone="info">Top-rated</Pill>
+                )}
               </div>
               <div className="mt-1 text-white/70">
                 {profile.role || '—'}{profile.location && <span> · {profile.location}</span>}
@@ -461,9 +493,9 @@ export default function WorkerDashboard() {
                 selfName={selfName}
                 viewerRole="worker"
               />
-              {!usingReal && !tasksLoading && (
-                <div className="mt-3 text-[11px] text-white/40">
-                  Showing sample tasks. Post or accept a task in Supabase to see real data here.
+              {!tasksLoading && tasks.length === 0 && (
+                <div className="mt-3 text-[11px] text-white/40 text-center">
+                  No active tasks yet. Accept an offer to start working.
                 </div>
               )}
             </Section>
@@ -522,9 +554,9 @@ export default function WorkerDashboard() {
                   selfName={selfName}
                   viewerRole="worker"
                 />
-                {!usingReal && (
-                  <div className="mt-3 text-[11px] text-white/40">
-                    Showing sample tasks. Post or accept a task to see real data here.
+                {tasks.length === 0 && (
+                  <div className="mt-3 text-[11px] text-white/40 text-center">
+                    No active tasks yet. Accept an offer to start working.
                   </div>
                 )}
               </>
@@ -547,7 +579,14 @@ export default function WorkerDashboard() {
                 {STATS.map((s) => <Stat key={s.label} {...s} />)}
               </div>
               <div className="mt-4 flex flex-wrap gap-3">
-                <button className="btn-primary">Withdraw {fmtUSD(640)}</button>
+                {(() => {
+                  const avail = STATS.find((s) => s.label === 'Available')?.value || 0
+                  return (
+                    <button className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed" disabled={avail <= 0}>
+                      Withdraw {fmtUSD(avail)}
+                    </button>
+                  )
+                })()}
                 <button className="btn-ghost">Set auto-payout</button>
               </div>
             </Section>
@@ -598,7 +637,7 @@ export default function WorkerDashboard() {
         open={editOpen}
         initial={profile}
         onClose={() => setEditOpen(false)}
-        onSave={(next) => setProfile(next)}
+        onSave={saveProfile}
       />
 
       <ShareProfileModal

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Icon } from './ui.jsx'
+import { supabase } from '../lib/supabase.js'
 
 /**
  * Editable portfolio of work samples.
@@ -27,51 +28,8 @@ const COVER_PRESETS = [
   'from-brand-300 to-accent-400',
 ]
 
-const INITIAL = [
-  {
-    id: uid(),
-    title: 'Chain Brief Landing Page',
-    description: 'Crypto news platform landing page redesign.',
-    role: 'Frontend / UI',
-    skills: ['React', 'Tailwind', 'Supabase'],
-    url: 'chainbrief.kr',
-    proof: [
-      { id: uid(), label: 'GitHub',              url: '' },
-      { id: uid(), label: 'Live site',           url: 'https://chainbrief.kr' },
-      { id: uid(), label: 'Client confirmation', url: '' },
-    ],
-    cover: 'from-brand-400 to-brand-700',
-    media: [],
-  },
-  {
-    id: uid(),
-    title: 'Verde AI assistant',
-    description: 'AI chatbot embedded into a wellness brand site.',
-    role: 'Full-stack',
-    skills: ['Next.js', 'OpenAI API', 'Edge Functions'],
-    url: 'verde.example.com',
-    proof: [
-      { id: uid(), label: 'Live site', url: '' },
-      { id: uid(), label: 'Case study', url: '' },
-    ],
-    cover: 'from-violet-400 to-brand-500',
-    media: [],
-  },
-  {
-    id: uid(),
-    title: 'Lumen wallet UI',
-    description: 'Connect-wallet + portfolio dashboard for a Solana app.',
-    role: 'Frontend / UX',
-    skills: ['React', 'Wallet Standard', 'Anchor'],
-    url: 'lumen.example.com',
-    proof: [
-      { id: uid(), label: 'GitHub',    url: '' },
-      { id: uid(), label: 'Live site', url: '' },
-    ],
-    cover: 'from-accent-400 to-brand-500',
-    media: [],
-  },
-]
+// Portfolio entries are loaded from Supabase per-user; nothing is seeded.
+const INITIAL = []
 
 const blankProject = () => ({
   id: uid(),
@@ -102,22 +60,105 @@ const normalizeUrl = (u) => {
 
 const stripProtocol = (u) => (u || '').replace(/^https?:\/\//i, '').replace(/\/$/, '')
 
+// Map DB row → UI shape used by ProjectCard / EditModal.
+const fromRow = (r) => ({
+  id:          r.id,
+  title:       r.title || '',
+  description: r.description || '',
+  role:        r.role || '',
+  skills:      r.skills || [],
+  url:         r.url || '',
+  proof:       Array.isArray(r.proof) ? r.proof : [],
+  media:       Array.isArray(r.media) ? r.media : [],
+  cover:       r.cover || COVER_PRESETS[0],
+})
+
+const toRow = (p, ownerId) => ({
+  id:          p.id,
+  owner_id:    ownerId,
+  title:       p.title?.trim() || '',
+  description: p.description || null,
+  role:        p.role || null,
+  skills:      p.skills || [],
+  url:         p.url || null,
+  proof:       p.proof || [],
+  // Media here is held as object URLs — only persist proof and metadata.
+  // Once Supabase Storage is wired this should write the uploaded URLs.
+  media:       (p.media || []).filter((m) => /^https?:\/\//i.test(m.url || '')),
+  cover:       p.cover || null,
+})
+
 export default function PortfolioManager() {
   const [projects, setProjects] = useState(INITIAL)
-  const [editing, setEditing] = useState(null)
-  const [detail, setDetail]   = useState(null) // { project, mediaIndex }
+  const [editing, setEditing]   = useState(null)
+  const [detail, setDetail]     = useState(null)
+  const [loading, setLoading]   = useState(true)
+  const [ownerId, setOwnerId]   = useState(null)
+
+  // Load this user's portfolio from Supabase.
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      if (!supabase) { setLoading(false); return }
+      const { data: { user } } = await supabase.auth.getUser()
+      if (cancelled) return
+      if (!user) { setLoading(false); return }
+      setOwnerId(user.id)
+      const { data, error } = await supabase
+        .from('portfolio_items')
+        .select('*')
+        .eq('owner_id', user.id)
+        .order('position', { ascending: true })
+        .order('created_at', { ascending: false })
+      if (cancelled) return
+      if (error) {
+        console.warn('[portfolio] load failed:', error.message)
+      } else {
+        setProjects((data || []).map(fromRow))
+      }
+      setLoading(false)
+    }
+    load()
+    return () => { cancelled = true }
+  }, [])
 
   const startAdd  = () => setEditing(blankProject())
   const startEdit = (p) => setEditing(structuredClone(p))
   const cancel    = () => setEditing(null)
-  const save = (p) => {
+
+  const save = async (p) => {
+    if (!supabase || !ownerId) {
+      // Fall back to local-only if not signed in.
+      setProjects((prev) => {
+        const exists = prev.some((x) => x.id === p.id)
+        return exists ? prev.map((x) => (x.id === p.id ? p : x)) : [p, ...prev]
+      })
+      setEditing(null)
+      return
+    }
+    const row = toRow(p, ownerId)
+    const { data, error } = await supabase
+      .from('portfolio_items')
+      .upsert(row, { onConflict: 'id' })
+      .select()
+      .maybeSingle()
+    if (error) {
+      alert('Could not save project: ' + error.message)
+      return
+    }
+    const saved = fromRow(data)
     setProjects((prev) => {
-      const exists = prev.some((x) => x.id === p.id)
-      return exists ? prev.map((x) => (x.id === p.id ? p : x)) : [p, ...prev]
+      const exists = prev.some((x) => x.id === saved.id)
+      return exists ? prev.map((x) => (x.id === saved.id ? saved : x)) : [saved, ...prev]
     })
     setEditing(null)
   }
-  const remove = (id) => {
+
+  const remove = async (id) => {
+    if (supabase && ownerId) {
+      const { error } = await supabase.from('portfolio_items').delete().eq('id', id)
+      if (error) { alert('Could not delete: ' + error.message); return }
+    }
     setProjects((prev) => prev.filter((p) => p.id !== id))
     setEditing(null)
   }
@@ -135,7 +176,9 @@ export default function PortfolioManager() {
         </button>
       </div>
 
-      {projects.length === 0 ? (
+      {loading ? (
+        <div className="card text-center py-12 text-white/60 text-sm">Loading…</div>
+      ) : projects.length === 0 ? (
         <div className="card text-center py-12">
           <div className="text-white/70">No portfolio projects yet.</div>
           <button onClick={startAdd} className="btn-primary mt-4">Add your first project</button>
