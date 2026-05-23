@@ -276,37 +276,46 @@ const TaskDetailModal = ({ task, viewerRole = 'hirer', onClose, onAddNote, onMes
 
         {/* Timeline */}
         <Section title="Status timeline">
-          <ol className="relative pl-5">
-            <div className="absolute left-1.5 top-1 bottom-1 w-px bg-white/10" />
+          <ol className="space-y-4">
             {(task.timeline || []).map((t, i) => {
-              const isLast = i === task.timeline.length - 1
-              const isAdj  = !!t.adjustment
+              const isLast    = i === task.timeline.length - 1
+              const isAdj     = !!t.adjustment
               const isApprove = /approved/i.test(t.label)
               return (
-                <li key={t.id || i} className="relative pb-4 last:pb-0">
-                  <span className={
-                    'absolute -left-[10px] top-1 h-3 w-3 rounded-full ring-4 ring-ink-900 ' +
-                    (isAdj
-                      ? 'bg-amber-400'
-                      : isApprove
-                        ? 'bg-accent-500'
-                        : isLast
-                          ? 'bg-gradient-to-br from-brand-400 to-accent-400'
-                          : 'bg-white/30')
-                  } />
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm text-white/85">{t.label}</span>
-                    {isAdj && <Pill tone="warn">Adjustment</Pill>}
-                    {isApprove && <Pill tone="ok">Approved</Pill>}
+                <li key={t.id || i} className="flex gap-3">
+                  {/* Dot + connector column */}
+                  <div className="relative flex flex-col items-center shrink-0 w-3">
+                    <span className={
+                      'mt-1 h-3 w-3 rounded-full ring-4 ring-ink-900 z-10 ' +
+                      (isAdj
+                        ? 'bg-amber-400'
+                        : isApprove
+                          ? 'bg-accent-500'
+                          : isLast
+                            ? 'bg-gradient-to-br from-brand-400 to-accent-400'
+                            : 'bg-white/30')
+                    } />
+                    {!isLast && (
+                      <div className="flex-1 w-px bg-white/10 -mt-1 mb-[-1rem]" />
+                    )}
                   </div>
-                  <div className="text-[11px] text-white/45">
-                    {t.when}{t.by && <span> · {t.by}</span>}
-                  </div>
-                  {isAdj && t.note && (
-                    <div className="mt-1.5 rounded-lg border border-amber-400/25 bg-amber-500/[0.06] px-3 py-2 text-xs text-amber-100 leading-relaxed">
-                      {t.note}
+
+                  {/* Text column */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm text-white/85">{t.label}</span>
+                      {isAdj && <Pill tone="warn">Adjustment</Pill>}
+                      {isApprove && <Pill tone="ok">Approved</Pill>}
                     </div>
-                  )}
+                    <div className="text-[11px] text-white/45 mt-0.5">
+                      {t.when}{t.by && <span> · {t.by}</span>}
+                    </div>
+                    {isAdj && t.note && (
+                      <div className="mt-1.5 rounded-lg border border-amber-400/25 bg-amber-500/[0.06] px-3 py-2 text-xs text-amber-100 leading-relaxed">
+                        {t.note}
+                      </div>
+                    )}
+                  </div>
                 </li>
               )
             })}
