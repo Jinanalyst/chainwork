@@ -211,7 +211,43 @@ const SEED_THREADS = [
   },
 ]
 
-let state = { tasks: SEED_TASKS, threads: SEED_THREADS }
+const SEED_REVIEWS = [
+  {
+    id: 'r1',
+    workerName: 'Alex Park',
+    hirerName: 'Mia Tan',
+    hirerCompany: 'Verde Wellness',
+    taskId: null,
+    taskTitle: 'Brand site refresh',
+    rating: 5,
+    body: 'Alex shipped fast and the result is gorgeous. Communication was crisp, daily updates without being asked. Already lining up the next project.',
+    createdAt: 'Apr 12',
+  },
+  {
+    id: 'r2',
+    workerName: 'Alex Park',
+    hirerName: 'Dan Park',
+    hirerCompany: 'Lumen Labs',
+    taskId: null,
+    taskTitle: 'Wallet connect UI',
+    rating: 5,
+    body: 'Tight implementation, great taste. Handled wagmi quirks I would have spent days on. Hire again in a heartbeat.',
+    createdAt: 'Mar 28',
+  },
+  {
+    id: 'r3',
+    workerName: 'Alex Park',
+    hirerName: 'Priya Iyer',
+    hirerCompany: 'Coastal Studio',
+    taskId: null,
+    taskTitle: 'Marketing site launch',
+    rating: 4,
+    body: 'Solid work, minor delay on the first round of revisions but fixed it quickly. Final result above expectations.',
+    createdAt: 'Feb 14',
+  },
+]
+
+let state = { tasks: SEED_TASKS, threads: SEED_THREADS, reviews: SEED_REVIEWS }
 const listeners = new Set()
 const notifyListeners = () => listeners.forEach((fn) => fn())
 const update = (updater) => { state = updater(state); notifyListeners() }
@@ -234,6 +270,9 @@ export const taskStore = {
   threadsForUser: (name) => state.threads.filter(
     (t) => t.participants?.hirer === name || t.participants?.worker === name,
   ),
+  reviewsForWorker: (name) => state.reviews.filter((r) => r.workerName === name),
+  hasReviewed: (hirerName, taskId) =>
+    state.reviews.some((r) => r.hirerName === hirerName && r.taskId === taskId),
 
   // ---------- Mutations ----------
   acceptOffer: (taskId, worker) => {
@@ -443,4 +482,31 @@ export const taskStore = {
     ...s,
     threads: s.threads.map((th) => th.id === threadId ? { ...th, unread: 0 } : th),
   })),
+
+  addReview: ({ taskId, rating, body }) => {
+    const task = state.tasks.find((t) => t.id === taskId)
+    if (!task) return
+    const review = {
+      id: uid('r'),
+      workerName:   task.talent?.name,
+      hirerName:    task.employer?.name,
+      hirerCompany: task.employer?.company,
+      taskId,
+      taskTitle:    task.title,
+      rating:       Math.max(1, Math.min(5, Number(rating) || 5)),
+      body:         String(body || '').trim(),
+      createdAt:    new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+    }
+    update((s) => ({ ...s, reviews: [...s.reviews, review] }))
+    if (task.talent?.email) {
+      notify('review_received', task.talent.email, {
+        taskTitle:    task.title,
+        hirerName:    task.employer?.name || 'A hirer',
+        rating:       review.rating,
+        body:         review.body.length > 240 ? review.body.slice(0, 240) + '…' : review.body,
+        dashboardUrl: dashboardUrl('/worker'),
+      })
+    }
+    return review
+  },
 }

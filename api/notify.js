@@ -119,6 +119,20 @@ const TEMPLATES = {
     text: `${fromName} sent you a message on "${taskTitle}": ${preview}`,
   }),
 
+  review_received: ({ taskTitle, hirerName, rating, body, dashboardUrl }) => ({
+    subject: `${hirerName} left you a ${rating}-star review`,
+    html: brand(`
+      <p style="font-size:14px;color:rgba(230,237,247,0.7);margin:0 0 6px;">New review</p>
+      <h1 style="font-size:22px;margin:0 0 12px;">${h(hirerName)} rated you ${h(rating)}/5.</h1>
+      <p style="font-size:13px;color:rgba(230,237,247,0.55);margin:0 0 10px;">On <strong>${h(taskTitle)}</strong></p>
+      <blockquote style="margin:0;padding:12px 14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.10);border-radius:10px;color:#e6edf7;font-size:14px;line-height:1.6;">
+        ${h(body)}
+      </blockquote>
+      ${btn(dashboardUrl || 'https://chainwork.app/#/worker', 'View your reviews')}
+    `),
+    text: `${hirerName} rated you ${rating}/5 on "${taskTitle}": ${body}`,
+  }),
+
   task_posted: ({ taskTitle, hirerName, dashboardUrl }) => ({
     subject: `Your task "${taskTitle}" is live`,
     html: brand(`

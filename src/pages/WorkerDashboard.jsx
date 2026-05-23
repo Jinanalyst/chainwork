@@ -6,6 +6,8 @@ import ActiveTaskList from '../components/ActiveTaskList.jsx'
 import OfferCard from '../components/OfferCard.jsx'
 import ProfileEditor from '../components/ProfileEditor.jsx'
 import ShareProfileModal from '../components/ShareProfileModal.jsx'
+import ReviewsModal from '../components/ReviewsModal.jsx'
+import StarRating from '../components/StarRating.jsx'
 import { useTasks } from '../hooks/useTasks.js'
 import { useTaskStore } from '../hooks/useTaskStore.js'
 import { taskStore } from '../lib/taskStore.js'
@@ -289,8 +291,19 @@ export default function WorkerDashboard() {
   const [profile, setProfile] = useState(DEFAULT_PROFILE)
   const [editOpen, setEditOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
+  const [reviewsOpen, setReviewsOpen] = useState(false)
   const { tasks: liveTasks, loading: tasksLoading, addNote } = useTasks()
   const store = useTaskStore()
+
+  const reviews = useMemo(
+    () => store.reviews.filter((r) => r.workerName === ME.name),
+    [store.reviews],
+  )
+  const ratingStats = useMemo(() => {
+    if (!reviews.length) return { avg: 0, count: 0 }
+    const sum = reviews.reduce((n, r) => n + (r.rating || 0), 0)
+    return { avg: sum / reviews.length, count: reviews.length }
+  }, [reviews])
 
   // From the shared store, my active/completed tasks + offers I haven't declined.
   const myStoreTasks = useMemo(
@@ -341,10 +354,18 @@ export default function WorkerDashboard() {
               </div>
               {profile.bio && <p className="mt-2 text-sm text-white/60 max-w-2xl">{profile.bio}</p>}
               <div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-white/60">
-                <span className="flex items-center gap-1">
+                <button
+                  onClick={() => setReviewsOpen(true)}
+                  className="flex items-center gap-1.5 hover:text-white transition group"
+                >
                   <Icon path={<path d="M12 17.3l-6.2 3.7 1.6-7.1L2 9.2l7.2-.6L12 2l2.8 6.6 7.2.6-5.4 4.7 1.6 7.1z" />} className="h-4 w-4 text-amber-300" />
-                  <span className="text-white">4.9</span> (37 reviews)
-                </span>
+                  <span className="text-white font-medium">
+                    {ratingStats.count ? ratingStats.avg.toFixed(1) : '—'}
+                  </span>
+                  <span className="underline-offset-2 group-hover:underline">
+                    ({ratingStats.count} review{ratingStats.count !== 1 ? 's' : ''})
+                  </span>
+                </button>
                 <span>Joined Mar 2024</span>
                 <span>97% on-time</span>
               </div>
@@ -568,6 +589,13 @@ export default function WorkerDashboard() {
         open={shareOpen}
         profile={profile}
         onClose={() => setShareOpen(false)}
+      />
+
+      <ReviewsModal
+        open={reviewsOpen}
+        workerName={profile.name || ME.name}
+        reviews={reviews}
+        onClose={() => setReviewsOpen(false)}
       />
     </section>
   )

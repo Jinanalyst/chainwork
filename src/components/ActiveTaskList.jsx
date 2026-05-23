@@ -1,8 +1,12 @@
 import React, { useEffect, useState } from 'react'
 import { Icon } from './ui.jsx'
 import EscrowAddressCard from './EscrowAddressCard.jsx'
+import LeaveReviewModal from './LeaveReviewModal.jsx'
+import StarRating from './StarRating.jsx'
 import { PLATFORM_WALLETS, ESCROW_RELEASE_NOTE } from '../lib/platform.js'
 import { PLATFORM_FEE_RATE, platformFee, workerNet, fmtUSD, parseBudget } from '../lib/fees.js'
+import { taskStore } from '../lib/taskStore.js'
+import { useTaskStore } from '../hooks/useTaskStore.js'
 
 const uid = () =>
   (typeof crypto !== 'undefined' && crypto.randomUUID)
@@ -143,7 +147,11 @@ const Row = ({ label, children }) => (
 
 // ---------- Detail modal ----------
 
-const TaskDetailModal = ({ task, viewerRole = 'hirer', onClose, onAddNote, onMessage, onUpdateProgress, onSubmitForReview, onApproveMilestone, onRequestAdjustment }) => {
+const TaskDetailModal = ({ task, viewerRole = 'hirer', onClose, onAddNote, onMessage, onUpdateProgress, onSubmitForReview, onApproveMilestone, onRequestAdjustment, onLeaveReview }) => {
+  const store = useTaskStore()
+  const myReview = store.reviews.find(
+    (r) => r.taskId === task.id && r.hirerName === task.employer?.name,
+  )
   const [draft, setDraft] = useState('')
   const [adjOpen, setAdjOpen] = useState(false)
   const [adjDraft, setAdjDraft] = useState('')
@@ -202,6 +210,35 @@ const TaskDetailModal = ({ task, viewerRole = 'hirer', onClose, onAddNote, onMes
             {task.description || <span className="text-white/40">No description provided.</span>}
           </p>
         </Section>
+
+        {/* Review section (hirer · completed) */}
+        {viewerRole === 'hirer' && task.status === 'Completed' && (
+          <Section title="Review">
+            {myReview ? (
+              <div className="rounded-xl border border-accent-500/20 bg-accent-500/[0.06] p-4">
+                <div className="flex items-center gap-3 mb-2">
+                  <StarRating value={myReview.rating} size="sm" />
+                  <span className="text-xs text-white/55">Posted {myReview.createdAt}</span>
+                </div>
+                <p className="text-sm text-white/85 leading-relaxed whitespace-pre-wrap">{myReview.body}</p>
+                <div className="mt-3 text-[11px] text-white/45">
+                  Visible on {task.talent?.name || 'the worker'}'s public profile.
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 flex items-center justify-between gap-3 flex-wrap">
+                <div className="min-w-0">
+                  <div className="font-medium">How was working with {task.talent?.name?.split(' ')[0] || 'them'}?</div>
+                  <div className="text-xs text-white/55 mt-0.5">Your review goes on their public profile and helps future hirers trust them.</div>
+                </div>
+                <button onClick={onLeaveReview} className="btn-primary !py-2 !px-4 text-sm">
+                  <Icon path={<path d="M12 17.3l-6.2 3.7 1.6-7.1L2 9.2l7.2-.6L12 2l2.8 6.6 7.2.6-5.4 4.7 1.6 7.1z" />} className="h-4 w-4" />
+                  Leave a review
+                </button>
+              </div>
+            )}
+          </Section>
+        )}
 
         {/* Role-specific controls */}
         <Section title={viewerRole === 'worker' ? 'Your progress' : "Worker's progress · approval"}>
@@ -771,6 +808,8 @@ export default function ActiveTaskList({
   selfName,              // name to attribute optimistic notes to
   viewerRole = 'hirer',  // 'hirer' | 'worker' — controls which actions show
 }) {
+  // Reactive subscription so newly-added reviews refresh the modal/state.
+  useTaskStore()
   const [items, setItems] = useState(tasks)
   const [openId, setOpenId] = useState(null)
 
@@ -806,7 +845,23 @@ export default function ActiveTaskList({
   }
 
   const approveMilestone = (taskId) => {
-    if (onApproveMilestone) { onApproveMilestone(taskId); return }
+    if (onApproveMilestone) {
+      onApproveMilestone(taskId)
+      // If this approval completed the task, prompt the hirer to leave a review.
+      const t = items.find((x) => x.id === taskId)
+      const willComplete = !t
+        ? false
+        : t.paymentStructure === 'fifty-fifty'
+          ? (t.progress ?? 0) >= 50
+          : true
+      if (willComplete && viewerRole === 'hirer' && t?.talent?.name) {
+        if (!taskStore.hasReviewed(t.employer?.name, t.id)) {
+          // Defer so the status update lands first
+          setTimeout(() => setReviewForId(taskId), 250)
+        }
+      }
+      return
+    }
     setItems((prev) => prev.map((t) => {
       if (t.id !== taskId) return t
       const isSplit = t.paymentStructure === 'fifty-fifty'
@@ -865,6 +920,10 @@ export default function ActiveTaskList({
     console.log('[ChainWork] open thread for', task.id)
   }
 
+  // Review-prompt state (hirer only)
+  const [reviewForId, setReviewForId] = useState(null)
+  const reviewTask = reviewForId != null ? items.find((t) => t.id === reviewForId) : null
+
   return (
     <>
       <div className={`grid ${columns} gap-4`}>
@@ -888,8 +947,16 @@ export default function ActiveTaskList({
           onSubmitForReview={onSubmitForReview}
           onApproveMilestone={approveMilestone}
           onRequestAdjustment={requestAdjustment}
+          onLeaveReview={() => setReviewForId(open.id)}
         />
       )}
+
+      <LeaveReviewModal
+        open={!!reviewTask && viewerRole === 'hirer'}
+        task={reviewTask}
+        onClose={() => setReviewForId(null)}
+        onSubmit={({ rating, body }) => taskStore.addReview({ taskId: reviewForId, rating, body })}
+      />
     </>
   )
 }
