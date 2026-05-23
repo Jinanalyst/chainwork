@@ -4,6 +4,9 @@ import ActiveTaskList from '../components/ActiveTaskList.jsx'
 import { fmtUSD, parseBudget, workerNet } from '../lib/fees.js'
 import { useTaskStore } from '../hooks/useTaskStore.js'
 import { taskStore } from '../lib/taskStore.js'
+import { useSession } from '../hooks/useSession.js'
+import { isLiveChatReady } from '../lib/liveChat.js'
+import LiveChatPanel from '../components/LiveChatPanel.jsx'
 
 // ---------- Mock data (replace with Supabase queries when ready) ----------
 
@@ -304,11 +307,20 @@ const Messages = ({ threads, selectedId, onSelect, onSend, onOpenTask }) => {
   const selected = threads.find((t) => t.id === selectedId) || threads[0]
   // Mobile-first: when a thread is selected on small screens we hide the list.
   const [mobileView, setMobileView] = useState('list') // 'list' | 'thread'
+  const { user } = useSession()
+  const live = isLiveChatReady(user)
 
   return (
     <div className="grid lg:grid-cols-[320px_1fr] gap-4">
       <div className={(mobileView === 'thread' ? 'hidden lg:block ' : 'block ') + 'card !p-3'}>
-        <div className="text-xs uppercase tracking-wider text-white/45 px-2 mb-2">Conversations</div>
+        <div className="text-xs uppercase tracking-wider text-white/45 px-2 mb-2 flex items-center justify-between">
+          <span>Conversations</span>
+          {live && (
+            <span className="inline-flex items-center gap-1 text-[10px] text-accent-300 normal-case tracking-normal">
+              <span className="h-1.5 w-1.5 rounded-full bg-accent-400 animate-pulse" /> Live
+            </span>
+          )}
+        </div>
         <div className="space-y-1">
           {threads.map((t) => (
             <ThreadRow
@@ -321,12 +333,22 @@ const Messages = ({ threads, selectedId, onSelect, onSend, onOpenTask }) => {
         </div>
       </div>
       <div className={mobileView === 'list' ? 'hidden lg:block' : 'block'}>
-        <Conversation
-          thread={selected}
-          onSend={onSend}
-          onBack={() => setMobileView('list')}
-          onOpenTask={onOpenTask}
-        />
+        {live && selected ? (
+          <LiveChatPanel
+            taskId={selected.taskId}
+            role="hirer"
+            displayName={HIRER.name}
+            title={selected.worker?.name || 'Conversation'}
+            subtitle={selected.taskTitle}
+          />
+        ) : (
+          <Conversation
+            thread={selected}
+            onSend={onSend}
+            onBack={() => setMobileView('list')}
+            onOpenTask={onOpenTask}
+          />
+        )}
       </div>
     </div>
   )

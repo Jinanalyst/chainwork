@@ -11,6 +11,9 @@ import StarRating from '../components/StarRating.jsx'
 import { useTasks } from '../hooks/useTasks.js'
 import { useTaskStore } from '../hooks/useTaskStore.js'
 import { taskStore } from '../lib/taskStore.js'
+import { useSession } from '../hooks/useSession.js'
+import { isLiveChatReady } from '../lib/liveChat.js'
+import LiveChatPanel from '../components/LiveChatPanel.jsx'
 import { PLATFORM_FEE_RATE, platformFee, workerNet, fmtUSD } from '../lib/fees.js'
 
 // `gross` stats (subject to the 10% fee) display NET as the headline number
@@ -285,6 +288,101 @@ const Section = ({ title, children, action }) => (
   </section>
 )
 
+// Worker messages: rooms for active tasks (working together) and offers
+// the worker has engaged with (offering phase). Live via Supabase Realtime.
+const WorkerMessages = ({ tasks, offers, displayName }) => {
+  const { user } = useSession()
+  const live = isLiveChatReady(user)
+
+  const rooms = useMemo(() => {
+    const a = (tasks || []).map((t) => ({
+      taskId: t.id, title: t.title,
+      sub: `with ${t.employer?.name || 'hirer'} · ${t.status || ''}`,
+      kind: 'task',
+    }))
+    const b = (offers || []).map((o) => ({
+      taskId: o.id, title: o.title,
+      sub: `offer from ${o.employer?.name || 'hirer'}`,
+      kind: 'offer',
+    }))
+    return [...a, ...b]
+  }, [tasks, offers])
+
+  const [selected, setSelected] = useState(rooms[0]?.taskId ?? null)
+  const selectedRoom = rooms.find((r) => r.taskId === selected) || rooms[0]
+
+  if (!live) {
+    return (
+      <Section title="Messages">
+        <div className="card text-center py-10">
+          <div className="text-sm text-white/70">Connect your wallet to chat live.</div>
+          <div className="text-[11px] text-white/45 mt-1">Use the Connect wallet button in the top nav.</div>
+        </div>
+      </Section>
+    )
+  }
+
+  if (rooms.length === 0) {
+    return (
+      <Section title="Messages">
+        <div className="card text-center py-10">
+          <div className="text-white/70">No conversations yet.</div>
+          <div className="text-xs text-white/45 mt-1">Open an offer or accept a task to start chatting.</div>
+        </div>
+      </Section>
+    )
+  }
+
+  return (
+    <Section
+      title="Messages"
+      action={(
+        <span className="inline-flex items-center gap-1 text-[11px] text-accent-300">
+          <span className="h-1.5 w-1.5 rounded-full bg-accent-400 animate-pulse" /> Live
+        </span>
+      )}
+    >
+      <div className="grid lg:grid-cols-[320px_1fr] gap-4">
+        <div className="card !p-3">
+          <div className="text-xs uppercase tracking-wider text-white/45 px-2 mb-2">Conversations</div>
+          <div className="space-y-1">
+            {rooms.map((r) => (
+              <button
+                key={`${r.kind}-${r.taskId}`}
+                onClick={() => setSelected(r.taskId)}
+                className={
+                  'w-full text-left rounded-xl px-3 py-3 transition border ' +
+                  (selectedRoom?.taskId === r.taskId
+                    ? 'bg-white/[0.08] border-white/15'
+                    : 'hover:bg-white/[0.04] border-transparent')
+                }
+              >
+                <div className="text-sm font-medium truncate">{r.title}</div>
+                <div className="text-[11px] text-white/55 truncate">{r.sub}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          {selectedRoom && (
+            <LiveChatPanel
+              key={selectedRoom.taskId}
+              taskId={selectedRoom.taskId}
+              role="worker"
+              displayName={displayName}
+              title={selectedRoom.title}
+              subtitle={selectedRoom.sub}
+              emptyHint={selectedRoom.kind === 'offer'
+                ? 'Introduce yourself to the hirer — they will see this live.'
+                : 'No messages yet — say hello.'}
+            />
+          )}
+        </div>
+      </div>
+    </Section>
+  )
+}
+
 
 export default function WorkerDashboard() {
   const [tab, setTab] = useState('overview')
@@ -412,6 +510,7 @@ export default function WorkerDashboard() {
               ['overview',   'Overview'],
               ['offers',     `Offers${offers.length ? ` (${offers.length})` : ''}`],
               ['tasks',      'Active tasks'],
+              ['messages',   'Messages'],
               ['payments',   'Payments'],
               ['portfolio',  'Portfolio'],
               ['experience', 'Experience'],
@@ -522,6 +621,14 @@ export default function WorkerDashboard() {
               </>
             )}
           </Section>
+        )}
+
+        {tab === 'messages' && (
+          <WorkerMessages
+            tasks={tasks}
+            offers={offers}
+            displayName={profile.name || ME.name}
+          />
         )}
 
         {tab === 'payments' && (
