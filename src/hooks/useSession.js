@@ -8,14 +8,24 @@ export function useSession() {
   useEffect(() => {
     if (!supabase) { setLoading(false); return }
     let mounted = true
-    supabase.auth.getSession().then(({ data }) => {
+
+    // Both paths must flip `loading` to false, otherwise gates that wait on
+    // session-load (e.g. App's needsAuth gate) stay stuck when the persisted
+    // session restores via onAuthStateChange before getSession() resolves.
+    supabase.auth.getSession()
+      .then(({ data }) => {
+        if (!mounted) return
+        setSession(data.session)
+      })
+      .catch((e) => { console.warn('[useSession] getSession failed:', e?.message || e) })
+      .finally(() => { if (mounted) setLoading(false) })
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_evt, s) => {
       if (!mounted) return
-      setSession(data.session)
+      setSession(s)
       setLoading(false)
     })
-    const { data: sub } = supabase.auth.onAuthStateChange((_evt, s) => {
-      setSession(s)
-    })
+
     return () => { mounted = false; sub.subscription.unsubscribe() }
   }, [])
 

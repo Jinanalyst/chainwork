@@ -749,7 +749,7 @@ export default function App() {
     <div className="min-h-screen flex flex-col">
       {showChrome && <Nav route={route} user={user} onSignIn={openSignIn} onSignOut={signOut} />}
       <main className="flex-1">
-        {needsAuth && loading ? (
+        {needsAuth && loading && !user ? (
           <div className="py-24 text-center text-white/50 text-sm">Loading…</div>
         ) : page}
       </main>
