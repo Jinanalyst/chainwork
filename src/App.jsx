@@ -7,6 +7,7 @@ import PostTask from './pages/PostTask.jsx'
 import WorkerDashboard from './pages/WorkerDashboard.jsx'
 import JoinAsWorker from './pages/JoinAsWorker.jsx'
 import Talents from './pages/Talents.jsx'
+import HirerDashboard from './pages/HirerDashboard.jsx'
 
 const UserChip = ({ user, onSignOut }) => {
   const [open, setOpen] = useState(false)
@@ -30,7 +31,8 @@ const UserChip = ({ user, onSignOut }) => {
               <div className="text-xs text-white/45">Signed in as</div>
               <div className="font-mono text-sm truncate">{display}</div>
             </div>
-            <a href="#/worker" onClick={() => setOpen(false)} className="block px-4 py-2.5 text-sm hover:bg-white/5">Worker dashboard</a>
+            <a href="#/hirer"     onClick={() => setOpen(false)} className="block px-4 py-2.5 text-sm hover:bg-white/5">Hirer dashboard</a>
+            <a href="#/worker"    onClick={() => setOpen(false)} className="block px-4 py-2.5 text-sm hover:bg-white/5">Worker dashboard</a>
             <a href="#/post-task" onClick={() => setOpen(false)} className="block px-4 py-2.5 text-sm hover:bg-white/5">Post a task</a>
             <button onClick={() => { setOpen(false); onSignOut() }} className="w-full text-left px-4 py-2.5 text-sm hover:bg-white/5 border-t border-white/5 text-rose-200">
               Sign out
@@ -50,10 +52,10 @@ const Nav = ({ route, user, onSignIn, onSignOut }) => (
         <Wordmark className="text-xl" />
       </a>
       <nav className="hidden md:flex items-center gap-8 text-sm text-white/70">
-        <a href="#/"          className={'hover:text-white ' + (route === '#/' ? 'text-white' : '')}>Home</a>
-        <a href="#/talents"   className={'hover:text-white ' + (route.startsWith('#/talents') ? 'text-white' : '')}>Talents</a>
-        <a href="#/post-task" className={'hover:text-white ' + (route.startsWith('#/post') ? 'text-white' : '')}>For hirers</a>
-        <a href="#/worker"    className={'hover:text-white ' + (route.startsWith('#/worker') ? 'text-white' : '')}>For workers</a>
+        <a href="#/"        className={'hover:text-white ' + (route === '#/' ? 'text-white' : '')}>Home</a>
+        <a href="#/talents" className={'hover:text-white ' + (route.startsWith('#/talents') ? 'text-white' : '')}>Talents</a>
+        <a href="#/hirer"   className={'hover:text-white ' + ((route.startsWith('#/hirer') || route.startsWith('#/post-task')) ? 'text-white' : '')}>For hirers</a>
+        <a href="#/worker"  className={'hover:text-white ' + (route.startsWith('#/worker') ? 'text-white' : '')}>For workers</a>
       </nav>
       <div className="flex items-center gap-3">
         {user ? (
@@ -418,7 +420,10 @@ const TwoSides = () => (
               </li>
             ))}
           </ul>
-          <a href="#/post-task" className="btn-primary mt-8">Post a task</a>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <a href="#/post-task" className="btn-primary">Post a task</a>
+            <a href="#/hirer" className="btn-ghost">Open hirer dashboard</a>
+          </div>
         </div>
       </div>
       <div id="work" className="card p-8 md:p-10 relative overflow-hidden">
@@ -627,11 +632,15 @@ export default function App() {
   // Onboarding routes render their own minimal chrome — hide the global nav/footer.
   const isOnboarding =
     route.startsWith('#/post-task') || route.startsWith('#/join-as-worker')
-  const needsAuth = isOnboarding || route.startsWith('#/worker')
+  const needsAuth = isOnboarding || route.startsWith('#/worker') || route.startsWith('#/hirer')
 
   let page
   if (route.startsWith('#/talents')) {
     page = <Talents />
+  } else if (route.startsWith('#/hirer')) {
+    page = user
+      ? <HirerDashboard />
+      : <AuthGate title="Sign in to open your hirer dashboard" sub="Your posted tasks, escrow, and chats with workers live behind your wallet." onSignIn={openSignIn} />
   } else if (route.startsWith('#/post-task')) {
     page = user
       ? <PostTask />
