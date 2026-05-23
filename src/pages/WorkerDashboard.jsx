@@ -104,12 +104,18 @@ const ACTIVE_TASKS = [
   },
 ]
 
+// Amounts are gross USD. The platform takes 10% — workers receive 90%.
 const PAYOUTS = [
-  { id: 1, when: 'May 18', title: 'Token landing page',      amount: '$1,200', method: 'USDC',  chain: 'Base',     status: 'Paid' },
-  { id: 2, when: 'May 14', title: 'PWA setup for shop site', amount: '$540',   method: 'USDT',  chain: 'Ethereum', status: 'Paid' },
-  { id: 3, when: 'May 09', title: 'Mobile responsive fixes', amount: '$180',   method: 'USDC',  chain: 'Solana',   status: 'Paid' },
-  { id: 4, when: 'May 03', title: 'OpenAI API integration',  amount: '$760',   method: 'USDT',  chain: 'Polygon',  status: 'Paid' },
+  { id: 1, when: 'May 18', title: 'Token landing page',      amount: 1200, method: 'USDC', chain: 'Base',     status: 'Paid' },
+  { id: 2, when: 'May 14', title: 'PWA setup for shop site', amount:  540, method: 'USDT', chain: 'Ethereum', status: 'Paid' },
+  { id: 3, when: 'May 09', title: 'Mobile responsive fixes', amount:  180, method: 'USDC', chain: 'Solana',   status: 'Paid' },
+  { id: 4, when: 'May 03', title: 'OpenAI API integration',  amount:  760, method: 'USDT', chain: 'Polygon',  status: 'Paid' },
 ]
+
+const PLATFORM_FEE_RATE = 0.10
+const platformFee = (gross) => Math.round(gross * PLATFORM_FEE_RATE * 100) / 100
+const workerNet   = (gross) => Math.round((gross - platformFee(gross)) * 100) / 100
+const fmtUSD = (n) => '$' + n.toLocaleString(undefined, { maximumFractionDigits: 2 })
 
 const PORTFOLIO = [
   { id: 1, title: 'Northwind launch site',     category: 'Web Build',       client: 'Northwind Co.',  payout: '$950',   color: 'from-brand-400 to-brand-700' },
@@ -168,28 +174,61 @@ const TokenChip = ({ token }) => (
   </span>
 )
 
-const PayoutTable = ({ rows }) => (
-  <div className="card !p-0 overflow-hidden">
-    <div className="grid grid-cols-12 px-5 py-3 text-[11px] uppercase tracking-wider text-white/40 border-b border-white/10">
-      <div className="col-span-2">Date</div>
-      <div className="col-span-4">Task</div>
-      <div className="col-span-2">Token</div>
-      <div className="col-span-1">Chain</div>
-      <div className="col-span-2 text-right">Amount</div>
-      <div className="col-span-1 text-right">Status</div>
-    </div>
-    {rows.map((p) => (
-      <div key={p.id} className="grid grid-cols-12 px-5 py-3 text-sm border-b border-white/5 last:border-0 hover:bg-white/[0.02]">
-        <div className="col-span-2 text-white/65">{p.when}</div>
-        <div className="col-span-4 truncate">{p.title}</div>
-        <div className="col-span-2"><TokenChip token={p.method} /></div>
-        <div className="col-span-1 text-white/65 text-xs">{p.chain}</div>
-        <div className="col-span-2 text-right font-semibold">{p.amount}</div>
-        <div className="col-span-1 text-right"><Pill tone="ok">{p.status}</Pill></div>
+const PayoutTable = ({ rows }) => {
+  const totals = rows.reduce(
+    (acc, r) => {
+      acc.gross += r.amount
+      acc.fee   += platformFee(r.amount)
+      acc.net   += workerNet(r.amount)
+      return acc
+    },
+    { gross: 0, fee: 0, net: 0 },
+  )
+  return (
+    <div className="card !p-0 overflow-hidden">
+      <div className="px-5 py-3 border-b border-white/10 flex items-center justify-between text-xs">
+        <div className="text-white/55">
+          Platform fee: <span className="text-white/85 font-medium">10%</span>
+          <span className="text-white/30"> · </span>
+          You receive: <span className="text-accent-300 font-medium">90%</span>
+        </div>
+        <div className="text-white/55">
+          Lifetime net: <span className="text-white font-semibold">{fmtUSD(totals.net)}</span>
+          <span className="text-white/35"> of </span>
+          <span className="text-white/75">{fmtUSD(totals.gross)} gross</span>
+        </div>
       </div>
-    ))}
-  </div>
-)
+      <div className="grid grid-cols-12 px-5 py-3 text-[11px] uppercase tracking-wider text-white/40 border-b border-white/10">
+        <div className="col-span-2">Date</div>
+        <div className="col-span-4">Task</div>
+        <div className="col-span-2">Token · Chain</div>
+        <div className="col-span-1 text-right">Gross</div>
+        <div className="col-span-1 text-right">Fee 10%</div>
+        <div className="col-span-2 text-right">You receive</div>
+      </div>
+      {rows.map((p) => {
+        const fee = platformFee(p.amount)
+        const net = workerNet(p.amount)
+        return (
+          <div key={p.id} className="grid grid-cols-12 px-5 py-3 text-sm border-b border-white/5 last:border-0 hover:bg-white/[0.02] items-center">
+            <div className="col-span-2 text-white/65">{p.when}</div>
+            <div className="col-span-4 min-w-0">
+              <div className="truncate">{p.title}</div>
+              <div className="text-[11px] text-white/40 mt-0.5"><Pill tone="ok">{p.status}</Pill></div>
+            </div>
+            <div className="col-span-2">
+              <TokenChip token={p.method} />
+              <div className="text-[11px] text-white/45 mt-0.5">{p.chain}</div>
+            </div>
+            <div className="col-span-1 text-right text-white/65">{fmtUSD(p.amount)}</div>
+            <div className="col-span-1 text-right text-rose-200/80">−{fmtUSD(fee)}</div>
+            <div className="col-span-2 text-right font-semibold text-accent-300">{fmtUSD(net)}</div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
 
 const Section = ({ title, children, action }) => (
   <section className="mb-10">
