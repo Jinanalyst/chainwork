@@ -3,7 +3,7 @@ import { LogoMark, Wordmark, Icon, useHashRoute, navigate } from './components/u
 import { CATEGORIES as WEB_CATEGORIES } from './data/categories.jsx'
 import SignInModal from './components/SignInModal.jsx'
 import RoleSelectModal from './components/RoleSelectModal.jsx'
-import { useSession, shortAddress, getWalletDisplay } from './hooks/useSession.js'
+import { useSession, shortAddress, getWalletDisplay, getWalletAddress, handleFor } from './hooks/useSession.js'
 import { useProfile } from './hooks/useProfile.js'
 import { supabase } from './lib/supabase.js'
 import PostTask from './pages/PostTask.jsx'
@@ -20,14 +20,24 @@ import { PLATFORM_WALLETS, proReference, isCurrentUserAdmin } from './lib/platfo
 const UserChip = ({ user, onSignOut }) => {
   const [open, setOpen] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
-  const display = getWalletDisplay(user)
-  const label = display && display.length > 12 ? shortAddress(display) : display
+  const [copied, setCopied] = useState(false)
+  const address = getWalletAddress(user)
+  const handle  = handleFor(user)
+  const label   = handle || shortAddress(address) || 'Account'
   useEffect(() => {
     if (!user) { setIsAdmin(false); return }
     let cancelled = false
     isCurrentUserAdmin().then((v) => { if (!cancelled) setIsAdmin(v) })
     return () => { cancelled = true }
   }, [user?.id])
+  const copyAddress = async () => {
+    if (!address) return
+    try {
+      await navigator.clipboard.writeText(address)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {}
+  }
   return (
     <div className="relative">
       <button
@@ -35,16 +45,27 @@ const UserChip = ({ user, onSignOut }) => {
         className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.04] hover:border-white/30 px-3 py-1.5 text-sm"
       >
         <span className="h-6 w-6 rounded-full bg-gradient-to-br from-brand-400 to-accent-400" />
-        <span className="font-mono text-xs">{label || 'Account'}</span>
+        <span className="text-xs">{label}</span>
         <Icon path={<path d="M6 9l6 6 6-6" />} className="h-3.5 w-3.5 text-white/60" />
       </button>
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-white/10 bg-ink-900 shadow-glow z-50 overflow-hidden">
+          <div className="absolute right-0 mt-2 w-72 rounded-2xl border border-white/10 bg-ink-900 shadow-glow z-50 overflow-hidden">
             <div className="px-4 py-3 border-b border-white/5">
-              <div className="text-xs text-white/45">Signed in as</div>
-              <div className="font-mono text-sm truncate">{display}</div>
+              <div className="text-[10px] uppercase tracking-[0.18em] text-white/45">Signed in as</div>
+              <div className="mt-1 text-sm font-semibold">{handle || 'Account'}</div>
+              {address && (
+                <button
+                  onClick={copyAddress}
+                  className="mt-1 w-full text-left group inline-flex items-center justify-between gap-2 font-mono text-[11px] text-white/55 hover:text-white"
+                >
+                  <span className="truncate">{shortAddress(address)}</span>
+                  <span className="text-[10px] text-white/45 group-hover:text-white shrink-0">
+                    {copied ? 'Copied' : 'Copy'}
+                  </span>
+                </button>
+              )}
             </div>
             <a href="#/hirer"     onClick={() => setOpen(false)} className="block px-4 py-2.5 text-sm hover:bg-white/5">Hirer dashboard</a>
             <a href="#/worker"    onClick={() => setOpen(false)} className="block px-4 py-2.5 text-sm hover:bg-white/5">Worker dashboard</a>

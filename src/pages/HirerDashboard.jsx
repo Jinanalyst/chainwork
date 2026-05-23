@@ -4,7 +4,7 @@ import ActiveTaskList from '../components/ActiveTaskList.jsx'
 import { fmtUSD, parseBudget, workerNet } from '../lib/fees.js'
 import { useTaskStore } from '../hooks/useTaskStore.js'
 import { taskStore } from '../lib/taskStore.js'
-import { useSession, getWalletDisplay, shortAddress } from '../hooks/useSession.js'
+import { useSession, getWalletAddress, shortAddress, handleFor } from '../hooks/useSession.js'
 import { useProfile } from '../hooks/useProfile.js'
 import { isLiveChatReady } from '../lib/liveChat.js'
 import LiveChatPanel from '../components/LiveChatPanel.jsx'
@@ -149,7 +149,7 @@ const INITIAL_THREADS = [
 // ---------- Helpers ----------
 
 const initials = (n) =>
-  (n || '?').split(/\s+/).map((p) => p[0] || '').slice(0, 2).join('').toUpperCase()
+  (n || '?').split(/[\s-]+/).map((p) => p[0] || '').slice(0, 2).join('').toUpperCase()
 
 const Pill = ({ children, tone = 'default' }) => {
   const tones = {
@@ -366,8 +366,11 @@ export default function HirerDashboard() {
   const { profile: profileRow, update: updateProfileRow } = useProfile()
 
   // Editable profile mirror — hydrated from the Supabase row when it loads.
-  const walletDisplay = getWalletDisplay(user)
-  const defaultName = walletDisplay && walletDisplay.length > 12 ? shortAddress(walletDisplay) : (walletDisplay || '')
+  const walletAddress = getWalletAddress(user)
+  const handle        = handleFor(user)
+  // Pre-display-name fallback: the friendly dashed-words handle, with the
+  // shortened wallet address as a last resort if no user is signed in.
+  const defaultName = handle || shortAddress(walletAddress) || ''
   const [profile, setProfile] = useState({
     name: '', company: '', role: '', location: '', email: '', bio: '', websiteUrl: '',
     socials: { twitter: '', linkedin: '', website: '' },
@@ -474,13 +477,16 @@ export default function HirerDashboard() {
           <div className="absolute -top-24 -right-20 h-64 w-64 rounded-full bg-brand-500/20 blur-3xl" />
           <div className="relative flex flex-col md:flex-row md:items-center gap-6">
             <div className={`h-20 w-20 rounded-2xl bg-gradient-to-br ${HIRER.accent} grid place-items-center text-2xl font-bold text-ink-950 shrink-0`}>
-              {initials(selfName || '?')}
+              {initials(selfName || handle || '?')}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-2xl md:text-3xl font-bold">{selfName || 'Your account'}</h1>
+                <h1 className="text-2xl md:text-3xl font-bold">{selfName || handle || 'Your account'}</h1>
                 <Pill tone="info">Hirer</Pill>
                 {selfCompany && <Pill>{selfCompany}</Pill>}
+                {walletAddress && (
+                  <Pill><span className="font-mono">{shortAddress(walletAddress)}</span></Pill>
+                )}
               </div>
               {(profile.role || profile.location) && (
                 <div className="mt-1 text-white/70">

@@ -11,7 +11,7 @@ import StarRating from '../components/StarRating.jsx'
 import { useTasks } from '../hooks/useTasks.js'
 import { useTaskStore } from '../hooks/useTaskStore.js'
 import { taskStore } from '../lib/taskStore.js'
-import { useSession, getWalletDisplay, shortAddress } from '../hooks/useSession.js'
+import { useSession, getWalletAddress, shortAddress, handleFor } from '../hooks/useSession.js'
 import { useProfile } from '../hooks/useProfile.js'
 import { isLiveChatReady } from '../lib/liveChat.js'
 import LiveChatPanel from '../components/LiveChatPanel.jsx'
@@ -288,8 +288,9 @@ export default function WorkerDashboard() {
   const store = useTaskStore()
 
   // Hydrate display name + bio from the signed-in user's profile row.
-  const walletDisplay = getWalletDisplay(user)
-  const defaultName = walletDisplay && walletDisplay.length > 12 ? shortAddress(walletDisplay) : (walletDisplay || '')
+  const walletAddress = getWalletAddress(user)
+  const handle        = handleFor(user)
+  const defaultName   = handle || shortAddress(walletAddress) || ''
   useEffect(() => {
     setProfile((p) => ({
       ...p,
@@ -375,11 +376,14 @@ export default function WorkerDashboard() {
           <div className="absolute -top-24 -right-20 h-64 w-64 rounded-full bg-brand-500/20 blur-3xl" />
           <div className="relative flex flex-col md:flex-row md:items-center gap-6">
             <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-brand-400 to-accent-400 grid place-items-center text-2xl font-bold text-ink-950 shrink-0">
-              {(profile.name || '?').split(/\s+/).map((p) => p[0] || '').slice(0, 2).join('').toUpperCase()}
+              {(profile.name || handle || '?').split(/[\s-]+/).map((p) => p[0] || '').slice(0, 2).join('').toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-2xl md:text-3xl font-bold">{profile.name || 'Your name'}</h1>
+                <h1 className="text-2xl md:text-3xl font-bold">{profile.name || handle || 'Your name'}</h1>
+                {walletAddress && (
+                  <Pill><span className="font-mono">{shortAddress(walletAddress)}</span></Pill>
+                )}
                 {profileRow?.is_verified && (
                   <Pill tone="ok"><Icon path={<path d="M5 12l4 4 10-10" />} className="h-3 w-3" /> Verified</Pill>
                 )}
