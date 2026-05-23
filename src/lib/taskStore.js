@@ -213,8 +213,8 @@ const SEED_THREADS = [
 
 let state = { tasks: SEED_TASKS, threads: SEED_THREADS }
 const listeners = new Set()
-const notify = () => listeners.forEach((fn) => fn())
-const update = (updater) => { state = updater(state); notify() }
+const notifyListeners = () => listeners.forEach((fn) => fn())
+const update = (updater) => { state = updater(state); notifyListeners() }
 const uid = (prefix = 'id') => `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
 
 const WORKER_ACCENTS = ['from-brand-400 to-accent-400', 'from-violet-500 to-accent-500', 'from-amber-400 to-rose-500', 'from-emerald-400 to-accent-600']
