@@ -45,6 +45,27 @@ async function signInEthereum() {
   }
 }
 
+async function signInLinkedIn() {
+  if (typeof window === 'undefined') throw new Error('Browser only')
+  // Bring the user back to the same origin + hash route after the OAuth
+  // round-trip. Supabase appends ?code=... to this URL and detectSessionInUrl
+  // exchanges it for a session automatically.
+  const redirectTo = window.location.origin + window.location.pathname + '#/'
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'linkedin_oidc',
+    options: {
+      redirectTo,
+      scopes: 'openid profile email',
+    },
+  })
+  if (error) {
+    console.error('[ChainWork] LinkedIn sign-in failed:', error)
+    throw new Error(error.message || 'LinkedIn sign-in failed. Please try again.')
+  }
+  // signInWithOAuth navigates away; this return is for completeness.
+  return data
+}
+
 async function signInSolana() {
   if (!detectSolanaProvider()) {
     window.open(SOL_INSTALL_URL, '_blank', 'noopener,noreferrer')
@@ -72,7 +93,15 @@ async function signInSolana() {
   }
 }
 
-const WalletButton = ({ name, hint, accent, onClick, busy, disabled }) => (
+const WALLET_ICON = <path d="M3 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2h2v8h-2v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM17 13h.01" />
+const LINKEDIN_ICON = (
+  <>
+    <rect x="3" y="3" width="18" height="18" rx="3" />
+    <path d="M8 10v7M8 7v.01M12 17v-4a2 2 0 0 1 4 0v4M12 17v-7" />
+  </>
+)
+
+const SignInButton = ({ name, hint, accent, icon = WALLET_ICON, onClick, busy, disabled }) => (
   <button
     type="button"
     onClick={onClick}
@@ -86,7 +115,7 @@ const WalletButton = ({ name, hint, accent, onClick, busy, disabled }) => (
   >
     <div className="flex items-center gap-3 min-w-0">
       <div className={`h-11 w-11 rounded-xl grid place-items-center text-white shrink-0 bg-gradient-to-br ${accent}`}>
-        <Icon path={<path d="M3 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2h2v8h-2v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM17 13h.01" />} className="h-5 w-5" />
+        <Icon path={icon} className="h-5 w-5" />
       </div>
       <div className="min-w-0">
         <div className="font-semibold truncate">{name}</div>
@@ -102,7 +131,7 @@ const WalletButton = ({ name, hint, accent, onClick, busy, disabled }) => (
 )
 
 export default function SignInModal({ open, onClose, onSignedIn }) {
-  const [busy, setBusy] = useState(null) // 'eth' | 'sol' | null
+  const [busy, setBusy] = useState(null) // 'eth' | 'sol' | 'linkedin' | null
   const [error, setError] = useState(null)
 
   useEffect(() => {
@@ -142,7 +171,7 @@ export default function SignInModal({ open, onClose, onSignedIn }) {
         </button>
 
         <h2 className="text-xl font-bold">Sign in to ChainWork</h2>
-        <p className="mt-1 text-sm text-white/65">Connect a wallet to post tasks, send offers, and get paid.</p>
+        <p className="mt-1 text-sm text-white/65">Use a wallet or your LinkedIn account to post tasks, send offers, and get paid.</p>
 
         {!isSupabaseConfigured && (
           <div className="mt-5 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
@@ -151,7 +180,7 @@ export default function SignInModal({ open, onClose, onSignedIn }) {
         )}
 
         <div className="mt-6 space-y-3">
-          <WalletButton
+          <SignInButton
             name="Continue with Ethereum"
             hint={ethAvailable ? 'MetaMask, Coinbase Wallet, Rabby…' : 'No wallet detected — install MetaMask'}
             accent="from-brand-400 to-brand-700"
@@ -159,13 +188,29 @@ export default function SignInModal({ open, onClose, onSignedIn }) {
             disabled={!!busy || !isSupabaseConfigured}
             onClick={() => handle('eth', signInEthereum)}
           />
-          <WalletButton
+          <SignInButton
             name="Continue with Solana"
             hint={solAvailable ? 'Phantom, Solflare…' : 'No wallet detected — install Phantom'}
             accent="from-violet-500 to-accent-500"
             busy={busy === 'sol'}
             disabled={!!busy || !isSupabaseConfigured}
             onClick={() => handle('sol', signInSolana)}
+          />
+
+          <div className="flex items-center gap-3 py-1">
+            <div className="flex-1 h-px bg-white/10" />
+            <span className="text-[10px] uppercase tracking-[0.2em] text-white/35">or</span>
+            <div className="flex-1 h-px bg-white/10" />
+          </div>
+
+          <SignInButton
+            name="Continue with LinkedIn"
+            hint="No wallet needed — uses your LinkedIn name + email"
+            accent="from-[#0a66c2] to-[#0a4a8c]"
+            icon={LINKEDIN_ICON}
+            busy={busy === 'linkedin'}
+            disabled={!!busy || !isSupabaseConfigured}
+            onClick={() => handle('linkedin', signInLinkedIn)}
           />
         </div>
 
