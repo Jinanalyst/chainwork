@@ -731,36 +731,48 @@ export default function App() {
 
   const openSignIn  = () => setSignInOpen(true)
   const closeSignIn = () => setSignInOpen(false)
-  const signOut = async () => {
-    // Belt-and-braces sign-out. Some auth setups (OAuth providers, admin
-    // sessions, stale tokens) can leave the Supabase client unable to talk
-    // to the server, so we never let one failing step block the others:
-    //   1. Try a local-scope signOut so onAuthStateChange fires SIGNED_OUT.
-    //   2. Try a global signOut to revoke the token server-side.
-    //   3. Hard-wipe the persisted auth key in localStorage / sessionStorage
-    //      in case (1) silently no-op'd.
-    //   4. Fall back to a full reload to "/" so no stale React state survives.
-    if (supabase) {
-      try { await supabase.auth.signOut({ scope: 'local' }) } catch (e) { console.warn('[signOut] local failed:', e?.message || e) }
-      supabase.auth.signOut().catch(() => {})
-    }
+  const signOut = () => {
+    // Order matters. We wipe persisted session synchronously BEFORE asking
+    // Supabase to sign out — otherwise autoRefreshToken can race the wipe
+    // and re-persist a fresh token under the same storage key, leaving the
+    // user "auto-signed-in to the wallet" the moment the page reloads.
     if (typeof window !== 'undefined') {
       try {
-        const keys = ['chainwork.auth', 'sb-auth-token']
         for (const storage of [window.localStorage, window.sessionStorage]) {
-          for (const k of keys) { try { storage.removeItem(k) } catch {} }
-          for (let i = storage.length - 1; i >= 0; i--) {
+          const remove = []
+          for (let i = 0; i < storage.length; i++) {
             const k = storage.key(i)
-            if (k && (/^sb-.*-auth-token/.test(k) || k.startsWith('chainwork.'))) {
-              try { storage.removeItem(k) } catch {}
+            if (k && (/^sb-/.test(k) || k.startsWith('chainwork.') || k.includes('supabase'))) {
+              remove.push(k)
             }
           }
+          for (const k of remove) { try { storage.removeItem(k) } catch {} }
+        }
+        // Best-effort IndexedDB cleanup in case the SDK ever switches.
+        if (window.indexedDB?.databases) {
+          window.indexedDB.databases().then((dbs) => {
+            for (const db of dbs || []) {
+              if (db.name && /supabase|gotrue/i.test(db.name)) {
+                try { window.indexedDB.deleteDatabase(db.name) } catch {}
+              }
+            }
+          }).catch(() => {})
         }
       } catch {}
-      // Full reload home so the React tree starts cold — no admin badge,
-      // no role modal lingering from the previous session.
-      window.location.replace(window.location.pathname + '#/')
-      window.location.reload()
+    }
+
+    // Fire-and-forget server-side revocation. Do NOT await — async failures
+    // (offline, slow auth API) must never block the navigation below.
+    if (supabase) {
+      try { supabase.auth.signOut({ scope: 'local' }) } catch {}
+      try { supabase.auth.signOut() } catch {}
+    }
+
+    // Hard-navigate to root. This drops any leftover OAuth fragments in the
+    // URL (?code=…, #access_token=…) so detectSessionInUrl can't re-auth on
+    // load, and starts the React tree completely cold.
+    if (typeof window !== 'undefined') {
+      window.location.href = window.location.origin + window.location.pathname
     }
   }
 
