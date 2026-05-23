@@ -16,6 +16,7 @@ import { useProfile } from '../hooks/useProfile.js'
 import { isLiveChatReady } from '../lib/liveChat.js'
 import LiveChatPanel from '../components/LiveChatPanel.jsx'
 import RoleSwitcher from '../components/RoleSwitcher.jsx'
+import PayoutWalletCard from '../components/PayoutWalletCard.jsx'
 import { PLATFORM_FEE_RATE, platformFee, workerNet, fmtUSD } from '../lib/fees.js'
 
 // Headline stats: amounts default to 0 until real data lands.
@@ -595,7 +596,11 @@ export default function WorkerDashboard() {
               </div>
             </Section>
 
-            <Section title="Stablecoin wallets" action={<button className="text-sm text-brand-300 hover:text-white">+ Add wallet</button>}>
+            <Section title="Payout wallet">
+              <PayoutWalletCard />
+            </Section>
+
+            <Section title="Other stablecoin wallets" action={<button className="text-sm text-brand-300 hover:text-white">+ Add wallet</button>}>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {PAYMENT_METHODS.map((m) => (
                   <div key={m.id} className="card">
