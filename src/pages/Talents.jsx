@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Icon, navigate } from '../components/ui.jsx'
 import TalentCard from '../components/TalentCard.jsx'
+import ReviewsModal from '../components/ReviewsModal.jsx'
 import { TALENT_CATEGORIES } from '../data/talents.js'
 import { useTalents } from '../hooks/useTalents.js'
+import { useTaskStore } from '../hooks/useTaskStore.js'
 
 const RATE_RANGES = [
   { id: 'any', label: 'Any rate', test: () => true },
@@ -80,7 +82,7 @@ const Metric = ({ label, value }) => (
   </div>
 )
 
-const TalentProfile = ({ talent, onInvite, onClose }) => (
+const TalentProfile = ({ talent, reviewCount, onInvite, onViewReviews, onClose }) => (
   <Dialog title={`${talent.name} profile`} onClose={onClose}>
     <div className="p-5 md:p-6">
       <div className="flex flex-col sm:flex-row sm:items-start gap-4">
@@ -94,13 +96,24 @@ const TalentProfile = ({ talent, onInvite, onClose }) => (
             {talent.topRated && <span className="rounded-full border border-brand-400/30 bg-brand-500/15 px-2 py-0.5 text-xs text-brand-200">Top-rated</span>}
           </div>
           <div className="mt-1 text-white/70">{talent.role} - {talent.location}</div>
+          <button
+            type="button"
+            onClick={() => onViewReviews(talent)}
+            className="mt-2 inline-flex items-center gap-1.5 text-xs text-white/75 hover:text-white transition group"
+          >
+            <Icon path={<path d="M12 17.3l-6.2 3.7 1.6-7.1L2 9.2l7.2-.6L12 2l2.8 6.6 7.2.6-5.4 4.7 1.6 7.1z" />} className="h-3.5 w-3.5 text-amber-300" />
+            <span className="font-medium">{talent.rating.toFixed(1)}</span>
+            <span className="text-white/45 group-hover:text-white/65 underline-offset-2 group-hover:underline">
+              View {reviewCount} review{reviewCount === 1 ? '' : 's'}
+            </span>
+          </button>
           <p className="mt-3 text-sm leading-relaxed text-white/70">{talent.about}</p>
         </div>
       </div>
 
       <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-        <Metric label="Rating" value={talent.reviews ? talent.rating.toFixed(1) : 'New'} />
-        <Metric label="Reviews" value={talent.reviews} />
+        <Metric label="Rating" value={reviewCount ? talent.rating.toFixed(1) : 'New'} />
+        <Metric label="Reviews" value={reviewCount} />
         <Metric label="From" value={`$${talent.startingPrice}`} />
         <Metric label="Replies" value={talent.responseTime} />
       </div>
@@ -125,6 +138,9 @@ const TalentProfile = ({ talent, onInvite, onClose }) => (
         <button onClick={() => onInvite(talent)} className="btn-primary justify-center">
           Invite to a task
           <Icon path={<path d="M5 12h14M13 5l7 7-7 7" />} className="h-4 w-4" />
+        </button>
+        <button onClick={() => onViewReviews(talent)} className="btn-ghost justify-center">
+          View reviews ({reviewCount})
         </button>
         <button onClick={onClose} className="btn-ghost justify-center">Keep browsing</button>
       </div>
@@ -164,6 +180,7 @@ const InvitePanel = ({ talent, onClose }) => (
 
 export default function Talents() {
   const { talents, loading, source, error } = useTalents()
+  const store = useTaskStore()
   const [category, setCategory] = useState('all')
   const [rate, setRate] = useState('any')
   const [avail, setAvail] = useState('any')
@@ -171,6 +188,22 @@ export default function Talents() {
   const [query, setQuery] = useState('')
   const [profileTalent, setProfileTalent] = useState(null)
   const [inviteTalent, setInviteTalent] = useState(null)
+  const [reviewsTalent, setReviewsTalent] = useState(null)
+
+  // Reviews are keyed by worker name in the shared task store.
+  const reviewsForName = useMemo(() => {
+    const map = new Map()
+    for (const r of store.reviews || []) {
+      const list = map.get(r.workerName) || []
+      list.push(r)
+      map.set(r.workerName, list)
+    }
+    return map
+  }, [store.reviews])
+
+  const reviewCountFor = (talent) =>
+    (reviewsForName.get(talent?.name) || []).length || talent?.reviews || 0
+  const openReviews = (talent) => setReviewsTalent(talent)
 
   useEffect(() => {
     const [, slug] = (window.location.hash || '').split('#/talents/')
@@ -285,14 +318,29 @@ export default function Talents() {
                 talent={t}
                 onInvite={openInvite}
                 onView={openProfile}
+                onViewReviews={openReviews}
               />
             ))}
           </div>
         )}
       </div>
 
-      {profileTalent && <TalentProfile talent={profileTalent} onInvite={openInvite} onClose={closeProfile} />}
+      {profileTalent && (
+        <TalentProfile
+          talent={profileTalent}
+          reviewCount={reviewCountFor(profileTalent)}
+          onInvite={openInvite}
+          onViewReviews={openReviews}
+          onClose={closeProfile}
+        />
+      )}
       {inviteTalent && <InvitePanel talent={inviteTalent} onClose={() => setInviteTalent(null)} />}
+      <ReviewsModal
+        open={!!reviewsTalent}
+        workerName={reviewsTalent?.name || ''}
+        reviews={reviewsTalent ? (reviewsForName.get(reviewsTalent.name) || []) : []}
+        onClose={() => setReviewsTalent(null)}
+      />
     </section>
   )
 }

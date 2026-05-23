@@ -22,7 +22,7 @@ const Pill = ({ tone = 'default', children }) => {
  * Dark talent card used on the Talents page and (in compact mode) on the
  * post-task success page.
  */
-export default function TalentCard({ talent, compact = false, onInvite, onView }) {
+export default function TalentCard({ talent, compact = false, onInvite, onView, onViewReviews }) {
   return (
     <div className="card flex flex-col gap-4">
       <div className="flex items-start gap-3">
@@ -40,13 +40,22 @@ export default function TalentCard({ talent, compact = false, onInvite, onView }
           <div className="text-sm text-white/70 mt-0.5 truncate">{talent.role}</div>
           <div className="text-xs text-white/45 mt-0.5">{talent.location}</div>
         </div>
-        <div className="text-right shrink-0">
+        <button
+          type="button"
+          onClick={onViewReviews ? (e) => { e.stopPropagation(); onViewReviews(talent) } : undefined}
+          disabled={!onViewReviews}
+          className={
+            'text-right shrink-0 rounded-lg -m-1 p-1 transition ' +
+            (onViewReviews ? 'hover:bg-white/[0.05] cursor-pointer' : 'cursor-default')
+          }
+          aria-label={onViewReviews ? `View ${talent.reviews} reviews` : undefined}
+        >
           <div className="flex items-center gap-1 text-sm font-medium">
             <Icon path={<path d="M12 17.3l-6.2 3.7 1.6-7.1L2 9.2l7.2-.6L12 2l2.8 6.6 7.2.6-5.4 4.7 1.6 7.1z" />} className="h-3.5 w-3.5 text-amber-300" />
             {talent.rating.toFixed(1)}
           </div>
           <div className="text-[11px] text-white/45">{talent.reviews} reviews</div>
-        </div>
+        </button>
       </div>
 
       {!compact && talent.about && (
