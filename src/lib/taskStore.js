@@ -247,10 +247,7 @@ const SEED_REVIEWS = [
   },
 ]
 
-// Demo seeds removed — dashboards start empty until real data lands.
-// (SEED_* arrays above are intentionally retained as illustrative comments
-// only; they are not used as initial state.)
-let state = { tasks: [], threads: [], reviews: [] }
+let state = { tasks: SEED_TASKS, threads: SEED_THREADS, reviews: SEED_REVIEWS }
 const listeners = new Set()
 const notifyListeners = () => listeners.forEach((fn) => fn())
 const update = (updater) => { state = updater(state); notifyListeners() }
