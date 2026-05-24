@@ -1351,7 +1351,7 @@ function Home({ wallet, onLock, onSettings }) {
   const env = settings?.env || 'mainnet'
   useEffect(() => { setActiveEnv(env) }, [env])
 
-  const [balances, setBalances] = useState({ native: 0n, usdc: 0n })
+  const [chainBalances, setChainBalances] = useState({})
   const [prices,   setPrices]   = useState({ eth: { USD: 0, KRW: 0 }, matic: { USD: 0, KRW: 0 }, usdcKrw: 1340 })
   const [tab,      setTab]      = useState('Assets')
   const [send,     setSend]     = useState(false)
@@ -1361,27 +1361,44 @@ function Home({ wallet, onLock, onSettings }) {
   const [activity, setActivity] = useState([])
   const address = wallet.address
 
+  // Pull balances for every enabled chain in parallel so the total card reflects
+  // the user's full portfolio, not just the active chain.
+  const chainsKey = enabledChains.join(',')
   const refresh = async () => {
-    try { setBalances(await getBalances(address, activeChain)) } catch {}
+    if (!enabledChains.length) return
+    const entries = await Promise.all(enabledChains.map(async (k) => {
+      try { return [k, await getBalances(address, k)] }
+      catch { return [k, { native: 0n, usdc: 0n }] }
+    }))
+    setChainBalances(Object.fromEntries(entries))
   }
   useEffect(() => {
-    setBalances({ native: 0n, usdc: 0n }) // clear stale balances when chain/env flips
+    setChainBalances({}) // clear stale balances when env/chain-set flips
     refresh()
     const id = setInterval(refresh, 10_000)
     return () => clearInterval(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [address, activeChain, env])
+  }, [address, chainsKey, env])
   useEffect(() => {
     const f = () => getPrices().then(setPrices).catch(() => {})
     f(); const id = setInterval(f, 60_000); return () => clearInterval(id)
   }, [])
 
+  const balances = chainBalances[activeChain] || { native: 0n, usdc: 0n }
   const np = nativePrice(prices, activeChain)
   const usdcNum   = Number(formatUnits(balances.usdc, chain.usdcDecimals))
   const nativeNum = Number(formatUnits(balances.native, 18))
   const nativeRate = ccy === 'KRW' ? np.KRW : np.USD
   const usdcRate   = ccy === 'KRW' ? prices.usdcKrw : 1
-  const total      = usdcNum * usdcRate + nativeNum * nativeRate
+  const total = enabledChains.reduce((sum, k) => {
+    const cc = chainOf(k)
+    const b  = chainBalances[k] || { native: 0n, usdc: 0n }
+    const u  = Number(formatUnits(b.usdc, cc.usdcDecimals))
+    const n  = Number(formatUnits(b.native, 18))
+    const p  = nativePrice(prices, k)
+    const nr = ccy === 'KRW' ? p.KRW : p.USD
+    return sum + u * usdcRate + n * nr
+  }, 0)
   const [whole, frac] = fmtMoney(total, ccy).split('.')
 
   // Coinbase Onramp blockchain identifiers.
