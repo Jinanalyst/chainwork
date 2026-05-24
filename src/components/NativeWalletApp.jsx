@@ -3,7 +3,8 @@ import { Browser } from '@capacitor/browser'
 import QRCode from './QRCode.jsx'
 import {
   hasWallet, mnemonicConfirmed, setMnemonicConfirmed,
-  createWallet, importMnemonic, save, unlock, reset,
+  createWallet, importMnemonic, save, unlock, reset, revealMnemonic,
+  loadSettings, saveSettings,
   getBalances, sendUSDC, sendETH, formatUnits, parseUnits, BASE,
   getQuote, getUsdcAllowance, approveUsdc, swapEthForUsdc, swapUsdcForEth, MAX_UINT256,
 } from '../lib/nativeWallet.js'
@@ -28,6 +29,20 @@ const IconSwap  = (p) => <SvgIcon {...p} d={<><path d="M4 7h13M14 4l3 3-3 3"/><p
 const IconBuy   = (p) => <SvgIcon {...p} d={<path d="M12 5v14M5 12h14"/>} />
 const IconClose = (p) => <SvgIcon {...p} d={<path d="M6 6l12 12M18 6L6 18"/>} />
 const IconCopy  = (p) => <SvgIcon {...p} d={<><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></>} />
+const IconBack  = (p) => <SvgIcon {...p} d={<path d="M15 6l-6 6 6 6"/>} />
+const IconChev  = (p) => <SvgIcon {...p} d={<path d="M9 6l6 6-6 6"/>} sw={1.6} />
+const IconGear  = (p) => <SvgIcon {...p} d={<><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></>}/>
+const IconWalletI = (p) => <SvgIcon {...p} d={<><rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M16 12.5h2"/><path d="M3 9h14a2 2 0 0 1 2 2"/></>} />
+const IconKey   = (p) => <SvgIcon {...p} d={<><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M16 8l2 2M14 5l2 2"/></>} />
+const IconLock  = (p) => <SvgIcon {...p} d={<><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></>} />
+const IconShieldCheck = (p) => <SvgIcon {...p} d={<><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/><path d="M9 12l2 2 4-4"/></>} />
+const IconBell  = (p) => <SvgIcon {...p} d={<><path d="M6 17V11a6 6 0 0 1 12 0v6l1.5 2H4.5L6 17z"/><path d="M10 21a2 2 0 0 0 4 0"/></>} />
+const IconGlobe = (p) => <SvgIcon {...p} d={<><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 4 6 4 9s-1.5 6.3-4 9c-2.5-2.7-4-6-4-9s1.5-6.3 4-9z"/></>} />
+const IconCash  = (p) => <SvgIcon {...p} d={<><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></>} />
+const IconHelp  = (p) => <SvgIcon {...p} d={<><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 0 1 5 0c0 1.7-2.5 2-2.5 3.5M12 16v.01"/></>} />
+const IconLogout = (p) => <SvgIcon {...p} d={<><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/><path d="M10 17l-5-5 5-5M5 12h12"/></>} />
+const IconTrash = (p) => <SvgIcon {...p} d={<><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></>}/>
+const IconEye   = (p) => <SvgIcon {...p} d={<><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></>} />
 
 const short = (a) => a ? `${a.slice(0, 6)}…${a.slice(-4)}` : ''
 const fmtUsd = (n) => Number.isFinite(n)
@@ -388,6 +403,355 @@ function ReceiveSheet({ open, onClose, address }) {
 }
 
 /* ────────────────────────────────────────────────────────────────────────── *
+ * Settings — mirrors the ChainPay Settings prototype, wired to real actions
+ * ────────────────────────────────────────────────────────────────────────── */
+function Toggle({ on, onChange, disabled = false }) {
+  return (
+    <div
+      onClick={() => !disabled && onChange?.(!on)}
+      style={{
+        width: 40, height: 24, borderRadius: 999, position: 'relative',
+        background: on ? 'linear-gradient(135deg,#14E8C2,#00C9A4)' : 'rgba(244,247,251,0.10)',
+        boxShadow: on ? '0 0 14px rgba(0,224,184,0.45)' : 'none',
+        border: on ? 'none' : '1px solid rgba(244,247,251,0.06)',
+        transition: 'background .2s', flexShrink: 0,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.45 : 1,
+      }}
+    >
+      <div style={{
+        position: 'absolute', top: 2, left: on ? 18 : 2,
+        width: 20, height: 20, borderRadius: '50%', background: '#fff',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.4)', transition: 'left .2s',
+      }}/>
+    </div>
+  )
+}
+
+function Row({
+  icon: I, iconTint = 'teal', title, detail, value, valueColor,
+  showChev = true, control, danger = false, isLast = false, alert = false, onClick,
+}) {
+  const tints = {
+    teal:   { bg: 'rgba(0,224,184,0.10)',  fg: C.teal,  bd: 'rgba(0,224,184,0.22)' },
+    amber:  { bg: 'rgba(255,181,71,0.10)', fg: C.amber, bd: 'rgba(255,181,71,0.24)' },
+    purple: { bg: 'rgba(155,123,255,0.10)', fg: '#9B7BFF', bd: 'rgba(155,123,255,0.24)' },
+    red:    { bg: 'rgba(255,122,138,0.10)', fg: C.red,   bd: 'rgba(255,122,138,0.24)' },
+    muted:  { bg: 'rgba(244,247,251,0.05)', fg: C.text2, bd: 'rgba(244,247,251,0.10)' },
+  }
+  const t = tints[iconTint] || tints.teal
+  return (
+    <div onClick={onClick} style={{
+      display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
+      borderBottom: isLast ? 0 : '1px solid rgba(244,247,251,0.07)',
+      cursor: onClick ? 'pointer' : 'default',
+    }}>
+      <div style={{
+        width: 34, height: 34, borderRadius: 10, position: 'relative',
+        background: t.bg, border: '1px solid ' + t.bd,
+        display: 'grid', placeItems: 'center', flexShrink: 0,
+      }}>
+        <I size={17} stroke={t.fg} sw={1.8}/>
+        {alert && (
+          <span style={{
+            position: 'absolute', top: -3, right: -3, width: 9, height: 9,
+            borderRadius: '50%', background: C.amber, boxShadow: '0 0 8px ' + C.amber,
+            border: '2px solid ' + C.surface,
+          }}/>
+        )}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          fontWeight: 500, fontSize: 14.5, color: danger ? C.red : C.white,
+          letterSpacing: '-0.005em', lineHeight: 1.2,
+        }}>{title}</div>
+        {detail && (
+          <div style={{ fontSize: 11.5, color: C.muted, marginTop: 2, lineHeight: 1.3 }}>{detail}</div>
+        )}
+      </div>
+      {value && (
+        <div style={{ fontSize: 13, color: valueColor || C.text2, fontWeight: 500, whiteSpace: 'nowrap' }}>{value}</div>
+      )}
+      {control}
+      {showChev && !control && <IconChev size={16} stroke={C.muted}/>}
+    </div>
+  )
+}
+
+function Group({ title, footer, children }) {
+  return (
+    <div style={{ margin: '18px 0 0' }}>
+      <div style={{
+        padding: '0 22px 8px', fontFamily: FONT_MONO, fontSize: 10, color: C.muted,
+        letterSpacing: '0.18em', textTransform: 'uppercase',
+      }}>{title}</div>
+      <div style={{
+        margin: '0 16px', background: C.surface,
+        border: '1px solid rgba(244,247,251,0.06)',
+        borderRadius: 18, overflow: 'hidden',
+      }}>{children}</div>
+      {footer && (
+        <div style={{ padding: '8px 22px 0', fontSize: 11.5, color: C.muted, lineHeight: 1.4 }}>{footer}</div>
+      )}
+    </div>
+  )
+}
+
+function RevealPhraseModal({ open, onClose }) {
+  const [pass, setPass]   = useState('')
+  const [phrase, setPhrase] = useState('')
+  const [err, setErr]     = useState('')
+  const [busy, setBusy]   = useState(false)
+  const [hidden, setHidden] = useState(true)
+  useEffect(() => { if (!open) { setPass(''); setPhrase(''); setErr(''); setHidden(true) } }, [open])
+
+  const reveal = async () => {
+    setErr(''); setBusy(true)
+    try { setPhrase(await revealMnemonic(pass)); setHidden(false) }
+    catch (e) { setErr('Wrong passcode.'); }
+    finally { setBusy(false) }
+  }
+  const copy = async () => { try { await navigator.clipboard.writeText(phrase) } catch {} }
+
+  const words = phrase ? phrase.split(' ') : []
+
+  return (
+    <Modal open={open} onClose={onClose} title="Recovery phrase">
+      {!phrase ? (
+        <>
+          <div style={{
+            padding: '10px 12px', borderRadius: 12, marginBottom: 14,
+            background: 'rgba(255,181,71,0.10)', border: '1px solid rgba(255,181,71,0.3)',
+            color: C.amber, fontSize: 12, lineHeight: 1.5,
+          }}>
+            Anyone with these 12 words owns the wallet. Don't screenshot. Don't share. Don't type into any other app.
+          </div>
+          <div style={{ fontSize: 11, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: 6 }}>Confirm passcode</div>
+          <input type="password" value={pass} onChange={(e) => setPass(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && reveal()}
+            autoFocus placeholder="Passcode"
+            style={{
+              width: '100%', boxSizing: 'border-box', padding: '12px 14px',
+              background: C.surface2, border: '1px solid ' + C.line, color: C.white,
+              borderRadius: 12, fontSize: 15, outline: 'none', fontFamily: 'inherit',
+            }}/>
+          {err && <div style={{ color: C.red, fontSize: 13, marginTop: 10 }}>{err}</div>}
+          <button onClick={reveal} disabled={busy} style={{
+            width: '100%', padding: '14px 0', marginTop: 16, borderRadius: 14,
+            background: C.teal, color: C.bg, border: 0, fontWeight: 700, fontSize: 16,
+            cursor: 'pointer', opacity: busy ? 0.7 : 1,
+          }}>{busy ? 'Verifying…' : 'Reveal phrase'}</button>
+        </>
+      ) : (
+        <>
+          <div style={{ position: 'relative' }}>
+            <div style={{
+              display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8,
+              padding: 14, background: C.surface2, border: '1px solid ' + C.line, borderRadius: 14,
+              filter: hidden ? 'blur(7px)' : 'none', transition: 'filter .15s',
+            }}>
+              {words.map((w, i) => (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'baseline', gap: 8,
+                  padding: '8px 10px', background: C.bg, borderRadius: 10,
+                  fontFamily: FONT_MONO, fontSize: 14,
+                }}>
+                  <span style={{ color: C.muted, fontSize: 11 }}>{(i + 1).toString().padStart(2, '0')}</span>
+                  <span>{w}</span>
+                </div>
+              ))}
+            </div>
+            {hidden && (
+              <button onClick={() => setHidden(false)} style={{
+                position: 'absolute', inset: 0, background: 'transparent', border: 0,
+                color: C.white, cursor: 'pointer', fontWeight: 600,
+              }}>Tap to reveal</button>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+            <button onClick={() => setHidden((v) => !v)} style={{
+              flex: 1, padding: '12px 0', borderRadius: 12, background: 'transparent',
+              border: '1px solid ' + C.lineStr, color: C.white, fontWeight: 600, cursor: 'pointer',
+            }}>{hidden ? 'Show' : 'Hide'}</button>
+            <button onClick={copy} style={{
+              flex: 1, padding: '12px 0', borderRadius: 12, background: C.teal,
+              border: 0, color: C.bg, fontWeight: 700, cursor: 'pointer',
+            }}>Copy</button>
+          </div>
+        </>
+      )}
+    </Modal>
+  )
+}
+
+function SettingsScreen({ wallet, onBack, onLock, onReset }) {
+  const [settings, setSettings] = useState(null)
+  const [reveal, setReveal] = useState(false)
+
+  useEffect(() => { loadSettings().then(setSettings) }, [])
+  const update = (patch) => {
+    const next = { ...settings, ...patch }
+    setSettings(next)
+    saveSettings(next).catch(() => {})
+  }
+  const updNet = (key, on) => update({ networks: { ...settings.networks, [key]: on } })
+
+  if (!settings) return <div style={{ background: C.bg, minHeight: '100vh' }}/>
+
+  return (
+    <div style={{
+      minHeight: '100vh',
+      background: 'radial-gradient(60% 50% at 50% 0%, rgba(0,224,184,0.08), transparent 70%),' + C.bg,
+      color: C.white, paddingTop: 52, paddingBottom: 32, fontFamily: 'Inter, sans-serif',
+    }}>
+      {/* Header */}
+      <div style={{ padding: '10px 16px 4px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <button onClick={onBack} style={{
+          width: 38, height: 38, borderRadius: '50%', background: C.surface,
+          border: '1px solid ' + C.lineStr, display: 'grid', placeItems: 'center', cursor: 'pointer',
+        }}><IconBack size={18} stroke={C.white}/></button>
+        <div style={{ fontFamily: FONT_HEAD, fontWeight: 600, fontSize: 18, letterSpacing: '-0.02em' }}>Settings</div>
+        <div style={{ width: 38 }}/>
+      </div>
+
+      {/* Account banner */}
+      <div style={{
+        margin: '12px 16px 18px', padding: '16px 18px', borderRadius: 20,
+        background: 'radial-gradient(120% 90% at 100% 0%, rgba(0,224,184,0.35), transparent 60%),'
+                  + 'linear-gradient(160deg,#003D34 0%,#0B1020 70%)',
+        border: '1px solid rgba(0,224,184,0.22)',
+        display: 'flex', alignItems: 'center', gap: 14,
+      }}>
+        <div style={{
+          width: 48, height: 48, borderRadius: 16,
+          background: 'linear-gradient(135deg,#00E0B8 0%,#2A6FDB 60%,#7A4DFF 100%)',
+          boxShadow: 'inset 0 0 0 2px rgba(11,16,32,0.4)',
+        }}/>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontFamily: FONT_HEAD, fontWeight: 600, fontSize: 17, letterSpacing: '-0.02em' }}>ChainPay wallet</div>
+          <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: 'rgba(244,247,251,0.6)' }}>{short(wallet.address)}</div>
+        </div>
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          background: 'rgba(60,214,140,0.16)', border: '1px solid rgba(60,214,140,0.28)',
+          color: C.green, padding: '5px 9px', borderRadius: 999,
+          fontWeight: 600, fontSize: 10.5, letterSpacing: '0.04em', textTransform: 'uppercase',
+        }}>
+          <span style={{ width: 5, height: 5, borderRadius: '50%', background: C.green, boxShadow: '0 0 6px ' + C.green }}/>
+          Backed up
+        </div>
+      </div>
+
+      {/* Accounts */}
+      <Group title="Accounts">
+        <Row icon={IconWalletI} title="This wallet"
+             detail="1 wallet · 1 account · Base"
+             iconTint="teal"/>
+        <Row icon={IconKey} title="Add an account"
+             detail="Coming in v0.2 — derive more accounts from your phrase"
+             iconTint="muted" isLast/>
+      </Group>
+
+      {/* Security */}
+      <Group title="Security" footer="Auto-lock applies whenever ChainPay goes to background.">
+        <Row icon={IconLock} title="Face ID / Biometrics"
+             detail="Native biometric unlock ships in v0.2"
+             iconTint="muted" showChev={false}
+             control={<Toggle on={settings.faceId} disabled onChange={() => {}}/>}/>
+        <Row icon={IconLock} title="Auto-lock"
+             iconTint="teal" value={settings.autoLock === '1m' ? '1 minute' : settings.autoLock}
+             onClick={() => update({ autoLock: settings.autoLock === '1m' ? '5m' : settings.autoLock === '5m' ? 'never' : '1m' })}/>
+        <Row icon={IconShieldCheck} title="Recovery phrase"
+             detail="Reveal — verify your backup is correct"
+             iconTint="amber" alert onClick={() => setReveal(true)} isLast/>
+      </Group>
+
+      {/* Networks */}
+      <Group title="Networks" footer="Toggling a network off hides its assets across ChainPay. Only Base is supported in this build.">
+        {[
+          ['base', 'Base',     'ETH · USDC · ERC-20',  true],
+          ['eth',  'Ethereum', 'ETH · ERC-20 · ERC-721', false],
+          ['sol',  'Solana',   'SOL · SPL',              false],
+          ['pol',  'Polygon',  'MATIC · ERC-20',         false],
+          ['arb',  'Arbitrum', 'ETH · ERC-20',           false],
+          ['btc',  'Bitcoin',  'BTC · Ordinals',         false],
+        ].map(([key, name, chains, supported], i, arr) => (
+          <Row
+            key={key}
+            icon={({ size, stroke, sw }) => (
+              <span style={{
+                width: size, height: size, borderRadius: '50%',
+                background: key === 'base' ? '#0052FF' : key === 'eth' ? '#3E4A6B'
+                          : key === 'sol' ? 'linear-gradient(135deg,#9945FF,#14F195)'
+                          : key === 'pol' ? '#7B3FE4' : key === 'arb' ? '#1B2A3F'
+                          : key === 'btc' ? '#F7931A' : '#888',
+                display: 'inline-grid', placeItems: 'center',
+                color: '#fff', fontWeight: 700, fontSize: size * 0.55,
+              }}>{key === 'base' ? '◯' : key === 'eth' ? 'Ξ' : key === 'sol' ? '◎' : key === 'pol' ? '◇' : key === 'arb' ? '▲' : '₿'}</span>
+            )}
+            title={name}
+            detail={chains}
+            iconTint="teal"
+            showChev={false}
+            control={<Toggle on={settings.networks[key]} disabled={!supported} onChange={(v) => supported && updNet(key, v)}/>}
+            isLast={i === arr.length - 1}
+          />
+        ))}
+      </Group>
+
+      {/* Preferences */}
+      <Group title="Preferences">
+        <Row icon={IconCash}  title="Display currency"
+             iconTint="teal" value={`${settings.displayCurrency} · $`}
+             onClick={() => update({ displayCurrency: settings.displayCurrency === 'USD' ? 'KRW' : 'USD' })}/>
+        <Row icon={IconGlobe} title="Language"
+             iconTint="teal" value={settings.language === 'en' ? 'English' : '한국어'}
+             onClick={() => update({ language: settings.language === 'en' ? 'ko' : 'en' })}/>
+        <Row icon={IconBell}  title="Notifications"
+             iconTint="teal" showChev={false}
+             control={<Toggle on={settings.notifications} onChange={(v) => update({ notifications: v })}/>}
+             isLast/>
+      </Group>
+
+      {/* Help */}
+      <Group title="Help & legal">
+        <Row icon={IconHelp}  title="Help center"      iconTint="muted"
+             onClick={() => Browser.open({ url: 'https://chainwork.chainbrief.kr/#/pay' })}/>
+        <Row icon={IconShieldCheck} title="Privacy & terms" iconTint="muted" isLast
+             onClick={() => Browser.open({ url: 'https://chainwork.chainbrief.kr/#/privacy' })}/>
+      </Group>
+
+      {/* Danger */}
+      <div style={{ margin: '22px 16px 6px', display: 'grid', gap: 10 }}>
+        <button onClick={onLock} style={{
+          width: '100%', padding: 14, borderRadius: 16,
+          background: 'rgba(255,122,138,0.06)', border: '1px solid rgba(255,122,138,0.22)',
+          color: C.red, fontWeight: 600, fontSize: 14.5,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer',
+        }}>
+          <IconLogout size={16} stroke={C.red}/> Lock & sign out
+        </button>
+        <button onClick={onReset} style={{
+          width: '100%', padding: 14, borderRadius: 16,
+          background: 'transparent', border: '1px solid ' + C.lineStr,
+          color: C.muted, fontWeight: 600, fontSize: 13,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer',
+        }}>
+          <IconTrash size={14} stroke={C.muted}/> Reset wallet (requires recovery phrase to restore)
+        </button>
+      </div>
+
+      <div style={{
+        margin: '18px 0 0', textAlign: 'center', fontFamily: FONT_MONO,
+        fontSize: 10.5, color: C.muted, letterSpacing: '0.1em',
+      }}>ChainPay 0.1.0 · build 2026.05</div>
+
+      <RevealPhraseModal open={reveal} onClose={() => setReveal(false)}/>
+    </div>
+  )
+}
+
+/* ────────────────────────────────────────────────────────────────────────── *
  * Swap sheet — on-chain Uniswap V3 swap signed locally, no Uniswap UI involved
  * ────────────────────────────────────────────────────────────────────────── */
 function SwapSheet({ open, onClose, wallet, balances, onSwapped }) {
@@ -631,7 +995,7 @@ function SwapSheet({ open, onClose, wallet, balances, onSwapped }) {
 /* ────────────────────────────────────────────────────────────────────────── *
  * Main wallet UI
  * ────────────────────────────────────────────────────────────────────────── */
-function Home({ wallet, onLock }) {
+function Home({ wallet, onLock, onSettings }) {
   const [balances, setBalances] = useState({ eth: 0n, usdc: 0n })
   const [ethUsd,   setEthUsd]   = useState(0)
   const [tab,      setTab]      = useState('Assets')
@@ -686,12 +1050,12 @@ function Home({ wallet, onLock }) {
             background: 'linear-gradient(135deg,#00E0B8,#2A6FDB)' }}/>
           {short(address)}
         </div>
-        <button onClick={onLock} style={{
+        <button onClick={onSettings} style={{
           width: 38, height: 38, borderRadius: '50%', background: C.surface,
           border: '1px solid ' + C.lineStr, color: C.text2, cursor: 'pointer',
           display: 'grid', placeItems: 'center',
         }}>
-          <SvgIcon d={<><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></>} size={16} stroke={C.text2}/>
+          <IconGear size={17} stroke={C.text2} sw={1.6}/>
         </button>
       </div>
 
@@ -838,6 +1202,7 @@ function Home({ wallet, onLock }) {
  * ────────────────────────────────────────────────────────────────────────── */
 export default function NativeWalletApp() {
   const [state, setState] = useState('loading') // loading | onboard | locked | unlocked
+  const [view,  setView]  = useState('home')    // home | settings
   const [wallet, setWallet] = useState(null)
 
   useEffect(() => {
@@ -850,10 +1215,10 @@ export default function NativeWalletApp() {
     })()
   }, [])
 
-  const lock = () => { setWallet(null); setState('locked') }
+  const lock = () => { setWallet(null); setView('home'); setState('locked') }
   const doReset = async () => {
     if (!confirm('This wipes the wallet from this phone. Make sure you have your recovery phrase. Continue?')) return
-    await reset(); setWallet(null); setState('onboard')
+    await reset(); setWallet(null); setView('home'); setState('onboard')
   }
 
   if (state === 'loading') return <div style={{ background: C.bg, minHeight: '100vh' }}/>
@@ -863,5 +1228,13 @@ export default function NativeWalletApp() {
   if (state === 'locked')  return <div style={{ background: C.bg, minHeight: '100vh' }}>
     <UnlockScreen onUnlocked={(w) => { setWallet(w); setState('unlocked') }} onReset={doReset}/>
   </div>
-  return <Home wallet={wallet} onLock={lock}/>
+  if (view === 'settings') return (
+    <SettingsScreen
+      wallet={wallet}
+      onBack={() => setView('home')}
+      onLock={lock}
+      onReset={doReset}
+    />
+  )
+  return <Home wallet={wallet} onLock={lock} onSettings={() => setView('settings')}/>
 }

@@ -1143,13 +1143,13 @@ const APK = {
   version:  '0.1.0',
   file:     '/chainpay-v0.1.0.apk',
   filename: 'chainpay-v0.1.0.apk',
-  size:     '7.6 MB',
-  sha256:   '4ba0176c3c5c7a65a317c03221876f880e2c1a4458f489efb59ad014e5335fb0',
+  size:     '14.9 MB',
+  sha256:   '311937fb51a23958dcdd8bcb512592bdccc3dcc8b493751e15347b27f0201217',
   built:    'May 2026',
   minSdk:   'Android 7 (Nougat) · API 24',
   signer:   'Debug keystore · self-signed',
   format:   'Signed Android APK',
-  contents: 'Native wallet · in-app keys · on-chain swap',
+  contents: 'Native wallet · in-app keys · on-chain swap · settings',
 }
 
 const DownloadSection = () => {

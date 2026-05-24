@@ -117,6 +117,40 @@ export async function reset() {
   await Preferences.remove({ key: MNEMONIC_FLAG })
 }
 
+/**
+ * Reveal the recovery phrase. Requires the passcode — we re-decrypt the
+ * keystore each time to guarantee a freshly verified passcode and not just
+ * pull it from the in-memory wallet (which could be unlocked indefinitely).
+ * Returns the 12-word mnemonic string. Throws on wrong passcode.
+ */
+export async function revealMnemonic(passcode) {
+  const { value } = await Preferences.get({ key: KEYSTORE_KEY })
+  if (!value) throw new Error('No wallet stored on this device')
+  const w = await Wallet.fromEncryptedJson(value, passcode)
+  const phrase = w?.mnemonic?.phrase
+  if (!phrase) throw new Error('No recovery phrase on this wallet (imported by private key only).')
+  return phrase
+}
+
+/* ── settings preferences (cosmetic toggles persisted across launches) ── */
+const SETTINGS_KEY = 'chainpay.settings.v1'
+const DEFAULT_SETTINGS = {
+  faceId:         false,
+  autoLock:       '1m',
+  displayCurrency: 'USD',
+  language:       'en',
+  notifications:  true,
+  networks:       { base: true, eth: false, sol: false, pol: false, btc: false, arb: false, sui: false },
+}
+export async function loadSettings() {
+  const { value } = await Preferences.get({ key: SETTINGS_KEY })
+  if (!value) return DEFAULT_SETTINGS
+  try { return { ...DEFAULT_SETTINGS, ...JSON.parse(value) } } catch { return DEFAULT_SETTINGS }
+}
+export async function saveSettings(next) {
+  await Preferences.set({ key: SETTINGS_KEY, value: JSON.stringify(next) })
+}
+
 /* ── balances + sends ─────────────────────────────────────────────────── */
 export async function getBalances(address) {
   const p = provider()
