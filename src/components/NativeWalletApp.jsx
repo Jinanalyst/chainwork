@@ -4,7 +4,8 @@ import QRCode from './QRCode.jsx'
 import {
   hasWallet, mnemonicConfirmed, setMnemonicConfirmed,
   createWallet, importMnemonic, save, unlock, reset,
-  getBalances, sendUSDC, sendETH, formatUnits, BASE,
+  getBalances, sendUSDC, sendETH, formatUnits, parseUnits, BASE,
+  getQuote, getUsdcAllowance, approveUsdc, swapEthForUsdc, swapUsdcForEth, MAX_UINT256,
 } from '../lib/nativeWallet.js'
 
 /* ─── identity palette (same as ChainPay.jsx) ─────────────────────────── */
@@ -387,6 +388,247 @@ function ReceiveSheet({ open, onClose, address }) {
 }
 
 /* ────────────────────────────────────────────────────────────────────────── *
+ * Swap sheet — on-chain Uniswap V3 swap signed locally, no Uniswap UI involved
+ * ────────────────────────────────────────────────────────────────────────── */
+function SwapSheet({ open, onClose, wallet, balances, onSwapped }) {
+  const [pay,   setPay]   = useState('USDC')   // pay token
+  const [amt,   setAmt]   = useState('')
+  const [out,   setOut]   = useState(0n)       // raw bigint quote
+  const [quoting, setQuoting] = useState(false)
+  const [allowance, setAllowance] = useState(0n)
+  const [slippage, setSlippage] = useState(0.5) // %
+  const [busy, setBusy] = useState(false)
+  const [err,  setErr]  = useState('')
+  const [hash, setHash] = useState('')
+  const [status, setStatus] = useState('')
+  const [stage,  setStage]  = useState('')      // '' | 'approving' | 'swapping'
+
+  const receive = pay === 'USDC' ? 'ETH' : 'USDC'
+  const payDec  = pay === 'USDC' ? BASE.usdcDecimals : 18
+  const recDec  = receive === 'USDC' ? BASE.usdcDecimals : 18
+  const tokenInAddr  = pay === 'USDC' ? BASE.usdc : BASE.weth
+  const tokenOutAddr = pay === 'USDC' ? BASE.weth : BASE.usdc
+  const needsApproval = pay === 'USDC'
+
+  // Reset whenever the sheet opens
+  useEffect(() => {
+    if (!open) return
+    setAmt(''); setOut(0n); setHash(''); setStatus(''); setErr(''); setStage('')
+  }, [open])
+
+  // Live allowance for USDC → ETH path
+  useEffect(() => {
+    if (!open || !needsApproval || !wallet?.address) return
+    let cancelled = false
+    getUsdcAllowance(wallet.address).then((a) => { if (!cancelled) setAllowance(a) }).catch(() => {})
+    return () => { cancelled = true }
+  }, [open, needsApproval, wallet?.address, hash])
+
+  // Debounced quote refresh on amount / direction change
+  useEffect(() => {
+    if (!open) return
+    setOut(0n)
+    if (!amt || Number(amt) <= 0) return
+    const id = setTimeout(async () => {
+      try {
+        setQuoting(true); setErr('')
+        const amountIn = parseUnits(amt, payDec)
+        const q = await getQuote({ tokenIn: tokenInAddr, tokenOut: tokenOutAddr, amountIn })
+        setOut(q)
+      } catch (e) {
+        setOut(0n)
+        setErr(e?.shortMessage || 'Could not get a quote')
+      } finally { setQuoting(false) }
+    }, 450)
+    return () => clearTimeout(id)
+  }, [amt, pay, open])
+
+  const flip = () => { setPay(receive); setAmt(''); setOut(0n) }
+
+  // Slippage-protected minimum
+  const minOut = useMemo(() => {
+    if (out === 0n) return 0n
+    const bps = Math.round((100 - slippage) * 100) // e.g. 99.5% = 9950
+    return (out * BigInt(bps)) / 10000n
+  }, [out, slippage])
+
+  const payBalRaw = pay === 'USDC' ? balances.usdc : balances.eth
+  const payBalStr = pay === 'USDC' ? formatUnits(balances.usdc, BASE.usdcDecimals) : formatUnits(balances.eth, 18).slice(0, 10)
+
+  const insufficientAllowance = needsApproval && amt && Number(amt) > 0 && allowance < parseUnits(amt || '0', payDec)
+  const ctaLabel = busy
+    ? (stage === 'approving' ? 'Approving…' : 'Swapping…')
+    : insufficientAllowance
+      ? `Approve USDC`
+      : `Swap ${amt || '0'} ${pay} → ${receive}`
+
+  const doSwap = async () => {
+    setErr('')
+    if (!amt || Number(amt) <= 0) return setErr('Enter an amount.')
+    let amountIn
+    try { amountIn = parseUnits(amt, payDec) }
+    catch { return setErr('Invalid amount.') }
+    if (amountIn > payBalRaw) return setErr(`Amount exceeds ${pay} balance.`)
+    if (out === 0n) return setErr('No quote yet — wait a moment.')
+
+    setBusy(true)
+    try {
+      // Approval step (only for USDC → ETH when allowance is short)
+      if (insufficientAllowance) {
+        setStage('approving')
+        const tx = await approveUsdc(wallet, MAX_UINT256)
+        setHash(tx.hash); setStatus('pending')
+        const r = await tx.wait()
+        if (r.status !== 1) throw new Error('Approval failed')
+        setAllowance(MAX_UINT256)
+        setStatus('confirmed')
+        setStage('')
+        setBusy(false)
+        return // user taps Swap again
+      }
+
+      setStage('swapping')
+      const tx = pay === 'USDC'
+        ? await swapUsdcForEth(wallet, amountIn, minOut)
+        : await swapEthForUsdc(wallet, amountIn, minOut)
+      setHash(tx.hash); setStatus('pending')
+      const r = await tx.wait()
+      const ok = r.status === 1
+      setStatus(ok ? 'confirmed' : 'failed')
+      onSwapped({
+        kind: 'swap',
+        token: pay,
+        receive,
+        amount: amt,
+        amountOut: formatUnits(out, recDec).slice(0, 10),
+        hash: tx.hash,
+        status: ok ? 'confirmed' : 'failed',
+        ts: Date.now(),
+      })
+    } catch (e) {
+      setErr(e?.shortMessage || e?.reason || e?.message || 'Swap failed')
+      setStatus('failed')
+    } finally { setBusy(false); setStage('') }
+  }
+
+  const card = {
+    background: C.surface2, border: '1px solid ' + C.line,
+    borderRadius: 14, padding: 14,
+  }
+  const label = { fontSize: 11, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.15em' }
+
+  // Display: out as a human-readable string
+  const outStr = out === 0n ? '' : (() => {
+    const s = formatUnits(out, recDec)
+    const [w, f = ''] = s.split('.')
+    return f ? `${w}.${f.slice(0, receive === 'USDC' ? 2 : 6)}` : w
+  })()
+  const rateStr = (() => {
+    if (out === 0n || !amt || Number(amt) <= 0) return ''
+    const num = Number(formatUnits(out, recDec))
+    const denom = Number(amt)
+    if (!num || !denom) return ''
+    return `1 ${pay} ≈ ${(num / denom).toFixed(pay === 'USDC' ? 8 : 2)} ${receive}`
+  })()
+
+  return (
+    <Modal open={open} onClose={onClose} title="Swap">
+      <div style={card}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+          <span style={label}>You pay</span>
+          <button onClick={() => setAmt(pay === 'USDC' ? formatUnits(balances.usdc, BASE.usdcDecimals) : formatUnits(balances.eth, 18).slice(0, 8))}
+            style={{ background: 'transparent', border: 0, color: C.teal, fontSize: 11, cursor: 'pointer', padding: 0 }}>
+            Balance {payBalStr} · Max
+          </button>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <input type="number" inputMode="decimal" min="0" step="0.000001"
+            value={amt} onChange={(e) => setAmt(e.target.value)} placeholder="0.00"
+            style={{ flex: 1, background: 'transparent', border: 0, color: C.white, fontSize: 22, outline: 'none', fontFamily: FONT_MONO }}/>
+          <div style={{ background: C.surface, padding: '8px 14px', borderRadius: 999, fontWeight: 600 }}>{pay}</div>
+        </div>
+      </div>
+
+      <div style={{ textAlign: 'center', margin: '6px 0' }}>
+        <button onClick={flip} disabled={busy} style={{
+          background: C.surface, border: '1px solid ' + C.line, borderRadius: '50%',
+          width: 36, height: 36, color: C.teal, cursor: 'pointer', fontSize: 16,
+        }}>⇅</button>
+      </div>
+
+      <div style={card}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+          <span style={label}>You receive</span>
+          {quoting && <span style={{ fontSize: 11, color: C.muted }}>quoting…</span>}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ flex: 1, fontSize: 22, color: outStr ? C.white : C.muted, fontFamily: FONT_MONO }}>
+            {outStr || '0.00'}
+          </div>
+          <div style={{ background: C.surface, padding: '8px 14px', borderRadius: 999, fontWeight: 600 }}>{receive}</div>
+        </div>
+        {rateStr && (
+          <div style={{ marginTop: 8, fontSize: 11, color: C.muted, fontFamily: FONT_MONO }}>{rateStr}</div>
+        )}
+      </div>
+
+      <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+        <span style={{ ...label, textTransform: 'none', letterSpacing: 0 }}>Slippage tolerance</span>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {[0.1, 0.5, 1.0].map((s) => (
+            <button key={s} onClick={() => setSlippage(s)} style={{
+              padding: '4px 10px', borderRadius: 999, fontSize: 12, cursor: 'pointer',
+              background: slippage === s ? C.white : 'transparent',
+              color: slippage === s ? C.bg : C.text2,
+              border: '1px solid ' + (slippage === s ? C.white : C.lineStr),
+              fontWeight: 600,
+            }}>{s}%</button>
+          ))}
+        </div>
+      </div>
+
+      {err && (
+        <div style={{
+          marginTop: 12, padding: '8px 12px', borderRadius: 10,
+          background: 'rgba(255,122,138,0.12)', border: '1px solid rgba(255,122,138,0.3)',
+          color: C.red, fontSize: 12,
+        }}>{err}</div>
+      )}
+
+      <button onClick={doSwap} disabled={busy || (!insufficientAllowance && out === 0n)}
+        style={{
+          marginTop: 14, width: '100%', padding: '14px 0', borderRadius: 14,
+          background: insufficientAllowance ? C.amber : C.teal,
+          color: C.bg, border: 0, fontWeight: 700, fontSize: 16,
+          cursor: busy ? 'progress' : 'pointer',
+          opacity: (busy || (!insufficientAllowance && out === 0n)) ? 0.55 : 1,
+        }}>{ctaLabel}</button>
+
+      {hash && (
+        <div style={{
+          marginTop: 14, padding: 12, borderRadius: 12, background: C.surface2,
+          border: '1px solid ' + C.line, fontSize: 12,
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', color: C.muted }}>
+            <span>{stage === 'approving' || (insufficientAllowance && status !== 'confirmed') ? 'Approval' : 'Swap'} status</span>
+            <span style={{ color: status === 'confirmed' ? C.green : status === 'failed' ? C.red : C.amber, fontWeight: 600 }}>
+              {status === 'pending'   && 'Pending…'}
+              {status === 'confirmed' && 'Confirmed'}
+              {status === 'failed'    && 'Failed'}
+            </span>
+          </div>
+          <div style={{ marginTop: 6, fontFamily: FONT_MONO, color: C.teal, wordBreak: 'break-all' }}>{hash}</div>
+        </div>
+      )}
+
+      <div style={{ marginTop: 14, fontSize: 10, color: C.muted, textAlign: 'center', lineHeight: 1.5 }}>
+        Executed on-chain via Uniswap V3 on Base. Your wallet signs locally — no browser, no third-party UI.
+      </div>
+    </Modal>
+  )
+}
+
+/* ────────────────────────────────────────────────────────────────────────── *
  * Main wallet UI
  * ────────────────────────────────────────────────────────────────────────── */
 function Home({ wallet, onLock }) {
@@ -395,6 +637,7 @@ function Home({ wallet, onLock }) {
   const [tab,      setTab]      = useState('Assets')
   const [send,     setSend]     = useState(false)
   const [recv,     setRecv]     = useState(false)
+  const [swap,     setSwap]     = useState(false)
   const [activity, setActivity] = useState([])
   const address = wallet.address
 
@@ -417,9 +660,6 @@ function Home({ wallet, onLock }) {
   const total   = usdcNum + ethNum * ethUsd
   const [whole, frac] = fmtUsd(total).split('.')
 
-  const openUniswap = () => Browser.open({
-    url: `https://app.uniswap.org/#/swap?chain=base&inputCurrency=${BASE.usdc}&outputCurrency=ETH`,
-  })
   const openOnramp = () => Browser.open({
     url: `https://pay.coinbase.com/buy/select-asset?destinationWallets=%5B%7B%22address%22%3A%22${address}%22%2C%22blockchains%22%3A%5B%22base%22%5D%7D%5D`,
   })
@@ -488,7 +728,7 @@ function Home({ wallet, onLock }) {
         {[
           { label: 'Send',    Ic: IconSend, on: () => setSend(true)   },
           { label: 'Receive', Ic: IconRecv, on: () => setRecv(true)   },
-          { label: 'Swap',    Ic: IconSwap, on: openUniswap            },
+          { label: 'Swap',    Ic: IconSwap, on: () => setSwap(true)    },
           { label: 'Buy',     Ic: IconBuy,  on: openOnramp             },
         ].map(({ label, Ic, on }) => (
           <button key={label} onClick={on} style={{
@@ -553,31 +793,42 @@ function Home({ wallet, onLock }) {
           background: C.surface, border: '1px solid ' + C.line, borderRadius: 20,
           textAlign: activity.length ? 'left' : 'center', color: activity.length ? C.white : C.muted, fontSize: 14 }}>
           {!activity.length && 'Your recent transactions appear here.'}
-          {activity.map((a, i) => (
-            <div key={i} style={{ display: 'grid', gridTemplateColumns: '40px 1fr auto',
-              gap: 14, alignItems: 'center', padding: '12px 4px',
-              borderBottom: i === activity.length - 1 ? 0 : '1px solid ' + C.line }}>
-              <div style={{ width: 40, height: 40, borderRadius: '50%', background: C.surface2,
-                display: 'grid', placeItems: 'center' }}><IconSend size={18} stroke={C.teal}/></div>
-              <div>
-                <div style={{ fontWeight: 600, fontSize: 14 }}>Sent {a.token}</div>
-                <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: C.muted, marginTop: 2 }}>
-                  to {short(a.to)} · {new Date(a.ts).toLocaleString()}
+          {activity.map((a, i) => {
+            const isSwap = a.kind === 'swap'
+            return (
+              <div key={i} style={{ display: 'grid', gridTemplateColumns: '40px 1fr auto',
+                gap: 14, alignItems: 'center', padding: '12px 4px',
+                borderBottom: i === activity.length - 1 ? 0 : '1px solid ' + C.line }}>
+                <div style={{ width: 40, height: 40, borderRadius: '50%', background: C.surface2,
+                  display: 'grid', placeItems: 'center' }}>
+                  {isSwap ? <IconSwap size={18} stroke={C.teal}/> : <IconSend size={18} stroke={C.teal}/>}
+                </div>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>
+                    {isSwap ? `Swap ${a.token} → ${a.receive}` : `Sent ${a.token}`}
+                  </div>
+                  <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: C.muted, marginTop: 2 }}>
+                    {isSwap ? 'Uniswap V3 on Base' : `to ${short(a.to)}`} · {new Date(a.ts).toLocaleString()}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>
+                    {isSwap ? `+${a.amountOut} ${a.receive}` : `−${a.amount} ${a.token}`}
+                  </div>
+                  <div style={{ fontFamily: FONT_MONO, fontSize: 11, marginTop: 2,
+                    color: a.status === 'confirmed' ? C.green : a.status === 'failed' ? C.red : C.amber }}>{a.status}</div>
                 </div>
               </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontWeight: 600, fontSize: 14 }}>−{a.amount} {a.token}</div>
-                <div style={{ fontFamily: FONT_MONO, fontSize: 11, marginTop: 2,
-                  color: a.status === 'confirmed' ? C.green : a.status === 'failed' ? C.red : C.amber }}>{a.status}</div>
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
       <SendSheet    open={send} onClose={() => setSend(false)} wallet={wallet} balances={balances}
                     onSent={(e) => { setActivity((p) => [e, ...p].slice(0, 50)); refresh() }}/>
       <ReceiveSheet open={recv} onClose={() => setRecv(false)} address={address}/>
+      <SwapSheet    open={swap} onClose={() => setSwap(false)} wallet={wallet} balances={balances}
+                    onSwapped={(e) => { setActivity((p) => [e, ...p].slice(0, 50)); refresh() }}/>
     </div>
   )
 }

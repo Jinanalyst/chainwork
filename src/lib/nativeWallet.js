@@ -24,13 +24,35 @@ export const BASE = {
   chainId: 8453,
   rpc:     'https://mainnet.base.org',
   usdc:    '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+  weth:    '0x4200000000000000000000000000000000000006',
   usdcDecimals: 6,
   explorer: 'https://basescan.org',
+  // Uniswap V3 on Base
+  swapRouter: '0x2626664c2603336E57B271c5C0b26F421741e481', // SwapRouter02
+  quoterV2:   '0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a',
+  usdcWethFee: 500, // 0.05% — canonical USDC/WETH pool on Base
 }
+
+// PeripheryPayments constants used by SwapRouter02
+const MSG_SENDER   = '0x0000000000000000000000000000000000000001'
+const ADDRESS_THIS = '0x0000000000000000000000000000000000000002'
 
 const ERC20_ABI = [
   'function balanceOf(address) view returns (uint256)',
   'function transfer(address,uint256) returns (bool)',
+  'function allowance(address owner, address spender) view returns (uint256)',
+  'function approve(address spender, uint256 amount) returns (bool)',
+]
+
+const QUOTER_ABI = [
+  // QuoterV2 — exactInput single-hop quote. Non-view: must be invoked via staticCall.
+  'function quoteExactInputSingle((address tokenIn,address tokenOut,uint256 amountIn,uint24 fee,uint160 sqrtPriceLimitX96)) returns (uint256 amountOut, uint160 sqrtPriceX96After, uint32 initializedTicksCrossed, uint256 gasEstimate)',
+]
+
+const SWAP_ROUTER_ABI = [
+  'function exactInputSingle((address tokenIn,address tokenOut,uint24 fee,address recipient,uint256 amountIn,uint256 amountOutMinimum,uint160 sqrtPriceLimitX96)) payable returns (uint256 amountOut)',
+  'function unwrapWETH9(uint256 amountMinimum, address recipient) payable',
+  'function multicall(bytes[] data) payable returns (bytes[] results)',
 ]
 
 let _provider = null
@@ -117,6 +139,77 @@ export async function sendETH(wallet, to, amountStr) {
   const value = parseUnits(amountStr, 18)
   const tx = await wallet.sendTransaction({ to, value })
   return tx
+}
+
+/* ── Uniswap V3 swap (USDC ↔ ETH on Base, executed inside ChainPay) ─── */
+
+/**
+ * Get a quote for swapping `amountIn` of `tokenIn` (raw units) into `tokenOut`.
+ * Returns the raw output amount as bigint. Calls QuoterV2.staticCall — no gas.
+ */
+export async function getQuote({ tokenIn, tokenOut, amountIn }) {
+  const q = new Contract(BASE.quoterV2, QUOTER_ABI, provider())
+  const params = {
+    tokenIn, tokenOut, amountIn,
+    fee: BASE.usdcWethFee,
+    sqrtPriceLimitX96: 0n,
+  }
+  const [amountOut] = await q.quoteExactInputSingle.staticCall(params)
+  return amountOut
+}
+
+/** Read USDC allowance for the SwapRouter02 spender. */
+export async function getUsdcAllowance(owner) {
+  const c = new Contract(BASE.usdc, ERC20_ABI, provider())
+  return c.allowance(owner, BASE.swapRouter)
+}
+
+/** Approve SwapRouter02 to pull USDC. Pass MAX to approve max uint256. */
+export async function approveUsdc(wallet, amount) {
+  const c = new Contract(BASE.usdc, ERC20_ABI, wallet)
+  return c.approve(BASE.swapRouter, amount)
+}
+
+export const MAX_UINT256 = (1n << 256n) - 1n
+
+/**
+ * Swap ETH → USDC.
+ * Sends `amountInWei` as msg.value. SwapRouter02 wraps to WETH internally.
+ * `minOut` is the slippage-protected minimum USDC output (raw 6-decimal units).
+ */
+export async function swapEthForUsdc(wallet, amountInWei, minOut) {
+  const r = new Contract(BASE.swapRouter, SWAP_ROUTER_ABI, wallet)
+  const params = {
+    tokenIn:  BASE.weth,
+    tokenOut: BASE.usdc,
+    fee:      BASE.usdcWethFee,
+    recipient: wallet.address,
+    amountIn: amountInWei,
+    amountOutMinimum: minOut,
+    sqrtPriceLimitX96: 0n,
+  }
+  return r.exactInputSingle(params, { value: amountInWei })
+}
+
+/**
+ * Swap USDC → ETH.
+ * Two-step multicall: swap USDC → WETH (kept in router), then unwrap WETH → ETH
+ * and send to the user. Caller must ensure USDC allowance ≥ amountIn first.
+ */
+export async function swapUsdcForEth(wallet, amountIn, minOutWei) {
+  const r = new Contract(BASE.swapRouter, SWAP_ROUTER_ABI, wallet)
+  const swapParams = {
+    tokenIn:  BASE.usdc,
+    tokenOut: BASE.weth,
+    fee:      BASE.usdcWethFee,
+    recipient: ADDRESS_THIS,           // keep WETH inside router for unwrap
+    amountIn,
+    amountOutMinimum: minOutWei,
+    sqrtPriceLimitX96: 0n,
+  }
+  const data1 = r.interface.encodeFunctionData('exactInputSingle', [swapParams])
+  const data2 = r.interface.encodeFunctionData('unwrapWETH9', [minOutWei, wallet.address])
+  return r.multicall([data1, data2])
 }
 
 export { formatUnits, parseUnits }
