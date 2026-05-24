@@ -17,6 +17,7 @@ import { isLiveChatReady } from '../lib/liveChat.js'
 import LiveChatPanel from '../components/LiveChatPanel.jsx'
 import RoleSwitcher from '../components/RoleSwitcher.jsx'
 import PayoutWalletCard from '../components/PayoutWalletCard.jsx'
+import LinkedWalletCard from '../components/LinkedWalletCard.jsx'
 import AvatarUploader from '../components/AvatarUploader.jsx'
 import { PLATFORM_FEE_RATE, platformFee, workerNet, fmtUSD } from '../lib/fees.js'
 
@@ -482,6 +483,7 @@ export default function WorkerDashboard() {
         {/* Overview */}
         {tab === 'overview' && (
           <>
+            <div className="mb-10"><LinkedWalletCard purpose="work" /></div>
             <Section title="Earnings overview">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {STATS.map((s) => <Stat key={s.label} {...s} />)}

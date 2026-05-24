@@ -55,6 +55,22 @@ export function getWalletAddress(user) {
   return stripWeb3Prefix(String(raw))
 }
 
+// True for users who signed in via an OAuth identity provider (LinkedIn,
+// etc.) rather than a Web3 wallet. These accounts have no on-chain address
+// of their own — we surface a "Link a wallet" affordance so they can opt in
+// to a payout / funding address stored on their profile row.
+export function isOAuthAuth(user) {
+  if (!user) return false
+  const providers = []
+  const app = user.app_metadata || {}
+  if (app.provider) providers.push(app.provider)
+  if (Array.isArray(app.providers)) providers.push(...app.providers)
+  for (const id of user.identities || []) {
+    if (id?.provider) providers.push(id.provider)
+  }
+  return providers.some((p) => /linkedin|google|github|apple|facebook|azure/i.test(String(p)))
+}
+
 // Back-compat alias used across the app — same value, prefix-stripped.
 export function getWalletDisplay(user) {
   return getWalletAddress(user)

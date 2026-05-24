@@ -12,6 +12,7 @@ import ProMembershipBadge from '../components/ProMembershipBadge.jsx'
 import RoleSwitcher from '../components/RoleSwitcher.jsx'
 import HirerProfileEditor from '../components/HirerProfileEditor.jsx'
 import AvatarUploader from '../components/AvatarUploader.jsx'
+import LinkedWalletCard from '../components/LinkedWalletCard.jsx'
 
 // Shape kept for layout / accent; identity now comes from the signed-in user.
 const HIRER = {
@@ -566,6 +567,7 @@ export default function HirerDashboard() {
 
         {tab === 'overview' && (
           <>
+            <div className="mb-10"><LinkedWalletCard purpose="hire" /></div>
             <Section title="Spend overview">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <Stat label="Active tasks"  value={stats.activeCount}    hint="Currently in flight" valueClass="text-white" />
