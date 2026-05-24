@@ -762,6 +762,58 @@ function RevealPhraseModal({ open, onClose, onRevealed }) {
   )
 }
 
+function AccountSwitcher({ open, onClose, accounts, activeAddress, onPick, onAdd, onManage }) {
+  return (
+    <Modal open={open} onClose={onClose} title="Switch account">
+      <div style={{
+        background: C.surface2, borderRadius: 14, border: '1px solid ' + C.line, overflow: 'hidden',
+      }}>
+        {accounts.list.map((a, i) => {
+          const isActive = a.index === accounts.activeIndex
+          return (
+            <div
+              key={a.index}
+              onClick={() => { onPick(a.index); onClose() }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
+                borderBottom: i === accounts.list.length - 1 ? 0 : '1px solid ' + C.line,
+                cursor: 'pointer',
+              }}>
+              <div style={{
+                width: 34, height: 34, borderRadius: 10,
+                background: isActive ? 'rgba(0,224,184,0.10)' : 'rgba(244,247,251,0.05)',
+                border: '1px solid ' + (isActive ? 'rgba(0,224,184,0.22)' : 'rgba(244,247,251,0.10)'),
+                display: 'grid', placeItems: 'center', flexShrink: 0,
+              }}>
+                <SvgIcon size={17} stroke={isActive ? C.teal : C.text2}
+                  d={<><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M16 12h3"/></>}/>
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 500, fontSize: 14.5, color: C.white }}>{a.name}</div>
+                <div style={{ fontFamily: FONT_MONO, fontSize: 11.5, color: C.muted, marginTop: 2 }}>
+                  {isActive ? `${(activeAddress || '').slice(0, 6)}…${(activeAddress || '').slice(-4)} · active` : `m/44'/60'/0'/0/${a.index}`}
+                </div>
+              </div>
+              {isActive && (
+                <SvgIcon size={16} stroke={C.teal} d={<path d="M5 12l4 4L19 6"/>}/>
+              )}
+            </div>
+          )
+        })}
+      </div>
+      <button onClick={() => { onAdd(); onClose() }} style={{
+        width: '100%', padding: '14px 0', marginTop: 14, borderRadius: 14,
+        background: C.teal, color: C.bg, border: 0, fontWeight: 700, fontSize: 15, cursor: 'pointer',
+      }}>Add an account</button>
+      <button onClick={() => { onManage(); onClose() }} style={{
+        width: '100%', padding: '12px 0', marginTop: 8, borderRadius: 14,
+        background: 'transparent', color: C.white, border: '1px solid ' + C.lineStr,
+        fontWeight: 600, fontSize: 14, cursor: 'pointer',
+      }}>Manage in Settings</button>
+    </Modal>
+  )
+}
+
 function RenameAccountModal({ open, initial, onClose, onSave }) {
   const [name, setName] = useState(initial || '')
   useEffect(() => { if (open) setName(initial || '') }, [open, initial])
@@ -1327,7 +1379,8 @@ function SwapSheet({ open, onClose, wallet, chainKey, balances, onSwapped }) {
  * Main wallet UI
  * ────────────────────────────────────────────────────────────────────────── */
 function Home({ wallet, onLock, onSettings }) {
-  const { settings, update } = useSettings()
+  const { settings, update, accounts, switchAccount, addAccount } = useSettings()
+  const [acctOpen, setAcctOpen] = useState(false)
   const ccy = settings?.displayCurrency || 'USD'
 
   // Which EVM chains the user has enabled in Settings.
@@ -1428,12 +1481,18 @@ function Home({ wallet, onLock, onSettings }) {
             boxShadow: `0 0 12px ${ENV_META[env].color}44`,
           }}
         >{ENV_META[env].short}</button>
-        <div style={{
-          background: C.surface, border: '1px solid ' + C.lineStr,
-          padding: '8px 14px', borderRadius: 999, fontWeight: 600, fontSize: 14,
-        }}>
-          {short(address)}
-        </div>
+        <button
+          onClick={() => setAcctOpen(true)}
+          title="Switch account"
+          style={{
+            background: C.surface, border: '1px solid ' + C.lineStr,
+            padding: '8px 12px 8px 14px', borderRadius: 999, fontWeight: 600, fontSize: 14,
+            color: C.white, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6,
+          }}>
+          <span>{accounts?.list?.find((a) => a.index === accounts.activeIndex)?.name || short(address)}</span>
+          <span style={{ fontFamily: FONT_MONO, color: C.muted, fontSize: 12 }}>{short(address)}</span>
+          <SvgIcon size={14} stroke={C.muted} d={<path d="M6 9l6 6 6-6"/>}/>
+        </button>
         <button onClick={onSettings} style={{
           width: 38, height: 38, borderRadius: '50%', background: C.surface,
           border: '1px solid ' + C.lineStr, color: C.text2, cursor: 'pointer',
@@ -1613,6 +1672,15 @@ function Home({ wallet, onLock, onSettings }) {
                     onSwapped={(e) => { setActivity((p) => [e, ...p].slice(0, 50)); refresh() }}/>
       <EnvSheet     open={envOpen} onClose={() => setEnvOpen(false)} env={env}
                     onChange={(next) => update({ env: next })}/>
+      <AccountSwitcher
+        open={acctOpen}
+        onClose={() => setAcctOpen(false)}
+        accounts={accounts}
+        activeAddress={address}
+        onPick={switchAccount}
+        onAdd={addAccount}
+        onManage={onSettings}
+      />
     </div>
   )
 }
@@ -1672,28 +1740,44 @@ export default function NativeWalletApp() {
     saveAccounts(next).catch(() => {})
   }
 
+  // Resolve the seed phrase. phraseRef holds it after unlock, but if it ever
+  // gets cleared (e.g. ref reset by a stale render path) fall back to the
+  // mnemonic carried by the current HDNodeWallet — every wallet we hand out
+  // is derived from a mnemonic, so this is always present in steady state.
+  const getPhrase = () => phraseRef.current || wallet?.mnemonic?.phrase || null
+
   const switchAccount = (index) => {
-    if (!phraseRef.current) return
+    const phrase = getPhrase()
+    if (!phrase) { alert('Unlock the wallet again to switch accounts.'); return }
     if (!accounts.list.some((a) => a.index === index)) return
     if (index === accounts.activeIndex) { setView('home'); return }
     try {
-      setWallet(deriveAccount(phraseRef.current, index))
+      const next = deriveAccount(phrase, index)
+      phraseRef.current = phrase
+      setWallet(next)
       persistAccounts({ ...accounts, activeIndex: index })
       setView('home')
-    } catch {}
+    } catch (e) {
+      alert('Could not switch account: ' + (e?.message || 'unknown error'))
+    }
   }
 
   const addAccount = () => {
-    if (!phraseRef.current) return
+    const phrase = getPhrase()
+    if (!phrase) { alert('Unlock the wallet again to add an account.'); return }
     const used = new Set(accounts.list.map((a) => a.index))
     let next = 0
     while (used.has(next)) next += 1
     const item = { index: next, name: `Account ${accounts.list.length + 1}` }
     const list = [...accounts.list, item].sort((a, b) => a.index - b.index)
     try {
-      setWallet(deriveAccount(phraseRef.current, next))
+      const w = deriveAccount(phrase, next)
+      phraseRef.current = phrase
+      setWallet(w)
       persistAccounts({ list, activeIndex: next })
-    } catch {}
+    } catch (e) {
+      alert('Could not add account: ' + (e?.message || 'unknown error'))
+    }
   }
 
   const deleteAccount = (index) => {
