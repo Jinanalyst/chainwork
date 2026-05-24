@@ -13,6 +13,7 @@ import Talents from './pages/Talents.jsx'
 import HirerDashboard from './pages/HirerDashboard.jsx'
 import AdminPayments from './pages/AdminPayments.jsx'
 import Privacy from './pages/Privacy.jsx'
+import ChainPay from './pages/ChainPay.jsx'
 import EscrowAddressCard from './components/EscrowAddressCard.jsx'
 import PaymentProofForm from './components/PaymentProofForm.jsx'
 import ProMembershipBadge from './components/ProMembershipBadge.jsx'
@@ -96,6 +97,7 @@ const Nav = ({ route, user, onSignIn, onSignOut }) => (
         <a href="#/talents" className={'hover:text-white ' + (route.startsWith('#/talents') ? 'text-white' : '')}>Talents</a>
         <a href="#/hirer"   className={'hover:text-white ' + ((route.startsWith('#/hirer') || route.startsWith('#/post-task')) ? 'text-white' : '')}>For hirers</a>
         <a href="#/worker"  className={'hover:text-white ' + (route.startsWith('#/worker') ? 'text-white' : '')}>For workers</a>
+        <a href="#/pay"     className={'hover:text-white ' + (route.startsWith('#/pay') ? 'text-white' : '')}>Pay</a>
       </nav>
       <div className="flex items-center gap-3">
         {user ? (
@@ -784,6 +786,8 @@ export default function App() {
   let page
   if (route.startsWith('#/privacy')) {
     page = <Privacy />
+  } else if (route.startsWith('#/pay')) {
+    page = <ChainPay />
   } else if (route.startsWith('#/talents')) {
     page = <Talents />
   } else if (route.startsWith('#/admin/payments')) {
