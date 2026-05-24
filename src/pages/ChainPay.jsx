@@ -1145,11 +1145,11 @@ const Panel = ({ children, style = {}, label, corner }) => (
  * 01 — Download flow (APK)
  * ────────────────────────────────────────────────────────────────────────── */
 const APK = {
-  version:  '0.1.0',
-  file:     '/chainpay-v0.1.0.apk',
-  filename: 'chainpay-v0.1.0.apk',
-  size:     '14.9 MB',
-  sha256:   '311937fb51a23958dcdd8bcb512592bdccc3dcc8b493751e15347b27f0201217',
+  version:  '0.1.1',
+  file:     '/chainpay-v0.1.1.apk',
+  filename: 'chainpay-v0.1.1.apk',
+  size:     '22.7 MB',
+  sha256:   'bc90cb1a613a6719b7e4b362ea9fcdafa1ed27148c14021416885bd4be7fe5d3',
   built:    'May 2026',
   minSdk:   'Android 7 (Nougat) · API 24',
   signer:   'Debug keystore · self-signed',
@@ -1169,7 +1169,7 @@ const DownloadSection = () => {
   }
 
   const steps = [
-    ['Tap "Download APK".', 'Your browser saves chainpay-v0.1.0.apk to Downloads.'],
+    ['Tap "Download APK".', 'Your browser saves chainpay-v0.1.1.apk to Downloads.'],
     ['Allow installs from this source.', 'Android may ask once — say yes for your browser.'],
     ['Tap the file to install.', 'A standard Android install prompt opens. Tap Install.'],
     ['Open ChainPay and back up your phrase.', 'On first launch the app generates your recovery phrase. Write it down — you\'re the only one with it.'],
