@@ -814,7 +814,9 @@ export default function App() {
     page = <Home />
   }
 
-  const showChrome = !isOnboarding || !user // show dark nav for unauthed AuthGate too
+  // ChainPay renders its own brand chrome (logo + topbar), so hide the global Nav/Footer.
+  const isStandalone = route.startsWith('#/pay')
+  const showChrome = !isStandalone && (!isOnboarding || !user)
 
   return (
     <div className="min-h-screen flex flex-col">

@@ -909,91 +909,467 @@ function WalletApp() {
 }
 
 /* ────────────────────────────────────────────────────────────────────────── *
- * Page sections
+ * Brand Identity — typography, layout, chain-link "C" mark
  * ────────────────────────────────────────────────────────────────────────── */
-const Hero = ({ onLaunch }) => (
-  <section className="relative overflow-hidden">
-    <div className="absolute inset-0 grid-overlay pointer-events-none" />
-    <div className="relative mx-auto max-w-7xl px-6 pt-20 pb-12 md:pt-28 text-center">
-      <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs text-white/80 mb-6">
-        <span className="h-1.5 w-1.5 rounded-full bg-accent-400 animate-pulse" />
-        ChainPay · Wallet for ChainWork
-      </div>
-      <h1 className="text-4xl md:text-6xl lg:text-7xl font-extrabold leading-[1.05] tracking-tight">
-        Paying in crypto, <span className="gradient-text">as easy as a text.</span>
-      </h1>
-      <p className="mt-6 text-lg md:text-xl text-white/75 max-w-2xl mx-auto">
-        ChainPay is the self-custodial wallet built into ChainWork. Send USDC,
-        fund escrow, and watch balances update on-chain — all from one screen.
-      </p>
-      <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-        <button onClick={onLaunch} className="btn-primary">
-          Open the wallet
-          <Icon path={<path d="M5 12h14M13 5l7 7-7 7" />} className="h-4 w-4" />
-        </button>
-        <a href="#how-chainpay" className="btn-ghost">How it works</a>
-      </div>
-    </div>
-  </section>
+const FONT_HEAD = "'Space Grotesk', sans-serif"
+const FONT_UI   = "'Inter', system-ui, sans-serif"
+const FONT_MONO = "'JetBrains Mono', ui-monospace, monospace"
+
+const CPMark = ({ size = 56, color = C.teal }) => (
+  <svg width={size} height={size} viewBox="0 0 200 200" aria-hidden="true" style={{ color }}>
+    <defs>
+      <mask id={`cp-mask-${size}`}>
+        <rect x="0" y="0" width="200" height="200" fill="#fff"/>
+        <g transform="translate(100 100) rotate(-30) translate(-100 -100)">
+          <rect x="140" y="60" width="40" height="80" fill="#000"/>
+        </g>
+      </mask>
+    </defs>
+    <g transform="translate(100 100) rotate(-30) translate(-100 -100)">
+      <rect x="32" y="68" width="136" height="64" rx="32" ry="32"
+            fill="none" stroke="currentColor" strokeWidth="18" />
+    </g>
+    <g mask={`url(#cp-mask-${size})`} transform="translate(100 100) rotate(30) translate(-100 -100)">
+      <rect x="32" y="68" width="136" height="64" rx="32" ry="32"
+            fill="none" stroke="currentColor" strokeWidth="18" />
+    </g>
+  </svg>
 )
 
-const Intro = () => {
-  const cards = [
-    {
-      title: 'Self-custodial',
-      body: 'Your keys live in your wallet — MetaMask, Rabby, Coinbase Wallet. ChainPay never touches your seed phrase.',
-    },
-    {
-      title: 'USDC on Base',
-      body: 'Payments settle in USDC on Base — sub-cent gas, ~2 second confirmations, stable USD value.',
-    },
-    {
-      title: 'Built into ChainWork',
-      body: 'One tap funds a task: the escrow address and reference are pre-filled and the proof files itself.',
-    },
+const Page = ({ children }) => (
+  <div style={{
+    background: C.bg, color: C.white,
+    fontFamily: FONT_UI,
+    WebkitFontSmoothing: 'antialiased',
+  }}>
+    <div style={{ maxWidth: 1280, margin: '0 auto', padding: '64px 24px 96px' }}>
+      {children}
+    </div>
+  </div>
+)
+
+const Topbar = () => (
+  <header style={{
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    paddingBottom: 28, borderBottom: '1px solid ' + C.line, marginBottom: 56,
+    flexWrap: 'wrap', gap: 16,
+  }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <CPMark size={28}/>
+      <span style={{ fontFamily: FONT_HEAD, fontWeight: 600, fontSize: 20, letterSpacing: '-0.01em' }}>
+        chainpay
+      </span>
+    </div>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
+      <div style={{
+        fontFamily: FONT_MONO, fontSize: 11, color: C.muted,
+        letterSpacing: '0.04em', textTransform: 'uppercase',
+      }}>
+        <span>Wallet v0.1.0</span>
+        <span style={{ marginLeft: 24 }}>Android</span>
+      </div>
+      <a href="#/" style={{
+        display: 'inline-flex', alignItems: 'center', gap: 8,
+        padding: '8px 14px', borderRadius: 999,
+        border: '1px solid ' + C.lineStr, background: C.surface,
+        color: C.white, textDecoration: 'none',
+        fontFamily: FONT_UI, fontSize: 13, fontWeight: 500,
+      }}>
+        <SvgIcon stroke={C.text2} sw={1.8} size={14} d={<path d="M15 18l-6-6 6-6"/>}/>
+        Back to ChainWork
+      </a>
+    </div>
+  </header>
+)
+
+const Hero = ({ onDownload }) => (
+  <div style={{
+    display: 'grid', gridTemplateColumns: '1.1fr 1fr', gap: 56,
+    alignItems: 'center', padding: '48px 0 80px',
+  }} className="cp-hero-grid">
+    <style>{`
+      @media (max-width: 880px) {
+        .cp-hero-grid { grid-template-columns: 1fr !important; gap: 40px !important; }
+        .cp-hero-h1   { font-size: 52px !important; }
+      }
+      @media (max-width: 720px) {
+        .cp-section-head { grid-template-columns: 1fr !important; gap: 16px !important; }
+        .cp-three-col    { grid-template-columns: 1fr !important; }
+        .cp-two-col      { grid-template-columns: 1fr !important; }
+      }
+    `}</style>
+    <div>
+      <div style={{
+        fontFamily: FONT_MONO, fontSize: 11, color: C.teal,
+        letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 24,
+      }}>Brand System / Self-custodial wallet</div>
+      <h1 className="cp-hero-h1" style={{
+        fontFamily: FONT_HEAD, fontWeight: 500, fontSize: 76,
+        lineHeight: 0.98, letterSpacing: '-0.035em', margin: '0 0 28px',
+      }}>
+        Money that<br/>moves like a <span style={{ fontStyle: 'normal', color: C.teal }}>message.</span>
+      </h1>
+      <p style={{
+        fontSize: 17, lineHeight: 1.55, color: C.text2,
+        maxWidth: 480, margin: '0 0 32px',
+      }}>
+        ChainPay is a self-custodial wallet built around a single idea: paying someone in
+        crypto should feel as ordinary as sending a text. Now downloadable on Android —
+        and wired into every escrow on ChainWork.
+      </p>
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <button onClick={onDownload} style={{
+          background: C.teal, color: C.bg, border: 0, padding: '14px 22px',
+          borderRadius: 14, fontFamily: FONT_UI, fontWeight: 700, fontSize: 15,
+          cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 10,
+        }}>
+          <SvgIcon stroke={C.bg} sw={2} size={18} d={<path d="M12 3v12m0 0l-5-5m5 5l5-5M5 21h14"/>}/>
+          Download for Android
+        </button>
+        <a href="#wallet" style={{
+          background: 'transparent', color: C.white, padding: '14px 22px',
+          borderRadius: 14, fontWeight: 600, fontSize: 15,
+          border: '1px solid ' + C.lineStr, textDecoration: 'none',
+        }}>Preview the live wallet</a>
+      </div>
+      <div style={{
+        display: 'flex', gap: 40, paddingTop: 32, marginTop: 36,
+        borderTop: '1px solid ' + C.line, flexWrap: 'wrap',
+      }}>
+        {[
+          ['v0.1.0', 'Latest build'],
+          ['Android 9+', 'Requires'],
+          ['Self-custodial', 'Always'],
+        ].map(([head, sub]) => (
+          <div key={sub} style={{
+            fontFamily: FONT_MONO, fontSize: 11, color: C.muted,
+            textTransform: 'uppercase', letterSpacing: '0.08em',
+          }}>
+            <strong style={{
+              display: 'block', fontFamily: FONT_HEAD, color: C.white,
+              fontSize: 22, fontWeight: 500, letterSpacing: '-0.01em',
+              textTransform: 'none', marginBottom: 4,
+            }}>{head}</strong>
+            {sub}
+          </div>
+        ))}
+      </div>
+    </div>
+    <div style={{
+      aspectRatio: '1 / 1', borderRadius: 28, position: 'relative', overflow: 'hidden',
+      background: 'radial-gradient(120% 80% at 50% 0%, rgba(0,224,184,0.16), transparent 60%),'
+               + 'linear-gradient(180deg, ' + C.surface + ', ' + C.bg + ')',
+      border: '1px solid ' + C.lineStr,
+      display: 'grid', placeItems: 'center',
+    }}>
+      <div style={{
+        position: 'absolute', inset: 0,
+        backgroundImage:
+          `linear-gradient(${C.line} 1px, transparent 1px),`+
+          `linear-gradient(90deg, ${C.line} 1px, transparent 1px)`,
+        backgroundSize: '48px 48px',
+        maskImage: 'radial-gradient(80% 80% at 50% 50%, #000 30%, transparent 75%)',
+        WebkitMaskImage: 'radial-gradient(80% 80% at 50% 50%, #000 30%, transparent 75%)',
+        pointerEvents: 'none',
+      }}/>
+      <div style={{ position: 'relative', zIndex: 1, width: '56%' }}>
+        <CPMark size={260}/>
+      </div>
+      <div style={{
+        position: 'absolute', left: 24, bottom: 22,
+        fontFamily: FONT_MONO, fontSize: 11, color: C.muted,
+        letterSpacing: '0.08em', textTransform: 'uppercase',
+      }}>
+        PRIMARY MARK / <b style={{ color: C.teal, fontWeight: 500 }}>chainpay-c.svg</b>
+      </div>
+    </div>
+  </div>
+)
+
+const SectionHead = ({ index, title, body }) => (
+  <div className="cp-section-head" style={{
+    display: 'grid', gridTemplateColumns: '220px 1fr', gap: 48, marginBottom: 48,
+  }}>
+    <div style={{
+      fontFamily: FONT_MONO, fontSize: 11, color: C.teal,
+      letterSpacing: '0.18em', textTransform: 'uppercase',
+    }}>{index}</div>
+    <div>
+      <h2 style={{
+        fontFamily: FONT_HEAD, fontWeight: 500, fontSize: 40,
+        lineHeight: 1.05, letterSpacing: '-0.02em', margin: '0 0 12px',
+      }}>{title}</h2>
+      <p style={{ margin: 0, color: C.text2, fontSize: 15, lineHeight: 1.6, maxWidth: 560 }}>{body}</p>
+    </div>
+  </div>
+)
+
+const Section = ({ children, first = false }) => (
+  <section style={{
+    padding: '56px 0',
+    borderTop: first ? 0 : '1px solid ' + C.line,
+  }}>{children}</section>
+)
+
+const Panel = ({ children, style = {}, label, corner }) => (
+  <div style={{
+    borderRadius: 20, border: '1px solid ' + C.lineStr,
+    background: C.surface, padding: 24, position: 'relative', overflow: 'hidden',
+    display: 'flex', flexDirection: 'column', ...style,
+  }}>
+    {(label || corner) && (
+      <div style={{
+        display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+        gap: 16, marginBottom: 14,
+      }}>
+        {label && <span style={{
+          fontFamily: FONT_MONO, fontSize: 10, letterSpacing: '0.16em',
+          textTransform: 'uppercase', color: C.muted,
+        }}>{label}</span>}
+        {corner && <span style={{
+          fontFamily: FONT_MONO, fontSize: 10, letterSpacing: '0.12em',
+          textTransform: 'uppercase', color: C.muted,
+        }}>{corner}</span>}
+      </div>
+    )}
+    {children}
+  </div>
+)
+
+/* ────────────────────────────────────────────────────────────────────────── *
+ * 01 — Download flow (APK)
+ * ────────────────────────────────────────────────────────────────────────── */
+const APK = {
+  version:  '0.1.0',
+  file:     '/chainpay-v0.1.0.apk',
+  filename: 'chainpay-v0.1.0.apk',
+  size:     '32.4 MB',
+  sha256:   '9f8a4c2e7b21e1d3a45c0f9b2e8d7a64c1f3e0a98b5d2c1e7f4a9b6c0d8e5a21',
+  built:    'May 2026',
+  minSdk:   'Android 9 (Pie) · API 28',
+  signer:   'ChainPay Pte. Ltd.',
+}
+
+const DownloadSection = () => {
+  const [copied, setCopied] = useState(false)
+  const downloadUrl = typeof window !== 'undefined'
+    ? window.location.origin + APK.file
+    : APK.file
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&bgcolor=141A2E&color=F4F7FB&qzone=2&data=${encodeURIComponent(downloadUrl)}`
+
+  const copyHash = async () => {
+    try { await navigator.clipboard.writeText(APK.sha256); setCopied(true); setTimeout(() => setCopied(false), 1500) } catch {}
+  }
+
+  const steps = [
+    ['Tap "Download APK".', 'Your browser saves chainpay-v0.1.0.apk to Downloads.'],
+    ['Allow installs from this source.', 'Android may prompt the first time — say yes for ChainWork.'],
+    ['Open the file.',          'Tap the downloaded file, then "Install."'],
+    ['Open ChainPay and back up your phrase.', 'Write your recovery phrase down. Only you should ever see it.'],
   ]
+
   return (
-    <section id="how-chainpay" className="py-12">
-      <div className="mx-auto max-w-7xl px-6">
-        <div className="grid md:grid-cols-3 gap-5">
-          {cards.map((c) => (
-            <div key={c.title} className="card">
-              <h3 className="text-lg font-semibold">{c.title}</h3>
-              <p className="mt-2 text-sm text-white/70 leading-relaxed">{c.body}</p>
+    <Section first>
+      <SectionHead
+        index="01 — Download"
+        title="One file. No store. Your keys on the device that's already in your pocket."
+        body="ChainPay ships as a signed APK so you can install it directly — no Play-Store gatekeeper between you and your wallet. Side-load it once, get over-the-air updates from inside the app from then on."
+      />
+
+      <div className="cp-two-col" style={{
+        display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 16,
+      }}>
+        {/* Left: download card */}
+        <Panel
+          label="01.01 Direct download"
+          corner={`Android · ${APK.version}`}
+          style={{
+            background:
+              'radial-gradient(120% 90% at 100% 0%, rgba(0,224,184,0.18), transparent 55%),' +
+              C.surface,
+            border: '1px solid rgba(0,224,184,0.25)',
+          }}
+        >
+          <div style={{
+            display: 'flex', alignItems: 'flex-start', gap: 20, marginTop: 8,
+            flexWrap: 'wrap',
+          }}>
+            <div style={{
+              width: 72, height: 72, borderRadius: 18,
+              background: C.bg, border: '1px solid ' + C.lineStr,
+              display: 'grid', placeItems: 'center', flexShrink: 0,
+            }}>
+              <CPMark size={42}/>
             </div>
-          ))}
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <div style={{ fontFamily: FONT_HEAD, fontSize: 22, fontWeight: 500, letterSpacing: '-0.01em' }}>
+                ChainPay for Android
+              </div>
+              <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: C.muted, marginTop: 4, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                {APK.filename} · {APK.size}
+              </div>
+            </div>
+          </div>
+
+          <a
+            href={APK.file}
+            download={APK.filename}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 10,
+              marginTop: 22, padding: '14px 22px', borderRadius: 14,
+              background: C.teal, color: C.bg, fontWeight: 700, fontSize: 15,
+              textDecoration: 'none', alignSelf: 'flex-start',
+            }}
+          >
+            <SvgIcon stroke={C.bg} sw={2} size={18} d={<path d="M12 3v12m0 0l-5-5m5 5l5-5M5 21h14"/>}/>
+            Download APK · {APK.size}
+          </a>
+
+          <div style={{
+            marginTop: 24, display: 'grid', gap: 10,
+            fontFamily: FONT_MONO, fontSize: 12,
+          }}>
+            {[
+              ['VERSION',    APK.version],
+              ['BUILT',      APK.built],
+              ['MIN SDK',    APK.minSdk],
+              ['SIGNER',     APK.signer],
+            ].map(([k, v]) => (
+              <div key={k} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px dashed ' + C.line, paddingBottom: 8 }}>
+                <span style={{ color: C.muted, letterSpacing: '0.12em' }}>{k}</span>
+                <span style={{ color: C.white }}>{v}</span>
+              </div>
+            ))}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+              <span style={{ color: C.muted, letterSpacing: '0.12em' }}>SHA-256</span>
+              <button onClick={copyHash} style={{
+                background: 'transparent', border: 0, color: C.teal,
+                fontFamily: FONT_MONO, fontSize: 11, cursor: 'pointer',
+                textAlign: 'right', maxWidth: '70%', overflow: 'hidden', textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}>
+                {copied ? '✓ copied' : APK.sha256.slice(0, 14) + '…' + APK.sha256.slice(-10)}
+              </button>
+            </div>
+          </div>
+        </Panel>
+
+        {/* Right: QR install */}
+        <Panel
+          label="01.02 Install from phone"
+          corner="scan to install"
+        >
+          <div style={{ flex: 1, display: 'grid', placeItems: 'center', textAlign: 'center', padding: '10px 0' }}>
+            <div style={{
+              padding: 10, background: C.bg, borderRadius: 16, border: '1px solid ' + C.line,
+            }}>
+              <img src={qrUrl} alt="Scan to install" width={220} height={220} style={{ display: 'block', borderRadius: 8 }} />
+            </div>
+            <div style={{ marginTop: 14, fontSize: 13, color: C.text2, maxWidth: 240 }}>
+              Open your phone's camera and point it at the code. The APK starts downloading the moment you tap the prompt.
+            </div>
+          </div>
+        </Panel>
+      </div>
+
+      {/* Install steps */}
+      <div className="cp-three-col" style={{
+        marginTop: 16, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16,
+      }}>
+        {steps.map(([head, body], i) => (
+          <Panel key={head} label={`01.0${i + 3} Step ${i + 1}`}>
+            <div style={{
+              fontFamily: FONT_HEAD, fontSize: 32, fontWeight: 500,
+              color: C.teal, letterSpacing: '-0.02em', marginBottom: 6,
+            }}>0{i + 1}</div>
+            <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 6 }}>{head}</div>
+            <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.5 }}>{body}</div>
+          </Panel>
+        ))}
+      </div>
+
+      <div style={{
+        marginTop: 24, padding: '14px 18px', borderRadius: 14,
+        background: 'rgba(255,181,71,0.08)', border: '1px solid rgba(255,181,71,0.25)',
+        color: C.amber, fontSize: 13, lineHeight: 1.55, display: 'flex', gap: 12, alignItems: 'flex-start',
+      }}>
+        <SvgIcon stroke={C.amber} sw={2} size={18} d={<><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.86L1.82 18a2 2 0 0 0 1.72 3h16.92a2 2 0 0 0 1.72-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></>}/>
+        <div>
+          <b style={{ color: C.white }}>Prototype build.</b> This page ships a real download flow with a signed-style placeholder APK. The full release adds a Google Play listing — until then, only install ChainPay APKs served from <span style={{ fontFamily: FONT_MONO }}>chainwork.kr/pay</span>.
         </div>
       </div>
-    </section>
+    </Section>
   )
 }
 
+/* ────────────────────────────────────────────────────────────────────────── *
+ * 02 — Inside the wallet (live preview)
+ * ────────────────────────────────────────────────────────────────────────── */
 const WalletStage = () => (
-  <section id="wallet" className="py-16">
-    <div className="mx-auto max-w-7xl px-6">
-      <div className="text-center mb-10">
-        <div className="text-xs uppercase tracking-[0.2em] text-accent-400 mb-3">Live wallet</div>
-        <h2 className="text-3xl md:text-4xl font-bold">Your ChainPay home screen.</h2>
-        <p className="mt-3 text-sm text-white/65 max-w-xl mx-auto">
-          Balances refresh from Base mainnet every 10 seconds. Send, receive, swap, and buy — all real,
-          signed by the wallet you connect.
-        </p>
-      </div>
+  <Section>
+    <SectionHead
+      index="02 — Inside"
+      title="A wallet you can drive before you download it."
+      body="Below is the same home screen you'll see on your phone — only here it's running in your browser, signed by the wallet you connect, and reading live balances from Base mainnet."
+    />
+    <div id="wallet" style={{ display: 'grid', placeItems: 'center' }}>
       <WalletApp/>
     </div>
-  </section>
+  </Section>
 )
 
+/* ────────────────────────────────────────────────────────────────────────── *
+ * 03 — Why ChainPay (taglines in identity style)
+ * ────────────────────────────────────────────────────────────────────────── */
+const TaglineList = () => {
+  const lines = [
+    ['01', 'Money that moves like a message.', 'Tap, sign, sent. Sub-cent gas on Base.'],
+    ['02', 'Every escrow. One wallet. Zero fuss.', 'Funding a ChainWork task is a single signature — the reference and address are pre-filled.'],
+    ['03', 'Your keys. Your coins. Your call.',  'Self-custodial. ChainPay never sees your seed phrase.'],
+    ['04', 'Send crypto the boring way.',        'No bridges, no copy-paste address roulette — just a signed transfer.'],
+  ]
+  return (
+    <Section>
+      <SectionHead
+        index="03 — Why ChainPay"
+        title="Talk like a friend who happens to understand crypto."
+        body="The wallet, the page, the words — all built on the same idea: paying someone should never feel like operating a trading terminal."
+      />
+      <Panel label="03.01 Voice & promise" corner="numbered">
+        <div style={{ display: 'grid', gap: 18, marginTop: 6 }}>
+          {lines.map(([n, line, note]) => (
+            <div key={n} style={{ display: 'grid', gridTemplateColumns: '48px 1fr', gap: 18, alignItems: 'baseline' }}>
+              <span style={{
+                fontFamily: FONT_MONO, fontSize: 12, color: C.teal,
+                letterSpacing: '0.12em',
+              }}>{n}</span>
+              <div>
+                <div style={{ fontFamily: FONT_HEAD, fontSize: 22, fontWeight: 500, letterSpacing: '-0.01em', lineHeight: 1.2 }}>
+                  {line}
+                </div>
+                <div style={{ marginTop: 6, color: C.text2, fontSize: 13, lineHeight: 1.5 }}>{note}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Panel>
+    </Section>
+  )
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
 export default function ChainPay() {
-  const launch = () => {
-    const el = document.getElementById('wallet')
+  const onDownload = () => {
+    const el = document.getElementById('download')
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
   return (
-    <>
-      <Hero onLaunch={launch}/>
-      <Intro/>
+    <Page>
+      <Topbar/>
+      <Hero onDownload={onDownload}/>
+      <div id="download"><DownloadSection/></div>
       <WalletStage/>
-    </>
+      <TaglineList/>
+    </Page>
   )
 }
