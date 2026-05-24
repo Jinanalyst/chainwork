@@ -1,4 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react'
+import { Capacitor } from '@capacitor/core'
+import NativeWalletApp from './components/NativeWalletApp.jsx'
 import { LogoMark, Wordmark, Icon, useHashRoute, navigate } from './components/ui.jsx'
 import { CATEGORIES as WEB_CATEGORIES } from './data/categories.jsx'
 import SignInModal from './components/SignInModal.jsx'
@@ -718,6 +720,11 @@ const Home = () => (
 )
 
 export default function App() {
+  // Inside the installed ChainPay APK we bypass the entire ChainWork web app
+  // (no marketing pages, no Supabase session needed) and boot straight into
+  // the self-custodial wallet.
+  if (Capacitor.isNativePlatform()) return <NativeWalletApp/>
+
   const route = useHashRoute()
   const { user, loading } = useSession()
   const { profile, loading: profileLoading } = useProfile()

@@ -1,7 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { Capacitor } from '@capacitor/core'
 import { Icon } from '../components/ui.jsx'
 import { useSession, getWalletAddress } from '../hooks/useSession.js'
 import { PLATFORM_WALLETS, savePaymentProof, userReference } from '../lib/platform.js'
+import NativeWalletApp from '../components/NativeWalletApp.jsx'
+import QRCode from '../components/QRCode.jsx'
 
 /* ────────────────────────────────────────────────────────────────────────── *
  * Chain config — USDC on Base mainnet
@@ -425,21 +428,18 @@ function ReceiveModal({ open, onClose, address }) {
   const copy = async () => {
     try { await navigator.clipboard.writeText(address); setCopied(true); setTimeout(() => setCopied(false), 1500) } catch {}
   }
-  const qrUrl = address
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=240x240&bgcolor=141A2E&color=F4F7FB&qzone=2&data=${encodeURIComponent(address)}`
-    : ''
   return (
     <Modal open={open} onClose={onClose} title="Receive">
       <div style={{ textAlign: 'center' }}>
         <div style={{ fontSize: 13, color: C.text2, marginBottom: 14 }}>
           Share this address to receive USDC, ETH, or any ERC-20 on Base.
         </div>
-        {qrUrl && (
+        {address && (
           <div style={{
             display: 'inline-block', padding: 8, background: C.surface2,
             borderRadius: 16, border: '1px solid ' + C.line,
           }}>
-            <img src={qrUrl} width={240} height={240} alt="Wallet QR" style={{ display: 'block', borderRadius: 8 }} />
+            <QRCode data={address} size={240} background={C.surface2} color={C.white}/>
           </div>
         )}
         <div style={{
@@ -1143,11 +1143,13 @@ const APK = {
   version:  '0.1.0',
   file:     '/chainpay-v0.1.0.apk',
   filename: 'chainpay-v0.1.0.apk',
-  size:     '32.4 MB',
-  sha256:   '9f8a4c2e7b21e1d3a45c0f9b2e8d7a64c1f3e0a98b5d2c1e7f4a9b6c0d8e5a21',
+  size:     '4.0 MB',
+  sha256:   'f6e6eee97bca21051b2e6d47b7175aca72e1fe0963bf7a64cf5a46df4f9095c9',
   built:    'May 2026',
-  minSdk:   'Android 9 (Pie) · API 28',
-  signer:   'ChainPay Pte. Ltd.',
+  minSdk:   'Android 7 (Nougat) · API 24',
+  signer:   'Debug keystore · self-signed',
+  format:   'Signed Android APK',
+  contents: 'Native ChainPay wallet · in-app keys',
 }
 
 const DownloadSection = () => {
@@ -1155,7 +1157,7 @@ const DownloadSection = () => {
   const downloadUrl = typeof window !== 'undefined'
     ? window.location.origin + APK.file
     : APK.file
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&bgcolor=141A2E&color=F4F7FB&qzone=2&data=${encodeURIComponent(downloadUrl)}`
+  const isLocalhost = typeof window !== 'undefined' && /^(localhost|127\.0\.0\.1|\[::1\])(:|$)/.test(window.location.host)
 
   const copyHash = async () => {
     try { await navigator.clipboard.writeText(APK.sha256); setCopied(true); setTimeout(() => setCopied(false), 1500) } catch {}
@@ -1163,17 +1165,17 @@ const DownloadSection = () => {
 
   const steps = [
     ['Tap "Download APK".', 'Your browser saves chainpay-v0.1.0.apk to Downloads.'],
-    ['Allow installs from this source.', 'Android may prompt the first time — say yes for ChainWork.'],
-    ['Open the file.',          'Tap the downloaded file, then "Install."'],
-    ['Open ChainPay and back up your phrase.', 'Write your recovery phrase down. Only you should ever see it.'],
+    ['Allow installs from this source.', 'Android may ask once — say yes for your browser.'],
+    ['Tap the file to install.', 'A standard Android install prompt opens. Tap Install.'],
+    ['Open ChainPay and back up your phrase.', 'On first launch the app generates your recovery phrase. Write it down — you\'re the only one with it.'],
   ]
 
   return (
     <Section first>
       <SectionHead
         index="01 — Download"
-        title="One file. No store. Your keys on the device that's already in your pocket."
-        body="ChainPay ships as a signed APK so you can install it directly — no Play-Store gatekeeper between you and your wallet. Side-load it once, get over-the-air updates from inside the app from then on."
+        title="One file. Your keys on the device that's already in your pocket."
+        body="ChainPay ships as a signed Android APK so you can install it directly — no Play-Store gatekeeper between you and your wallet. The app generates its own private key on first launch, encrypted with a passcode you set."
       />
 
       <div className="cp-two-col" style={{
@@ -1230,14 +1232,15 @@ const DownloadSection = () => {
             fontFamily: FONT_MONO, fontSize: 12,
           }}>
             {[
-              ['VERSION',    APK.version],
-              ['BUILT',      APK.built],
-              ['MIN SDK',    APK.minSdk],
-              ['SIGNER',     APK.signer],
+              ['VERSION',  APK.version],
+              ['BUILT',    APK.built],
+              ['MIN SDK',  APK.minSdk],
+              ['SIGNER',   APK.signer],
+              ['CONTAINS', APK.contents],
             ].map(([k, v]) => (
-              <div key={k} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px dashed ' + C.line, paddingBottom: 8 }}>
+              <div key={k} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px dashed ' + C.line, paddingBottom: 8, gap: 12 }}>
                 <span style={{ color: C.muted, letterSpacing: '0.12em' }}>{k}</span>
-                <span style={{ color: C.white }}>{v}</span>
+                <span style={{ color: C.white, textAlign: 'right' }}>{v}</span>
               </div>
             ))}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
@@ -1245,16 +1248,14 @@ const DownloadSection = () => {
               <button onClick={copyHash} style={{
                 background: 'transparent', border: 0, color: C.teal,
                 fontFamily: FONT_MONO, fontSize: 11, cursor: 'pointer',
-                textAlign: 'right', maxWidth: '70%', overflow: 'hidden', textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}>
-                {copied ? '✓ copied' : APK.sha256.slice(0, 14) + '…' + APK.sha256.slice(-10)}
-              </button>
+                textAlign: 'right', maxWidth: '70%', overflow: 'hidden',
+                textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>{copied ? '✓ copied' : APK.sha256.slice(0, 14) + '…' + APK.sha256.slice(-10)}</button>
             </div>
           </div>
         </Panel>
 
-        {/* Right: QR install */}
+        {/* Right: QR card */}
         <Panel
           label="01.02 Install from phone"
           corner="scan to install"
@@ -1263,16 +1264,28 @@ const DownloadSection = () => {
             <div style={{
               padding: 10, background: C.bg, borderRadius: 16, border: '1px solid ' + C.line,
             }}>
-              <img src={qrUrl} alt="Scan to install" width={220} height={220} style={{ display: 'block', borderRadius: 8 }} />
+              <QRCode data={downloadUrl} size={220} background={C.bg} color={C.white}/>
             </div>
-            <div style={{ marginTop: 14, fontSize: 13, color: C.text2, maxWidth: 240 }}>
-              Open your phone's camera and point it at the code. The APK starts downloading the moment you tap the prompt.
+            <div style={{ marginTop: 14, fontSize: 13, color: C.text2, maxWidth: 260, wordBreak: 'break-all', fontFamily: FONT_MONO }}>
+              {downloadUrl}
             </div>
+            <div style={{ marginTop: 10, fontSize: 12, color: C.muted, maxWidth: 260 }}>
+              Open your phone's camera, point at the code, tap the prompt.
+            </div>
+            {isLocalhost && (
+              <div style={{
+                marginTop: 12, padding: '8px 12px', borderRadius: 10, maxWidth: 260,
+                background: 'rgba(255,181,71,0.10)', border: '1px solid rgba(255,181,71,0.3)',
+                color: C.amber, fontSize: 11, lineHeight: 1.5, textAlign: 'left',
+              }}>
+                You're on <b>localhost</b> — your phone can't reach that. Open this page on your computer via its LAN address (e.g. <span style={{ fontFamily: FONT_MONO }}>http://10.0.0.x:5173/#/pay</span>) so the QR encodes a URL your phone can actually fetch.
+              </div>
+            )}
           </div>
         </Panel>
       </div>
 
-      {/* Install steps */}
+      {/* Steps */}
       <div className="cp-three-col" style={{
         marginTop: 16, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16,
       }}>
@@ -1295,7 +1308,7 @@ const DownloadSection = () => {
       }}>
         <SvgIcon stroke={C.amber} sw={2} size={18} d={<><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.86L1.82 18a2 2 0 0 0 1.72 3h16.92a2 2 0 0 0 1.72-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></>}/>
         <div>
-          <b style={{ color: C.white }}>Prototype build.</b> This page ships a real download flow with a signed-style placeholder APK. The full release adds a Google Play listing — until then, only install ChainPay APKs served from <span style={{ fontFamily: FONT_MONO }}>chainwork.kr/pay</span>.
+          <b style={{ color: C.white }}>Debug-signed early-access build.</b> This APK is signed with a debug keystore — Android will warn that it's not from Play Store. That's expected for an early-access build. Production releases will be signed with a real keystore and listed on Google Play.
         </div>
       </div>
     </Section>
@@ -1359,6 +1372,11 @@ const TaglineList = () => {
 
 /* ────────────────────────────────────────────────────────────────────────── */
 export default function ChainPay() {
+  // Inside the installed Android app: skip all marketing chrome and boot
+  // straight into the native self-custodial wallet (in-app keys via ethers,
+  // no MetaMask dependency).
+  if (Capacitor.isNativePlatform()) return <NativeWalletApp/>
+
   const onDownload = () => {
     const el = document.getElementById('download')
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
