@@ -9,7 +9,7 @@ import {
   biometricAvailable, hasBiometric, enableBiometric, disableBiometric, biometricUnlock,
   requestNotificationPermission, fireNotification,
   getBalances, sendUSDC, sendNative, formatUnits, parseUnits,
-  CHAINS, chainOf,
+  CHAINS, chainOf, setActiveEnv, swapSupported,
   getQuote, getUsdcAllowance, approveUsdc, swapNativeForUsdc, swapUsdcForNative, MAX_UINT256,
   getPrices, nativePrice, t,
 } from '../lib/nativeWallet.js'
@@ -21,6 +21,15 @@ const CHAIN_BADGE = {
   eth:  { bg: '#3E4A6B', glyph: 'Ξ' },
   pol:  { bg: '#7B3FE4', glyph: '◇' },
   arb:  { bg: '#1B2A3F', glyph: '▲' },
+}
+
+const ENV_META = {
+  mainnet: { label: 'Mainnet', short: 'M', color: '#3CD68C',
+             detail: 'Real funds. Real fees. Real transactions.' },
+  testnet: { label: 'Testnet', short: 'T', color: '#FFB547',
+             detail: 'Sepolia / Amoy. Free faucet tokens, no real value.' },
+  devnet:  { label: 'Devnet',  short: 'D', color: '#FF7A8A',
+             detail: 'Local node at http://localhost:8545 — run anvil or hardhat first.' },
 }
 
 /* ─── Settings context — single source of truth for live settings ───── */
@@ -327,6 +336,57 @@ function UnlockScreen({ onUnlocked, onReset }) {
         marginTop: 18, background: 'transparent', border: 0, color: C.muted, fontSize: 12, cursor: 'pointer',
       }}>{tt(settings, 'forgot')}</button>
     </div>
+  )
+}
+
+/* ────────────────────────────────────────────────────────────────────────── *
+ * Env (mainnet / testnet / devnet) picker
+ * ────────────────────────────────────────────────────────────────────────── */
+function EnvSheet({ open, onClose, env, onChange }) {
+  return (
+    <Modal open={open} onClose={onClose} title="Network environment">
+      <div style={{
+        padding: '10px 12px', borderRadius: 12, marginBottom: 14,
+        background: 'rgba(255,181,71,0.08)', border: '1px solid rgba(255,181,71,0.24)',
+        color: C.text2, fontSize: 12, lineHeight: 1.5,
+      }}>
+        Switching networks changes the RPC ChainPay talks to. Your address is the same on every EVM network — balances and transaction history are different per network.
+      </div>
+      {['mainnet', 'testnet', 'devnet'].map((k) => {
+        const m = ENV_META[k]
+        const selected = env === k
+        return (
+          <button
+            key={k}
+            onClick={() => { onChange(k); onClose() }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 14, width: '100%',
+              padding: '14px 12px', marginBottom: 8, borderRadius: 14,
+              background: selected ? C.surface2 : 'transparent',
+              border: '1px solid ' + (selected ? m.color : C.line),
+              color: C.white, cursor: 'pointer', textAlign: 'left',
+            }}
+          >
+            <span style={{
+              width: 38, height: 38, borderRadius: '50%', flexShrink: 0,
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid ' + m.color,
+              display: 'grid', placeItems: 'center',
+              color: m.color, fontWeight: 700, fontSize: 16,
+              boxShadow: selected ? `0 0 14px ${m.color}55` : 'none',
+            }}>{m.short}</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 600, fontSize: 15, color: m.color }}>{m.label}</div>
+              <div style={{ fontSize: 12, color: C.muted, marginTop: 2, lineHeight: 1.35 }}>{m.detail}</div>
+            </div>
+            {selected && (
+              <SvgIcon size={18} stroke={m.color}
+                d={<path d="M5 12l5 5L20 7"/>}/>
+            )}
+          </button>
+        )
+      })}
+    </Modal>
   )
 }
 
@@ -1004,6 +1064,25 @@ function SettingsScreen({ wallet, onBack, onLock, onReset }) {
 function SwapSheet({ open, onClose, wallet, chainKey, balances, onSwapped }) {
   const chain = chainOf(chainKey)
   const nativeSym = chain.nativeSymbol
+  const canSwap = swapSupported(chainKey)
+  if (open && !canSwap) {
+    return (
+      <Modal open={open} onClose={onClose} title={`Swap · ${chain.name}`}>
+        <div style={{
+          padding: '14px 16px', borderRadius: 14,
+          background: 'rgba(255,181,71,0.08)', border: '1px solid rgba(255,181,71,0.28)',
+          color: C.text2, fontSize: 13, lineHeight: 1.5,
+        }}>
+          Swap isn't available on <b style={{ color: C.amber }}>{chain.name}</b> — no Uniswap V3 router is deployed on this network. Switch to a mainnet, Base Sepolia, Sepolia, or Arbitrum Sepolia to swap.
+        </div>
+        <button onClick={onClose} style={{
+          marginTop: 14, width: '100%', padding: '13px 0', borderRadius: 14,
+          background: 'transparent', border: '1px solid ' + C.lineStr,
+          color: C.white, fontWeight: 600, cursor: 'pointer',
+        }}>Got it</button>
+      </Modal>
+    )
+  }
   const [pay,   setPay]   = useState('USDC')   // pay token
   const [amt,   setAmt]   = useState('')
   const [out,   setOut]   = useState(0n)       // raw bigint quote
@@ -1266,12 +1345,19 @@ function Home({ wallet, onLock, onSettings }) {
   }, [activeChain])
   const chain = chainOf(activeChain)
 
+  // Network environment (mainnet / testnet / devnet). Kept in sync with the
+  // module-level _activeEnv inside nativeWallet.js — that's what `provider()`,
+  // `getBalances`, `sendUSDC` etc. read from.
+  const env = settings?.env || 'mainnet'
+  useEffect(() => { setActiveEnv(env) }, [env])
+
   const [balances, setBalances] = useState({ native: 0n, usdc: 0n })
   const [prices,   setPrices]   = useState({ eth: { USD: 0, KRW: 0 }, matic: { USD: 0, KRW: 0 }, usdcKrw: 1340 })
   const [tab,      setTab]      = useState('Assets')
   const [send,     setSend]     = useState(false)
   const [recv,     setRecv]     = useState(false)
   const [swap,     setSwap]     = useState(false)
+  const [envOpen,  setEnvOpen]  = useState(false)
   const [activity, setActivity] = useState([])
   const address = wallet.address
 
@@ -1279,12 +1365,12 @@ function Home({ wallet, onLock, onSettings }) {
     try { setBalances(await getBalances(address, activeChain)) } catch {}
   }
   useEffect(() => {
-    setBalances({ native: 0n, usdc: 0n }) // clear stale balances when chain flips
+    setBalances({ native: 0n, usdc: 0n }) // clear stale balances when chain/env flips
     refresh()
     const id = setInterval(refresh, 10_000)
     return () => clearInterval(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [address, activeChain])
+  }, [address, activeChain, env])
   useEffect(() => {
     const f = () => getPrices().then(setPrices).catch(() => {})
     f(); const id = setInterval(f, 60_000); return () => clearInterval(id)
@@ -1313,10 +1399,18 @@ function Home({ wallet, onLock, onSettings }) {
       {/* TopBar */}
       <div style={{ padding: '52px 20px 6px', display: 'flex',
         alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{
-          width: 38, height: 38, borderRadius: '50%',
-          background: 'linear-gradient(135deg,#00E0B8 0%,#2A6FDB 60%,#7A4DFF 100%)',
-        }}/>
+        <button
+          onClick={() => setEnvOpen(true)}
+          title={`${ENV_META[env].label} — tap to switch`}
+          style={{
+            width: 38, height: 38, borderRadius: '50%',
+            background: 'rgba(244,247,251,0.04)',
+            border: '1px solid ' + ENV_META[env].color,
+            color: ENV_META[env].color, fontWeight: 700, fontSize: 15,
+            display: 'grid', placeItems: 'center', cursor: 'pointer',
+            boxShadow: `0 0 12px ${ENV_META[env].color}44`,
+          }}
+        >{ENV_META[env].short}</button>
         <div style={{
           background: C.surface, border: '1px solid ' + C.lineStr,
           padding: '8px 14px', borderRadius: 999, fontWeight: 600, fontSize: 14,
@@ -1500,6 +1594,8 @@ function Home({ wallet, onLock, onSettings }) {
       <ReceiveSheet open={recv} onClose={() => setRecv(false)} address={address} chainKey={activeChain}/>
       <SwapSheet    open={swap} onClose={() => setSwap(false)} wallet={wallet} chainKey={activeChain} balances={balances}
                     onSwapped={(e) => { setActivity((p) => [e, ...p].slice(0, 50)); refresh() }}/>
+      <EnvSheet     open={envOpen} onClose={() => setEnvOpen(false)} env={env}
+                    onChange={(next) => update({ env: next })}/>
     </div>
   )
 }
@@ -1526,6 +1622,7 @@ export default function NativeWalletApp() {
         const ok  = await mnemonicConfirmed()
         const s   = await loadSettings()
         const a   = await loadAccounts()
+        setActiveEnv(s.env || 'mainnet')
         setSettings(s)
         setAccounts(a)
         setBackedUp(ok)

@@ -82,7 +82,112 @@ export const CHAINS = {
 // Back-compat alias.
 export const BASE = CHAINS.base
 
-export function chainOf(key) { return CHAINS[key] || CHAINS.base }
+/* ── testnets ─────────────────────────────────────────────────────────────
+ * Sepolia variants of the four EVM chains. USDC addresses are Circle's
+ * official test mints — request from https://faucet.circle.com. Native gas
+ * comes from each chain's public faucet.
+ *
+ * Uniswap V3 SwapRouter02/QuoterV2 are deployed on Base Sepolia, Ethereum
+ * Sepolia, and Arbitrum Sepolia. Polygon Amoy doesn't have a canonical V3
+ * deployment yet — swap is disabled there (swapRouter is null).
+ */
+export const TESTNETS = {
+  base: {
+    key: 'base', name: 'Base Sepolia', chainId: 84532,
+    rpc: 'https://sepolia.base.org',
+    nativeSymbol: 'ETH', priceId: 'ethereum',
+    usdc: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
+    wrapped: '0x4200000000000000000000000000000000000006',
+    usdcDecimals: 6,
+    explorer: 'https://sepolia.basescan.org',
+    swapRouter: '0x94cC0AaC535CCDB3C01d6787D6413C739ae12bc4',
+    quoterV2:   '0xC5290058841028F1614F3A6F0F5816cAd0df5E27',
+    poolFee: 500,
+    faucet: 'https://www.coinbase.com/faucets/base-ethereum-sepolia-faucet',
+  },
+  eth: {
+    key: 'eth', name: 'Sepolia', chainId: 11155111,
+    rpc: 'https://ethereum-sepolia-rpc.publicnode.com',
+    nativeSymbol: 'ETH', priceId: 'ethereum',
+    usdc: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238',
+    wrapped: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14',
+    usdcDecimals: 6,
+    explorer: 'https://sepolia.etherscan.io',
+    swapRouter: '0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E',
+    quoterV2:   '0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3',
+    poolFee: 500,
+    faucet: 'https://sepoliafaucet.com',
+  },
+  pol: {
+    key: 'pol', name: 'Polygon Amoy', chainId: 80002,
+    rpc: 'https://rpc-amoy.polygon.technology',
+    nativeSymbol: 'MATIC', priceId: 'matic-network',
+    usdc: '0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582',
+    wrapped: '0x0ae690AAD8663aaB12a671A6A0d74242332de85f',
+    usdcDecimals: 6,
+    explorer: 'https://amoy.polygonscan.com',
+    swapRouter: null, // No canonical Uniswap V3 deployment on Amoy yet.
+    quoterV2:   null,
+    poolFee: 500,
+    faucet: 'https://faucet.polygon.technology',
+  },
+  arb: {
+    key: 'arb', name: 'Arbitrum Sepolia', chainId: 421614,
+    rpc: 'https://sepolia-rollup.arbitrum.io/rpc',
+    nativeSymbol: 'ETH', priceId: 'ethereum',
+    usdc: '0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d',
+    wrapped: '0x980B62Da83eFf3D4576C647993b0c1D7faf17c73',
+    usdcDecimals: 6,
+    explorer: 'https://sepolia.arbiscan.io',
+    swapRouter: '0x101F443B4d1b059569D643917553c771E1b9663E',
+    quoterV2:   '0x2779a0CC1c3e0E44D2542EC3e79e3864Ae93Ef0B',
+    poolFee: 500,
+    faucet: 'https://faucet.quicknode.com/arbitrum/sepolia',
+  },
+}
+
+/* ── devnets ──────────────────────────────────────────────────────────────
+ * All four point at a local Anvil/Hardhat node on http://localhost:8545.
+ * Run `anvil` (Foundry) or `npx hardhat node` first. Swap is disabled
+ * (no router deployed by default on a fresh local node).
+ */
+const DEVNET_RPC = 'http://localhost:8545'
+function devnetCfg(key, name, nativeSymbol, priceId) {
+  return {
+    key, name: `${name} (local)`, chainId: 31337,
+    rpc: DEVNET_RPC,
+    nativeSymbol, priceId,
+    usdc: '0x0000000000000000000000000000000000000000',
+    wrapped: '0x0000000000000000000000000000000000000000',
+    usdcDecimals: 6,
+    explorer: '',
+    swapRouter: null, quoterV2: null, poolFee: 500,
+    faucet: 'http://localhost:8545',
+  }
+}
+export const DEVNETS = {
+  base: devnetCfg('base', 'Base',     'ETH',   'ethereum'),
+  eth:  devnetCfg('eth',  'Ethereum', 'ETH',   'ethereum'),
+  pol:  devnetCfg('pol',  'Polygon',  'MATIC', 'matic-network'),
+  arb:  devnetCfg('arb',  'Arbitrum', 'ETH',   'ethereum'),
+}
+
+const CHAINS_BY_ENV = { mainnet: CHAINS, testnet: TESTNETS, devnet: DEVNETS }
+
+let _activeEnv = 'mainnet'
+export function activeEnv() { return _activeEnv }
+export function setActiveEnv(env) {
+  if (!CHAINS_BY_ENV[env]) return
+  if (env === _activeEnv) return
+  _activeEnv = env
+  // Provider cache is keyed by env — but clearing eagerly keeps memory tidy.
+  for (const k of Object.keys(_providers)) delete _providers[k]
+}
+
+export function chainOf(key) {
+  const map = CHAINS_BY_ENV[_activeEnv] || CHAINS
+  return map[key] || map.base || CHAINS.base
+}
 
 const ADDRESS_THIS = '0x0000000000000000000000000000000000000002'
 
@@ -106,8 +211,9 @@ const SWAP_ROUTER_ABI = [
 const _providers = {}
 export function provider(chainKey = 'base') {
   const c = chainOf(chainKey)
-  if (!_providers[c.key]) _providers[c.key] = new JsonRpcProvider(c.rpc, c.chainId, { staticNetwork: true })
-  return _providers[c.key]
+  const k = `${_activeEnv}:${c.key}`
+  if (!_providers[k]) _providers[k] = new JsonRpcProvider(c.rpc, c.chainId, { staticNetwork: true })
+  return _providers[k]
 }
 
 export async function hasWallet() {
@@ -196,6 +302,7 @@ const DEFAULT_SETTINGS = {
   // EVM chains are now wired end-to-end. Non-EVM (sol/btc/sui) still UI-only.
   networks:       { base: true, eth: true, pol: true, arb: true, sol: false, btc: false, sui: false },
   activeChain:    'base',
+  env:            'mainnet', // 'mainnet' | 'testnet' | 'devnet'
 }
 export async function loadSettings() {
   const { value } = await Preferences.get({ key: SETTINGS_KEY })
@@ -494,8 +601,14 @@ export async function sendNative(wallet, chainKey, to, amountStr) {
 }
 
 /* ── Uniswap V3 swap (USDC ↔ native, per chain) ──────────────────────── */
+export function swapSupported(chainKey = 'base') {
+  const c = chainOf(chainKey)
+  return !!(c.swapRouter && c.quoterV2)
+}
+
 export async function getQuote({ chainKey = 'base', tokenIn, tokenOut, amountIn }) {
   const c = chainOf(chainKey)
+  if (!c.quoterV2) throw new Error(`Swap is not available on ${c.name}.`)
   const q = new Contract(c.quoterV2, QUOTER_ABI, provider(chainKey))
   const params = { tokenIn, tokenOut, amountIn, fee: c.poolFee, sqrtPriceLimitX96: 0n }
   const [amountOut] = await q.quoteExactInputSingle.staticCall(params)
