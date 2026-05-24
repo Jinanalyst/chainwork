@@ -4,13 +4,24 @@ import QRCode from './QRCode.jsx'
 import {
   hasWallet, mnemonicConfirmed, setMnemonicConfirmed,
   createWallet, importMnemonic, save, unlock, reset, revealMnemonic,
+  loadAccounts, saveAccounts, deriveAccount,
   loadSettings, saveSettings,
   biometricAvailable, hasBiometric, enableBiometric, disableBiometric, biometricUnlock,
   requestNotificationPermission, fireNotification,
-  getBalances, sendUSDC, sendETH, formatUnits, parseUnits, BASE,
-  getQuote, getUsdcAllowance, approveUsdc, swapEthForUsdc, swapUsdcForEth, MAX_UINT256,
-  getPrices, t,
+  getBalances, sendUSDC, sendNative, formatUnits, parseUnits,
+  CHAINS, chainOf,
+  getQuote, getUsdcAllowance, approveUsdc, swapNativeForUsdc, swapUsdcForNative, MAX_UINT256,
+  getPrices, nativePrice, t,
 } from '../lib/nativeWallet.js'
+
+// EVM chains we currently support end-to-end (send, receive, swap).
+const EVM_KEYS = ['base', 'eth', 'pol', 'arb']
+const CHAIN_BADGE = {
+  base: { bg: '#0052FF', glyph: '◯' },
+  eth:  { bg: '#3E4A6B', glyph: 'Ξ' },
+  pol:  { bg: '#7B3FE4', glyph: '◇' },
+  arb:  { bg: '#1B2A3F', glyph: '▲' },
+}
 
 /* ─── Settings context — single source of truth for live settings ───── */
 const SettingsCtx = createContext({
@@ -19,6 +30,13 @@ const SettingsCtx = createContext({
   bumpIdle: () => {},
   bioOk: false,
   bioEnrolled: false,
+  accounts: { list: [{ index: 0, name: 'Account 1' }], activeIndex: 0 },
+  addAccount: () => {},
+  deleteAccount: () => {},
+  switchAccount: () => {},
+  renameAccount: () => {},
+  backedUp: false,
+  markBackedUp: () => {},
 })
 const useSettings = () => useContext(SettingsCtx)
 const tt = (s, k) => t(s?.language || 'en', k)
@@ -315,7 +333,9 @@ function UnlockScreen({ onUnlocked, onReset }) {
 /* ────────────────────────────────────────────────────────────────────────── *
  * Send / Receive modals
  * ────────────────────────────────────────────────────────────────────────── */
-function SendSheet({ open, onClose, wallet, balances, onSent }) {
+function SendSheet({ open, onClose, wallet, chainKey, balances, onSent }) {
+  const chain = chainOf(chainKey)
+  const nativeSym = chain.nativeSymbol
   const [token, setToken] = useState('USDC')
   const [to,    setTo]    = useState('')
   const [amt,   setAmt]   = useState('')
@@ -324,7 +344,7 @@ function SendSheet({ open, onClose, wallet, balances, onSent }) {
   const [hash,  setHash]  = useState('')
   const [status, setStatus] = useState('')
 
-  useEffect(() => { if (open) { setTo(''); setAmt(''); setHash(''); setStatus(''); setErr('') } }, [open])
+  useEffect(() => { if (open) { setTo(''); setAmt(''); setHash(''); setStatus(''); setErr(''); setToken('USDC') } }, [open, chainKey])
 
   const send = async () => {
     setErr('')
@@ -333,12 +353,13 @@ function SendSheet({ open, onClose, wallet, balances, onSent }) {
     setBusy(true)
     try {
       const tx = token === 'USDC'
-        ? await sendUSDC(wallet, to, amt)
-        : await sendETH(wallet, to, amt)
+        ? await sendUSDC(wallet, chainKey, to, amt)
+        : await sendNative(wallet, chainKey, to, amt)
       setHash(tx.hash); setStatus('pending')
       const r = await tx.wait()
-      setStatus(r.status === 1 ? 'confirmed' : 'failed')
-      onSent({ kind: 'send', token, amount: amt, to, hash: tx.hash, status: r.status === 1 ? 'confirmed' : 'failed', ts: Date.now() })
+      const ok = r.status === 1
+      setStatus(ok ? 'confirmed' : 'failed')
+      onSent({ kind: 'send', token, amount: amt, to, hash: tx.hash, chain: chain.name, chainKey, explorer: chain.explorer, status: ok ? 'confirmed' : 'failed', ts: Date.now() })
     } catch (e) { setErr(e?.shortMessage || e?.message || 'Send failed') }
     finally { setBusy(false) }
   }
@@ -351,16 +372,16 @@ function SendSheet({ open, onClose, wallet, balances, onSent }) {
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Send">
+    <Modal open={open} onClose={onClose} title={`Send · ${chain.name}`}>
       <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
-        {['USDC', 'ETH'].map((t) => (
-          <button key={t} onClick={() => setToken(t)} style={{
+        {['USDC', nativeSym].map((tk) => (
+          <button key={tk} onClick={() => setToken(tk)} style={{
             flex: 1, padding: '10px 0', borderRadius: 999,
-            background: token === t ? C.white : 'transparent',
-            color: token === t ? C.bg : C.text2,
-            border: '1px solid ' + (token === t ? C.white : C.lineStr),
+            background: token === tk ? C.white : 'transparent',
+            color: token === tk ? C.bg : C.text2,
+            border: '1px solid ' + (token === tk ? C.white : C.lineStr),
             fontWeight: 600, cursor: 'pointer',
-          }}>{t}</button>
+          }}>{tk}</button>
         ))}
       </div>
       <div style={label}>To</div>
@@ -372,8 +393,8 @@ function SendSheet({ open, onClose, wallet, balances, onSent }) {
                placeholder="0.00" style={{ ...inp, fontFamily: FONT_MONO }}/>
         <button type="button" onClick={() => setAmt(
           token === 'USDC'
-            ? formatUnits(balances.usdc, BASE.usdcDecimals)
-            : formatUnits(balances.eth, 18)
+            ? formatUnits(balances.usdc, chain.usdcDecimals)
+            : formatUnits(balances.native, 18)
         )} style={{
           padding: '0 16px', borderRadius: 12, background: C.surface2,
           border: '1px solid ' + C.line, color: C.text2, fontSize: 13, cursor: 'pointer',
@@ -381,8 +402,8 @@ function SendSheet({ open, onClose, wallet, balances, onSent }) {
       </div>
       <div style={{ marginTop: 8, fontSize: 11, color: C.muted, fontFamily: FONT_MONO }}>
         Balance: {token === 'USDC'
-          ? formatUnits(balances.usdc, BASE.usdcDecimals)
-          : formatUnits(balances.eth, 18).slice(0, 10)} {token}
+          ? formatUnits(balances.usdc, chain.usdcDecimals)
+          : formatUnits(balances.native, 18).slice(0, 10)} {token === 'USDC' ? 'USDC' : nativeSym}
       </div>
       {err && <div style={{ marginTop: 12, padding: '8px 12px', borderRadius: 10,
         background: 'rgba(255,122,138,0.12)', border: '1px solid rgba(255,122,138,0.3)',
@@ -408,16 +429,21 @@ function SendSheet({ open, onClose, wallet, balances, onSent }) {
   )
 }
 
-function ReceiveSheet({ open, onClose, address }) {
+function ReceiveSheet({ open, onClose, address, chainKey }) {
+  const chain = chainOf(chainKey)
   const [copied, setCopied] = useState(false)
   const copy = async () => {
     try { await navigator.clipboard.writeText(address); setCopied(true); setTimeout(() => setCopied(false), 1500) } catch {}
   }
   return (
-    <Modal open={open} onClose={onClose} title="Receive">
+    <Modal open={open} onClose={onClose} title={`Receive · ${chain.name}`}>
       <div style={{ textAlign: 'center' }}>
         <div style={{ fontSize: 13, color: C.text2, marginBottom: 14 }}>
-          Anyone with this address can send you USDC or ETH on Base.
+          Anyone with this address can send you USDC or {chain.nativeSymbol} on {chain.name}.
+          <br/>
+          <span style={{ fontSize: 11, color: C.muted }}>
+            Same EVM address works on Base, Ethereum, Polygon, and Arbitrum — make sure the sender picks the right network.
+          </span>
         </div>
         {address && (
           <div style={{ display: 'inline-block', padding: 10, background: C.surface2,
@@ -435,7 +461,7 @@ function ReceiveSheet({ open, onClose, address }) {
           alignItems: 'center', justifyContent: 'center', gap: 8,
         }}><IconCopy size={16} stroke={C.bg}/>{copied ? 'Copied' : 'Copy address'}</button>
         <div style={{ marginTop: 10, fontSize: 11, color: C.muted }}>
-          Network: <b style={{ color: C.text2 }}>Base mainnet</b>
+          Network: <b style={{ color: C.text2 }}>{chain.name} mainnet</b>
         </div>
       </div>
     </Modal>
@@ -585,7 +611,7 @@ function EnableBiometricModal({ open, onClose, onEnabled }) {
   )
 }
 
-function RevealPhraseModal({ open, onClose }) {
+function RevealPhraseModal({ open, onClose, onRevealed }) {
   const [pass, setPass]   = useState('')
   const [phrase, setPhrase] = useState('')
   const [err, setErr]     = useState('')
@@ -595,7 +621,11 @@ function RevealPhraseModal({ open, onClose }) {
 
   const reveal = async () => {
     setErr(''); setBusy(true)
-    try { setPhrase(await revealMnemonic(pass)); setHidden(false) }
+    try {
+      const p = await revealMnemonic(pass)
+      setPhrase(p); setHidden(false)
+      try { onRevealed && onRevealed() } catch {}
+    }
     catch (e) { setErr('Wrong passcode.'); }
     finally { setBusy(false) }
   }
@@ -672,10 +702,47 @@ function RevealPhraseModal({ open, onClose }) {
   )
 }
 
+function RenameAccountModal({ open, initial, onClose, onSave }) {
+  const [name, setName] = useState(initial || '')
+  useEffect(() => { if (open) setName(initial || '') }, [open, initial])
+  const submit = () => {
+    const v = name.trim()
+    if (v) onSave(v)
+  }
+  return (
+    <Modal open={open} onClose={onClose} title="Rename account">
+      <div style={{ fontSize: 11, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: 6 }}>
+        Account name
+      </div>
+      <input
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        onKeyDown={(e) => e.key === 'Enter' && submit()}
+        autoFocus maxLength={32}
+        style={{
+          width: '100%', boxSizing: 'border-box', padding: '12px 14px',
+          background: C.surface2, border: '1px solid ' + C.line, color: C.white,
+          borderRadius: 12, fontSize: 15, outline: 'none', fontFamily: 'inherit',
+        }}
+      />
+      <button onClick={submit} disabled={!name.trim()} style={{
+        width: '100%', padding: '14px 0', marginTop: 16, borderRadius: 14,
+        background: C.teal, color: C.bg, border: 0, fontWeight: 700, fontSize: 16,
+        cursor: 'pointer', opacity: name.trim() ? 1 : 0.5,
+      }}>Save</button>
+    </Modal>
+  )
+}
+
 function SettingsScreen({ wallet, onBack, onLock, onReset }) {
-  const { settings, update, bioOk, bioEnrolled, setBioEnrolled } = useSettings()
+  const {
+    settings, update, bioOk, bioEnrolled, setBioEnrolled,
+    accounts, addAccount, deleteAccount, switchAccount, renameAccount,
+    backedUp, markBackedUp,
+  } = useSettings()
   const [reveal, setReveal] = useState(false)
   const [enrollOpen, setEnrollOpen] = useState(false)
+  const [renaming, setRenaming] = useState(null) // {index, name} | null
 
   const updNet = (key, on) => update({ networks: { ...settings.networks, [key]: on } })
 
@@ -744,25 +811,72 @@ function SettingsScreen({ wallet, onBack, onLock, onReset }) {
           <div style={{ fontFamily: FONT_HEAD, fontWeight: 600, fontSize: 17, letterSpacing: '-0.02em' }}>ChainPay wallet</div>
           <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: 'rgba(244,247,251,0.6)' }}>{short(wallet.address)}</div>
         </div>
-        <div style={{
-          display: 'inline-flex', alignItems: 'center', gap: 6,
-          background: 'rgba(60,214,140,0.16)', border: '1px solid rgba(60,214,140,0.28)',
-          color: C.green, padding: '5px 9px', borderRadius: 999,
-          fontWeight: 600, fontSize: 10.5, letterSpacing: '0.04em', textTransform: 'uppercase',
-        }}>
-          <span style={{ width: 5, height: 5, borderRadius: '50%', background: C.green, boxShadow: '0 0 6px ' + C.green }}/>
-          Backed up
+        <div
+          onClick={backedUp ? undefined : () => setReveal(true)}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            background: backedUp ? 'rgba(60,214,140,0.16)' : 'rgba(255,181,71,0.16)',
+            border: '1px solid ' + (backedUp ? 'rgba(60,214,140,0.28)' : 'rgba(255,181,71,0.32)'),
+            color: backedUp ? C.green : C.amber,
+            padding: '5px 9px', borderRadius: 999,
+            fontWeight: 600, fontSize: 10.5, letterSpacing: '0.04em', textTransform: 'uppercase',
+            cursor: backedUp ? 'default' : 'pointer',
+          }}>
+          <span style={{
+            width: 5, height: 5, borderRadius: '50%',
+            background: backedUp ? C.green : C.amber,
+            boxShadow: '0 0 6px ' + (backedUp ? C.green : C.amber),
+          }}/>
+          {backedUp ? 'Backed up' : 'Back up now'}
         </div>
       </div>
 
       {/* Accounts */}
-      <Group title={tt(settings, 'sec_accounts')}>
-        <Row icon={IconWalletI} title="This wallet"
-             detail="1 wallet · 1 account · Base"
-             iconTint="teal"/>
+      <Group title={tt(settings, 'sec_accounts')}
+        footer="Every account derives from the same recovery phrase — backing up the phrase backs up all accounts.">
+        {accounts.list.map((a) => {
+          const isActive = a.index === accounts.activeIndex
+          const isPrimary = a.index === 0
+          return (
+            <Row
+              key={a.index}
+              icon={IconWalletI}
+              iconTint={isActive ? 'teal' : 'muted'}
+              title={a.name}
+              detail={
+                isActive
+                  ? `${short(wallet.address)} · active${isPrimary ? ' · primary' : ''}`
+                  : `Path m/44'/60'/0'/0/${a.index}${isPrimary ? ' · primary' : ''}`
+              }
+              showChev={!isActive}
+              control={
+                <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setRenaming({ index: a.index, name: a.name }) }}
+                    title="Rename"
+                    style={{ background: 'transparent', border: 0, padding: 6, cursor: 'pointer' }}
+                  >
+                    <SvgIcon size={15} stroke={C.muted} d={<path d="M4 20h4l10-10-4-4L4 16v4zM14 6l4 4"/>}/>
+                  </button>
+                  {!isPrimary && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); deleteAccount(a.index) }}
+                      title="Delete account"
+                      style={{ background: 'transparent', border: 0, padding: 6, cursor: 'pointer' }}
+                    >
+                      <IconTrash size={15} stroke={C.red}/>
+                    </button>
+                  )}
+                </div>
+              }
+              onClick={() => switchAccount(a.index)}
+              isLast={false}
+            />
+          )
+        })}
         <Row icon={IconKey} title="Add an account"
-             detail="Coming in v0.2 — derive more accounts from your phrase"
-             iconTint="muted" isLast/>
+             detail="Derive the next account from your recovery phrase"
+             iconTint="teal" onClick={addAccount} isLast/>
       </Group>
 
       {/* Security */}
@@ -776,19 +890,22 @@ function SettingsScreen({ wallet, onBack, onLock, onReset }) {
         <Row icon={IconLock} title={tt(settings, 'row_auto_lock')}
              iconTint="teal" value={autoLockLabel(settings.autoLock)}
              onClick={cycleAutoLock}/>
-        <Row icon={IconShieldCheck} title={tt(settings, 'row_recovery')}
-             detail={tt(settings, 'detail_recovery')}
-             iconTint="amber" alert onClick={() => setReveal(true)} isLast/>
+        <Row icon={IconShieldCheck}
+             title={backedUp ? tt(settings, 'row_recovery') : 'Back up recovery phrase'}
+             detail={backedUp ? tt(settings, 'detail_recovery') : 'Not yet confirmed — reveal and write it down'}
+             iconTint={backedUp ? 'teal' : 'amber'}
+             alert={!backedUp}
+             onClick={() => setReveal(true)} isLast/>
       </Group>
 
       {/* Networks */}
-      <Group title={tt(settings, 'sec_networks')} footer="Toggling a network off hides its assets across ChainPay. Only Base is supported in this build.">
+      <Group title={tt(settings, 'sec_networks')} footer="Disabled networks are hidden from the chain picker on the home screen. Solana / Bitcoin coming later.">
         {[
-          ['base', 'Base',     'ETH · USDC · ERC-20',  true],
-          ['eth',  'Ethereum', 'ETH · ERC-20 · ERC-721', false],
+          ['base', 'Base',     'ETH · USDC · ERC-20',    true],
+          ['eth',  'Ethereum', 'ETH · USDC · ERC-20',    true],
+          ['pol',  'Polygon',  'MATIC · USDC · ERC-20',  true],
+          ['arb',  'Arbitrum', 'ETH · USDC · ERC-20',    true],
           ['sol',  'Solana',   'SOL · SPL',              false],
-          ['pol',  'Polygon',  'MATIC · ERC-20',         false],
-          ['arb',  'Arbitrum', 'ETH · ERC-20',           false],
           ['btc',  'Bitcoin',  'BTC · Ordinals',         false],
         ].map(([key, name, chains, supported], i, arr) => (
           <Row
@@ -861,7 +978,13 @@ function SettingsScreen({ wallet, onBack, onLock, onReset }) {
         fontSize: 10.5, color: C.muted, letterSpacing: '0.1em',
       }}>ChainPay 0.1.0 · build 2026.05</div>
 
-      <RevealPhraseModal open={reveal} onClose={() => setReveal(false)}/>
+      <RevealPhraseModal open={reveal} onClose={() => setReveal(false)} onRevealed={markBackedUp}/>
+      <RenameAccountModal
+        open={!!renaming}
+        initial={renaming?.name || ''}
+        onClose={() => setRenaming(null)}
+        onSave={(name) => { if (renaming) renameAccount(renaming.index, name); setRenaming(null) }}
+      />
       <EnableBiometricModal
         open={enrollOpen}
         onClose={() => setEnrollOpen(false)}
@@ -878,7 +1001,9 @@ function SettingsScreen({ wallet, onBack, onLock, onReset }) {
 /* ────────────────────────────────────────────────────────────────────────── *
  * Swap sheet — on-chain Uniswap V3 swap signed locally, no Uniswap UI involved
  * ────────────────────────────────────────────────────────────────────────── */
-function SwapSheet({ open, onClose, wallet, balances, onSwapped }) {
+function SwapSheet({ open, onClose, wallet, chainKey, balances, onSwapped }) {
+  const chain = chainOf(chainKey)
+  const nativeSym = chain.nativeSymbol
   const [pay,   setPay]   = useState('USDC')   // pay token
   const [amt,   setAmt]   = useState('')
   const [out,   setOut]   = useState(0n)       // raw bigint quote
@@ -891,28 +1016,28 @@ function SwapSheet({ open, onClose, wallet, balances, onSwapped }) {
   const [status, setStatus] = useState('')
   const [stage,  setStage]  = useState('')      // '' | 'approving' | 'swapping'
 
-  const receive = pay === 'USDC' ? 'ETH' : 'USDC'
-  const payDec  = pay === 'USDC' ? BASE.usdcDecimals : 18
-  const recDec  = receive === 'USDC' ? BASE.usdcDecimals : 18
-  const tokenInAddr  = pay === 'USDC' ? BASE.usdc : BASE.weth
-  const tokenOutAddr = pay === 'USDC' ? BASE.weth : BASE.usdc
+  const receive = pay === 'USDC' ? nativeSym : 'USDC'
+  const payDec  = pay === 'USDC' ? chain.usdcDecimals : 18
+  const recDec  = receive === 'USDC' ? chain.usdcDecimals : 18
+  const tokenInAddr  = pay === 'USDC' ? chain.usdc    : chain.wrapped
+  const tokenOutAddr = pay === 'USDC' ? chain.wrapped : chain.usdc
   const needsApproval = pay === 'USDC'
 
-  // Reset whenever the sheet opens
+  // Reset whenever the sheet opens or chain changes
   useEffect(() => {
     if (!open) return
-    setAmt(''); setOut(0n); setHash(''); setStatus(''); setErr(''); setStage('')
-  }, [open])
+    setAmt(''); setOut(0n); setHash(''); setStatus(''); setErr(''); setStage(''); setPay('USDC'); setAllowance(0n)
+  }, [open, chainKey])
 
-  // Live allowance for USDC → ETH path
+  // Live allowance for USDC → native path (per chain)
   useEffect(() => {
     if (!open || !needsApproval || !wallet?.address) return
     let cancelled = false
-    getUsdcAllowance(wallet.address).then((a) => { if (!cancelled) setAllowance(a) }).catch(() => {})
+    getUsdcAllowance(wallet.address, chainKey).then((a) => { if (!cancelled) setAllowance(a) }).catch(() => {})
     return () => { cancelled = true }
-  }, [open, needsApproval, wallet?.address, hash])
+  }, [open, needsApproval, wallet?.address, hash, chainKey])
 
-  // Debounced quote refresh on amount / direction change
+  // Debounced quote refresh on amount / direction / chain change
   useEffect(() => {
     if (!open) return
     setOut(0n)
@@ -921,7 +1046,7 @@ function SwapSheet({ open, onClose, wallet, balances, onSwapped }) {
       try {
         setQuoting(true); setErr('')
         const amountIn = parseUnits(amt, payDec)
-        const q = await getQuote({ tokenIn: tokenInAddr, tokenOut: tokenOutAddr, amountIn })
+        const q = await getQuote({ chainKey, tokenIn: tokenInAddr, tokenOut: tokenOutAddr, amountIn })
         setOut(q)
       } catch (e) {
         setOut(0n)
@@ -929,7 +1054,7 @@ function SwapSheet({ open, onClose, wallet, balances, onSwapped }) {
       } finally { setQuoting(false) }
     }, 450)
     return () => clearTimeout(id)
-  }, [amt, pay, open])
+  }, [amt, pay, open, chainKey])
 
   const flip = () => { setPay(receive); setAmt(''); setOut(0n) }
 
@@ -940,8 +1065,8 @@ function SwapSheet({ open, onClose, wallet, balances, onSwapped }) {
     return (out * BigInt(bps)) / 10000n
   }, [out, slippage])
 
-  const payBalRaw = pay === 'USDC' ? balances.usdc : balances.eth
-  const payBalStr = pay === 'USDC' ? formatUnits(balances.usdc, BASE.usdcDecimals) : formatUnits(balances.eth, 18).slice(0, 10)
+  const payBalRaw = pay === 'USDC' ? balances.usdc : balances.native
+  const payBalStr = pay === 'USDC' ? formatUnits(balances.usdc, chain.usdcDecimals) : formatUnits(balances.native, 18).slice(0, 10)
 
   const insufficientAllowance = needsApproval && amt && Number(amt) > 0 && allowance < parseUnits(amt || '0', payDec)
   const ctaLabel = busy
@@ -961,10 +1086,10 @@ function SwapSheet({ open, onClose, wallet, balances, onSwapped }) {
 
     setBusy(true)
     try {
-      // Approval step (only for USDC → ETH when allowance is short)
+      // Approval step (only for USDC → native when allowance is short)
       if (insufficientAllowance) {
         setStage('approving')
-        const tx = await approveUsdc(wallet, MAX_UINT256)
+        const tx = await approveUsdc(wallet, chainKey, MAX_UINT256)
         setHash(tx.hash); setStatus('pending')
         const r = await tx.wait()
         if (r.status !== 1) throw new Error('Approval failed')
@@ -977,8 +1102,8 @@ function SwapSheet({ open, onClose, wallet, balances, onSwapped }) {
 
       setStage('swapping')
       const tx = pay === 'USDC'
-        ? await swapUsdcForEth(wallet, amountIn, minOut)
-        : await swapEthForUsdc(wallet, amountIn, minOut)
+        ? await swapUsdcForNative(wallet, chainKey, amountIn, minOut)
+        : await swapNativeForUsdc(wallet, chainKey, amountIn, minOut)
       setHash(tx.hash); setStatus('pending')
       const r = await tx.wait()
       const ok = r.status === 1
@@ -990,6 +1115,9 @@ function SwapSheet({ open, onClose, wallet, balances, onSwapped }) {
         amount: amt,
         amountOut: formatUnits(out, recDec).slice(0, 10),
         hash: tx.hash,
+        chain: chain.name,
+        chainKey,
+        explorer: chain.explorer,
         status: ok ? 'confirmed' : 'failed',
         ts: Date.now(),
       })
@@ -1020,11 +1148,11 @@ function SwapSheet({ open, onClose, wallet, balances, onSwapped }) {
   })()
 
   return (
-    <Modal open={open} onClose={onClose} title="Swap">
+    <Modal open={open} onClose={onClose} title={`Swap · ${chain.name}`}>
       <div style={card}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
           <span style={label}>You pay</span>
-          <button onClick={() => setAmt(pay === 'USDC' ? formatUnits(balances.usdc, BASE.usdcDecimals) : formatUnits(balances.eth, 18).slice(0, 8))}
+          <button onClick={() => setAmt(pay === 'USDC' ? formatUnits(balances.usdc, chain.usdcDecimals) : formatUnits(balances.native, 18).slice(0, 8))}
             style={{ background: 'transparent', border: 0, color: C.teal, fontSize: 11, cursor: 'pointer', padding: 0 }}>
             Balance {payBalStr} · Max
           </button>
@@ -1110,7 +1238,7 @@ function SwapSheet({ open, onClose, wallet, balances, onSwapped }) {
       )}
 
       <div style={{ marginTop: 14, fontSize: 10, color: C.muted, textAlign: 'center', lineHeight: 1.5 }}>
-        Executed on-chain via Uniswap V3 on Base. Your wallet signs locally — no browser, no third-party UI.
+        Executed on-chain via Uniswap V3 on {chain.name}. Your wallet signs locally — no browser, no third-party UI.
       </div>
     </Modal>
   )
@@ -1120,10 +1248,26 @@ function SwapSheet({ open, onClose, wallet, balances, onSwapped }) {
  * Main wallet UI
  * ────────────────────────────────────────────────────────────────────────── */
 function Home({ wallet, onLock, onSettings }) {
-  const { settings } = useSettings()
+  const { settings, update } = useSettings()
   const ccy = settings?.displayCurrency || 'USD'
-  const [balances, setBalances] = useState({ eth: 0n, usdc: 0n })
-  const [prices,   setPrices]   = useState({ eth: { USD: 0, KRW: 0 }, usdcKrw: 1340 })
+
+  // Which EVM chains the user has enabled in Settings.
+  const enabledChains = useMemo(
+    () => EVM_KEYS.filter((k) => settings?.networks?.[k]),
+    [settings?.networks],
+  )
+  // Active chain — persisted; falls back to first enabled chain if current is disabled.
+  const activeChain = (settings?.activeChain && enabledChains.includes(settings.activeChain))
+    ? settings.activeChain
+    : (enabledChains[0] || 'base')
+  useEffect(() => {
+    if (settings?.activeChain !== activeChain) update({ activeChain })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeChain])
+  const chain = chainOf(activeChain)
+
+  const [balances, setBalances] = useState({ native: 0n, usdc: 0n })
+  const [prices,   setPrices]   = useState({ eth: { USD: 0, KRW: 0 }, matic: { USD: 0, KRW: 0 }, usdcKrw: 1340 })
   const [tab,      setTab]      = useState('Assets')
   const [send,     setSend]     = useState(false)
   const [recv,     setRecv]     = useState(false)
@@ -1132,27 +1276,32 @@ function Home({ wallet, onLock, onSettings }) {
   const address = wallet.address
 
   const refresh = async () => {
-    try { setBalances(await getBalances(address)) } catch {}
+    try { setBalances(await getBalances(address, activeChain)) } catch {}
   }
   useEffect(() => {
+    setBalances({ native: 0n, usdc: 0n }) // clear stale balances when chain flips
     refresh()
     const id = setInterval(refresh, 10_000)
     return () => clearInterval(id)
-  }, [address])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [address, activeChain])
   useEffect(() => {
     const f = () => getPrices().then(setPrices).catch(() => {})
     f(); const id = setInterval(f, 60_000); return () => clearInterval(id)
   }, [])
 
-  const usdcNum = Number(formatUnits(balances.usdc, BASE.usdcDecimals))
-  const ethNum  = Number(formatUnits(balances.eth, 18))
-  const ethRate = ccy === 'KRW' ? prices.eth.KRW : prices.eth.USD
-  const usdcRate = ccy === 'KRW' ? prices.usdcKrw : 1
-  const total   = usdcNum * usdcRate + ethNum * ethRate
+  const np = nativePrice(prices, activeChain)
+  const usdcNum   = Number(formatUnits(balances.usdc, chain.usdcDecimals))
+  const nativeNum = Number(formatUnits(balances.native, 18))
+  const nativeRate = ccy === 'KRW' ? np.KRW : np.USD
+  const usdcRate   = ccy === 'KRW' ? prices.usdcKrw : 1
+  const total      = usdcNum * usdcRate + nativeNum * nativeRate
   const [whole, frac] = fmtMoney(total, ccy).split('.')
 
+  // Coinbase Onramp blockchain identifiers.
+  const onrampChainId = { base: 'base', eth: 'ethereum', pol: 'polygon', arb: 'arbitrum' }[activeChain] || 'base'
   const openOnramp = () => Browser.open({
-    url: `https://pay.coinbase.com/buy/select-asset?destinationWallets=%5B%7B%22address%22%3A%22${address}%22%2C%22blockchains%22%3A%5B%22base%22%5D%7D%5D`,
+    url: `https://pay.coinbase.com/buy/select-asset?destinationWallets=%5B%7B%22address%22%3A%22${address}%22%2C%22blockchains%22%3A%5B%22${onrampChainId}%22%5D%7D%5D`,
   })
 
   return (
@@ -1183,6 +1332,36 @@ function Home({ wallet, onLock, onSettings }) {
         </button>
       </div>
 
+      {/* Chain picker */}
+      {enabledChains.length > 0 && (
+        <div style={{
+          display: 'flex', gap: 8, padding: '12px 16px 0', overflowX: 'auto',
+          scrollbarWidth: 'none',
+        }}>
+          {enabledChains.map((k) => {
+            const c = chainOf(k)
+            const on = k === activeChain
+            const b = CHAIN_BADGE[k] || { bg: '#888', glyph: '•' }
+            return (
+              <button key={k} onClick={() => update({ activeChain: k })} style={{
+                display: 'inline-flex', alignItems: 'center', gap: 8,
+                padding: '8px 14px 8px 8px', borderRadius: 999,
+                background: on ? C.surface2 : 'transparent',
+                border: '1px solid ' + (on ? C.lineStr : C.line),
+                color: on ? C.white : C.text2, cursor: 'pointer',
+                fontSize: 13, fontWeight: on ? 600 : 500, whiteSpace: 'nowrap', flexShrink: 0,
+              }}>
+                <span style={{
+                  width: 22, height: 22, borderRadius: '50%', background: b.bg,
+                  display: 'grid', placeItems: 'center', color: '#fff', fontSize: 12, fontWeight: 700,
+                }}>{b.glyph}</span>
+                {c.name}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
       {/* Balance card */}
       <div style={{ position: 'relative', margin: '14px 16px 0' }}>
         <div style={{ position: 'absolute', inset: -30,
@@ -1208,7 +1387,7 @@ function Home({ wallet, onLock, onSettings }) {
             background: 'rgba(60,214,140,0.16)', color: C.green,
             padding: '5px 10px', borderRadius: 999, fontWeight: 600, fontSize: 12,
             border: '1px solid rgba(60,214,140,0.28)' }}>
-            Base · live
+            {chain.name} · live
           </div>
         </div>
       </div>
@@ -1256,9 +1435,11 @@ function Home({ wallet, onLock, onSettings }) {
           background: C.surface, border: '1px solid ' + C.line, borderRadius: 20 }}>
           {[
             { name: 'USD Coin', symbol: 'USDC', bg: '#2775CA', mark: '$',
-              bal: formatUnits(balances.usdc, BASE.usdcDecimals), fiat: usdcNum * usdcRate },
-            { name: 'Ethereum', symbol: 'ETH', bg: '#1E2742', mark: 'Ξ',
-              bal: formatUnits(balances.eth, 18).slice(0, 8), fiat: ethNum * ethRate },
+              bal: formatUnits(balances.usdc, chain.usdcDecimals), fiat: usdcNum * usdcRate },
+            { name: chain.nativeSymbol === 'MATIC' ? 'Polygon' : 'Ethereum',
+              symbol: chain.nativeSymbol, bg: '#1E2742',
+              mark: chain.nativeSymbol === 'MATIC' ? '◇' : 'Ξ',
+              bal: formatUnits(balances.native, 18).slice(0, 8), fiat: nativeNum * nativeRate },
           ].map((r, i, arr) => (
             <div key={r.symbol} style={{ display: 'grid', gridTemplateColumns: '40px 1fr auto',
               gap: 14, alignItems: 'center', padding: '14px 4px',
@@ -1267,7 +1448,7 @@ function Home({ wallet, onLock, onSettings }) {
                 display: 'grid', placeItems: 'center', color: '#fff', fontWeight: 700 }}>{r.mark}</div>
               <div>
                 <div style={{ fontWeight: 600, fontSize: 15 }}>{r.name}</div>
-                <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: C.muted, marginTop: 2 }}>Base</div>
+                <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: C.muted, marginTop: 2 }}>{chain.name}</div>
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontWeight: 600, fontSize: 15 }}>{fmtMoney(r.fiat, ccy)}</div>
@@ -1298,7 +1479,7 @@ function Home({ wallet, onLock, onSettings }) {
                     {isSwap ? `Swap ${a.token} → ${a.receive}` : `Sent ${a.token}`}
                   </div>
                   <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: C.muted, marginTop: 2 }}>
-                    {isSwap ? 'Uniswap V3 on Base' : `to ${short(a.to)}`} · {new Date(a.ts).toLocaleString()}
+                    {isSwap ? `Uniswap V3 on ${a.chain || 'Base'}` : `to ${short(a.to)} on ${a.chain || 'Base'}`} · {new Date(a.ts).toLocaleString()}
                   </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
@@ -1314,10 +1495,10 @@ function Home({ wallet, onLock, onSettings }) {
         </div>
       )}
 
-      <SendSheet    open={send} onClose={() => setSend(false)} wallet={wallet} balances={balances}
+      <SendSheet    open={send} onClose={() => setSend(false)} wallet={wallet} chainKey={activeChain} balances={balances}
                     onSent={(e) => { setActivity((p) => [e, ...p].slice(0, 50)); refresh() }}/>
-      <ReceiveSheet open={recv} onClose={() => setRecv(false)} address={address}/>
-      <SwapSheet    open={swap} onClose={() => setSwap(false)} wallet={wallet} balances={balances}
+      <ReceiveSheet open={recv} onClose={() => setRecv(false)} address={address} chainKey={activeChain}/>
+      <SwapSheet    open={swap} onClose={() => setSwap(false)} wallet={wallet} chainKey={activeChain} balances={balances}
                     onSwapped={(e) => { setActivity((p) => [e, ...p].slice(0, 50)); refresh() }}/>
     </div>
   )
@@ -1333,6 +1514,9 @@ export default function NativeWalletApp() {
   const [settings, setSettings] = useState(null)
   const [bioOk, setBioOk] = useState(false)
   const [bioEnrolled, setBioEnrolled] = useState(false)
+  const [accounts, setAccounts] = useState({ list: [{ index: 0, name: 'Account 1' }], activeIndex: 0 })
+  const [backedUp, setBackedUp] = useState(false)
+  const phraseRef = useRef(null) // seed mnemonic held only while unlocked
   const idleRef = useRef(0)
 
   useEffect(() => {
@@ -1341,7 +1525,10 @@ export default function NativeWalletApp() {
         const has = await hasWallet()
         const ok  = await mnemonicConfirmed()
         const s   = await loadSettings()
+        const a   = await loadAccounts()
         setSettings(s)
+        setAccounts(a)
+        setBackedUp(ok)
         setBioOk(await biometricAvailable())
         setBioEnrolled(await hasBiometric())
         setState(has && ok ? 'locked' : 'onboard')
@@ -1355,11 +1542,82 @@ export default function NativeWalletApp() {
     try { await saveSettings(next) } catch {}
   }
 
-  const lock = () => { setWallet(null); setView('home'); setState('locked') }
+  // Capture the mnemonic on unlock so we can derive sibling accounts without
+  // re-prompting for the passcode. Re-derive the active index if it's not 0.
+  const adoptWallet = (w, currentAccounts = accounts) => {
+    phraseRef.current = w?.mnemonic?.phrase || null
+    let active = w
+    if (phraseRef.current && currentAccounts.activeIndex !== 0) {
+      try { active = deriveAccount(phraseRef.current, currentAccounts.activeIndex) } catch {}
+    }
+    setWallet(active)
+  }
+
+  const persistAccounts = (next) => {
+    setAccounts(next)
+    saveAccounts(next).catch(() => {})
+  }
+
+  const switchAccount = (index) => {
+    if (!phraseRef.current) return
+    if (!accounts.list.some((a) => a.index === index)) return
+    if (index === accounts.activeIndex) { setView('home'); return }
+    try {
+      setWallet(deriveAccount(phraseRef.current, index))
+      persistAccounts({ ...accounts, activeIndex: index })
+      setView('home')
+    } catch {}
+  }
+
+  const addAccount = () => {
+    if (!phraseRef.current) return
+    const used = new Set(accounts.list.map((a) => a.index))
+    let next = 0
+    while (used.has(next)) next += 1
+    const item = { index: next, name: `Account ${accounts.list.length + 1}` }
+    const list = [...accounts.list, item].sort((a, b) => a.index - b.index)
+    try {
+      setWallet(deriveAccount(phraseRef.current, next))
+      persistAccounts({ list, activeIndex: next })
+    } catch {}
+  }
+
+  const deleteAccount = (index) => {
+    if (index === 0) return // primary anchors the seed — keep it
+    if (!accounts.list.some((a) => a.index === index)) return
+    if (!confirm('Remove this account from the list? You can re-derive it later from the same recovery phrase.')) return
+    const list = accounts.list.filter((a) => a.index !== index)
+    let activeIndex = accounts.activeIndex
+    if (activeIndex === index) {
+      activeIndex = 0
+      if (phraseRef.current) {
+        try { setWallet(deriveAccount(phraseRef.current, 0)) } catch {}
+      }
+    }
+    persistAccounts({ list, activeIndex })
+  }
+
+  const renameAccount = (index, name) => {
+    const trimmed = (name || '').trim().slice(0, 32)
+    if (!trimmed) return
+    const list = accounts.list.map((a) => a.index === index ? { ...a, name: trimmed } : a)
+    persistAccounts({ ...accounts, list })
+  }
+
+  const markBackedUp = async () => {
+    if (backedUp) return
+    try { await setMnemonicConfirmed() } catch {}
+    setBackedUp(true)
+  }
+
+  const lock = () => { phraseRef.current = null; setWallet(null); setView('home'); setState('locked') }
   const doReset = async () => {
     if (!confirm('This wipes the wallet from this phone. Make sure you have your recovery phrase. Continue?')) return
     await reset(); await disableBiometric()
+    phraseRef.current = null
     setBioEnrolled(false)
+    setAccounts({ list: [{ index: 0, name: 'Account 1' }], activeIndex: 0 })
+    setBackedUp(false)
     setWallet(null); setView('home'); setState('onboard')
   }
 
@@ -1386,18 +1644,28 @@ export default function NativeWalletApp() {
     }
   }, [state, settings?.autoLock])
 
-  const ctx = { settings, update, bumpIdle, bioOk, bioEnrolled, setBioEnrolled }
+  const ctx = {
+    settings, update, bumpIdle, bioOk, bioEnrolled, setBioEnrolled,
+    accounts, addAccount, deleteAccount, switchAccount, renameAccount,
+    backedUp, markBackedUp,
+  }
 
   if (state === 'loading' || !settings) return <div style={{ background: C.bg, minHeight: '100vh' }}/>
   let inner
   if (state === 'onboard') inner = (
     <div style={{ background: C.bg, minHeight: '100vh' }}>
-      <Onboarding onDone={(w) => { setWallet(w); setState('unlocked') }}/>
+      <Onboarding onDone={(w) => {
+        // Fresh onboarding always lands on account 1.
+        const a = { list: [{ index: 0, name: 'Account 1' }], activeIndex: 0 }
+        setAccounts(a); saveAccounts(a).catch(() => {})
+        setBackedUp(true)
+        adoptWallet(w, a); setState('unlocked')
+      }}/>
     </div>
   )
   else if (state === 'locked') inner = (
     <div style={{ background: C.bg, minHeight: '100vh' }}>
-      <UnlockScreen onUnlocked={(w) => { setWallet(w); setState('unlocked') }} onReset={doReset}/>
+      <UnlockScreen onUnlocked={(w) => { adoptWallet(w); setState('unlocked') }} onReset={doReset}/>
     </div>
   )
   else if (view === 'settings') inner = (
