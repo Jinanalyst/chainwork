@@ -14,8 +14,13 @@
  *     signed early-access build; do not store life-savings in this.
  */
 
+import { Capacitor } from '@capacitor/core'
 import { Preferences } from '@capacitor/preferences'
+import { BiometricAuth, BiometryError } from '@aparajita/capacitor-biometric-auth'
+import { LocalNotifications } from '@capacitor/local-notifications'
 import { Wallet, HDNodeWallet, Mnemonic, JsonRpcProvider, parseUnits, formatUnits, Contract } from 'ethers'
+
+const isNative = () => { try { return Capacitor.isNativePlatform() } catch { return false } }
 
 const KEYSTORE_KEY = 'chainpay.keystore.v1'
 const MNEMONIC_FLAG = 'chainpay.mnemonic-confirmed.v1'
@@ -150,6 +155,269 @@ export async function loadSettings() {
 export async function saveSettings(next) {
   await Preferences.set({ key: SETTINGS_KEY, value: JSON.stringify(next) })
 }
+
+/* ── biometric unlock ─────────────────────────────────────────────────
+ *
+ * On native Android (Capacitor): uses BiometricPrompt via
+ *   @aparajita/capacitor-biometric-auth. The biometric prompt gates access
+ *   to the stored passcode; the passcode is AES-GCM encrypted at rest in
+ *   Capacitor Preferences (sandboxed per-app on Android).
+ *
+ * In browser (vite preview / chainwork.chainbrief.kr): falls back to
+ *   WebAuthn `navigator.credentials.create/get` against the device's
+ *   platform authenticator (Face ID / Touch ID / Windows Hello).
+ *
+ * Note: storage is sandboxed but not Secure-Enclave/Keystore bound. Phase 2
+ * will move the encryption key into Android Keystore behind BiometricPrompt.
+ */
+const BIO_KEY = 'chainpay.biometric.v1'
+
+function b64encode(bytes) { return btoa(String.fromCharCode(...new Uint8Array(bytes))) }
+function b64decode(s) { return Uint8Array.from(atob(s), (c) => c.charCodeAt(0)) }
+
+async function deriveBioKey(material) {
+  const km = await crypto.subtle.importKey('raw', material, 'PBKDF2', false, ['deriveKey'])
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt: new TextEncoder().encode('chainpay-biometric-v1'), iterations: 120_000, hash: 'SHA-256' },
+    km, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt'],
+  )
+}
+
+export async function biometricAvailable() {
+  if (isNative()) {
+    try {
+      const r = await BiometricAuth.checkBiometry()
+      return !!r?.isAvailable
+    } catch { return false }
+  }
+  if (typeof window === 'undefined') return false
+  if (!window.PublicKeyCredential || !window.isSecureContext) return false
+  try { return await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable() }
+  catch { return false }
+}
+
+export async function hasBiometric() {
+  const { value } = await Preferences.get({ key: BIO_KEY })
+  return !!value
+}
+
+export async function enableBiometric(passcode) {
+  // Verify passcode first.
+  await unlock(passcode)
+
+  if (isNative()) {
+    // Prompt biometric to confirm enrolment.
+    try {
+      await BiometricAuth.authenticate({
+        reason: 'Enable Face ID for ChainPay',
+        cancelTitle: 'Cancel',
+        androidTitle: 'ChainPay',
+        androidSubtitle: 'Use your fingerprint or face to unlock',
+        allowDeviceCredential: false,
+      })
+    } catch (e) {
+      const msg = e instanceof BiometryError ? e.message : (e?.message || 'Biometric prompt cancelled.')
+      throw new Error(msg)
+    }
+    // Encrypt the passcode using a key derived from an app-level secret.
+    // The secret is generated once per install and lives alongside the blob
+    // — gating happens at the BiometricPrompt layer above.
+    let { value: secretB64 } = await Preferences.get({ key: BIO_KEY + '.secret' })
+    if (!secretB64) {
+      const s = crypto.getRandomValues(new Uint8Array(32))
+      secretB64 = b64encode(s)
+      await Preferences.set({ key: BIO_KEY + '.secret', value: secretB64 })
+    }
+    const key = await deriveBioKey(b64decode(secretB64))
+    const iv  = crypto.getRandomValues(new Uint8Array(12))
+    const enc = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(passcode))
+    await Preferences.set({ key: BIO_KEY, value: JSON.stringify({
+      kind: 'native', ivB64: b64encode(iv), encB64: b64encode(enc),
+    }) })
+    return
+  }
+
+  // Browser path — WebAuthn enrolment.
+  const challenge = crypto.getRandomValues(new Uint8Array(32))
+  const userId    = crypto.getRandomValues(new Uint8Array(16))
+  const cred = await navigator.credentials.create({
+    publicKey: {
+      challenge,
+      rp: { name: 'ChainPay' },
+      user: { id: userId, name: 'chainpay-user', displayName: 'ChainPay wallet' },
+      pubKeyCredParams: [
+        { type: 'public-key', alg: -7   },
+        { type: 'public-key', alg: -257 },
+      ],
+      authenticatorSelection: {
+        authenticatorAttachment: 'platform',
+        userVerification: 'required',
+        residentKey: 'preferred',
+      },
+      timeout: 60_000,
+      attestation: 'none',
+    },
+  })
+  if (!cred) throw new Error('Biometric setup was cancelled.')
+  const credentialId = new Uint8Array(cred.rawId)
+  const key = await deriveBioKey(credentialId)
+  const iv  = crypto.getRandomValues(new Uint8Array(12))
+  const enc = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(passcode))
+  await Preferences.set({ key: BIO_KEY, value: JSON.stringify({
+    kind: 'webauthn',
+    credentialIdB64: b64encode(credentialId),
+    ivB64:           b64encode(iv),
+    encB64:          b64encode(enc),
+  }) })
+}
+
+export async function disableBiometric() {
+  await Preferences.remove({ key: BIO_KEY })
+  await Preferences.remove({ key: BIO_KEY + '.secret' })
+}
+
+/** Run the biometric prompt and return an unlocked wallet on success. */
+export async function biometricUnlock() {
+  const { value } = await Preferences.get({ key: BIO_KEY })
+  if (!value) throw new Error('Biometrics are not set up on this device.')
+  const blob = JSON.parse(value)
+
+  if (blob.kind === 'native') {
+    if (!isNative()) throw new Error('This wallet was enrolled on a different platform. Re-enable Face ID.')
+    try {
+      await BiometricAuth.authenticate({
+        reason: 'Unlock ChainPay',
+        cancelTitle: 'Cancel',
+        androidTitle: 'ChainPay',
+        androidSubtitle: 'Use your fingerprint or face to unlock',
+        allowDeviceCredential: false,
+      })
+    } catch (e) {
+      const msg = e instanceof BiometryError ? e.message : (e?.message || 'Biometric prompt cancelled.')
+      throw new Error(msg)
+    }
+    const { value: secretB64 } = await Preferences.get({ key: BIO_KEY + '.secret' })
+    if (!secretB64) throw new Error('Biometric key missing. Re-enable Face ID.')
+    const key = await deriveBioKey(b64decode(secretB64))
+    let passBytes
+    try { passBytes = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: b64decode(blob.ivB64) }, key, b64decode(blob.encB64),
+    ) } catch { throw new Error('Biometric key no longer matches. Disable & re-enable Face ID.') }
+    return unlock(new TextDecoder().decode(passBytes))
+  }
+
+  // WebAuthn (browser) path.
+  if (blob.kind !== 'webauthn' && !blob.credentialIdB64) throw new Error('Biometric record is corrupt.')
+  const credentialId = b64decode(blob.credentialIdB64)
+  const challenge = crypto.getRandomValues(new Uint8Array(32))
+  const assertion = await navigator.credentials.get({
+    publicKey: {
+      challenge,
+      allowCredentials: [{ id: credentialId, type: 'public-key' }],
+      userVerification: 'required',
+      timeout: 60_000,
+    },
+  })
+  if (!assertion) throw new Error('Biometric prompt cancelled.')
+  const key = await deriveBioKey(credentialId)
+  let passBytes
+  try { passBytes = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: b64decode(blob.ivB64) }, key, b64decode(blob.encB64),
+  ) } catch { throw new Error('Biometric key no longer matches. Disable & re-enable Face ID.') }
+  return unlock(new TextDecoder().decode(passBytes))
+}
+
+/* ── notifications (native LocalNotifications + web fallback) ─────────── */
+export async function requestNotificationPermission() {
+  if (isNative()) {
+    try {
+      const r = await LocalNotifications.requestPermissions()
+      return r?.display === 'granted'
+    } catch { return false }
+  }
+  if (typeof Notification === 'undefined') return false
+  let perm = Notification.permission
+  if (perm === 'default') perm = await Notification.requestPermission()
+  return perm === 'granted'
+}
+
+export async function fireNotification(title, body) {
+  if (isNative()) {
+    try {
+      await LocalNotifications.schedule({
+        notifications: [{ id: Math.floor(Date.now() % 2_000_000_000), title, body, smallIcon: 'ic_stat_icon_config_sample' }],
+      })
+    } catch {}
+    return
+  }
+  if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+    try { new Notification(title, { body }) } catch {}
+  }
+}
+
+/* ── price feed (USD + KRW, for the display-currency setting) ─────────── */
+let _priceCache = { ts: 0, eth: { USD: 0, KRW: 0 }, usdcKrw: 1340 }
+export async function getPrices() {
+  const now = Date.now()
+  if (now - _priceCache.ts < 60_000 && _priceCache.eth.USD > 0) return _priceCache
+  try {
+    const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum,usd-coin&vs_currencies=usd,krw')
+    const j = await r.json()
+    _priceCache = {
+      ts: now,
+      eth:     { USD: Number(j?.ethereum?.usd) || 0, KRW: Number(j?.ethereum?.krw) || 0 },
+      usdcKrw: Number(j?.['usd-coin']?.krw) || _priceCache.usdcKrw,
+    }
+  } catch {}
+  return _priceCache
+}
+
+/* ── tiny i18n for in-app strings ─────────────────────────────────────── */
+const STRINGS = {
+  en: {
+    total_balance: 'Total balance', send: 'Send', receive: 'Receive', swap: 'Swap', buy: 'Buy',
+    assets: 'Assets', activity: 'Activity', activity_empty: 'Your recent transactions appear here.',
+    settings: 'Settings',
+    sec_accounts: 'Accounts', sec_security: 'Security', sec_networks: 'Networks',
+    sec_preferences: 'Preferences', sec_help: 'Help & legal',
+    row_face_id: 'Face ID / Biometrics', row_auto_lock: 'Auto-lock', row_recovery: 'Recovery phrase',
+    row_display_currency: 'Display currency', row_language: 'Language', row_notifications: 'Notifications',
+    row_help: 'Help center', row_privacy: 'Privacy & terms',
+    detail_face_off: 'Sign in with your device biometric — passcode still required to send.',
+    detail_face_unavailable: 'No platform biometric detected on this device.',
+    detail_face_on: 'Enrolled. Tap the toggle to disable.',
+    detail_recovery: 'Reveal — verify your backup is correct',
+    auto_1m: '1 minute', auto_5m: '5 minutes', auto_never: 'Never',
+    lock_signout: 'Lock & sign out',
+    reset_wallet: 'Reset wallet (requires recovery phrase to restore)',
+    welcome_back: 'Welcome back', enter_passcode: 'Enter your passcode to unlock ChainPay.',
+    unlock: 'Unlock', unlock_face: 'Unlock with Face ID', forgot: 'Forgot passcode · reset wallet',
+    confirm_passcode: 'Confirm passcode', enable: 'Enable', cancel: 'Cancel',
+    notif_enabled: 'ChainPay notifications are on.', notif_blocked: 'Notifications were blocked in browser settings.',
+  },
+  ko: {
+    total_balance: '전체 잔액', send: '보내기', receive: '받기', swap: '스왑', buy: '구매',
+    assets: '자산', activity: '활동', activity_empty: '최근 거래가 여기에 표시됩니다.',
+    settings: '설정',
+    sec_accounts: '계정', sec_security: '보안', sec_networks: '네트워크',
+    sec_preferences: '환경설정', sec_help: '도움말 및 약관',
+    row_face_id: 'Face ID / 생체인증', row_auto_lock: '자동 잠금', row_recovery: '복구 문구',
+    row_display_currency: '표시 통화', row_language: '언어', row_notifications: '알림',
+    row_help: '도움말 센터', row_privacy: '개인정보 및 약관',
+    detail_face_off: '기기 생체인증으로 잠금 해제 — 송금은 여전히 암호가 필요합니다.',
+    detail_face_unavailable: '이 기기에서 사용 가능한 생체인증을 찾을 수 없습니다.',
+    detail_face_on: '등록 완료. 스위치를 눌러 해제하세요.',
+    detail_recovery: '확인 — 백업이 올바른지 표시',
+    auto_1m: '1분', auto_5m: '5분', auto_never: '사용 안 함',
+    lock_signout: '잠금 및 로그아웃',
+    reset_wallet: '지갑 초기화 (복원하려면 복구 문구 필요)',
+    welcome_back: '다시 오신 것을 환영합니다', enter_passcode: '암호를 입력하여 ChainPay를 잠금 해제하세요.',
+    unlock: '잠금 해제', unlock_face: 'Face ID로 잠금 해제', forgot: '암호 분실 · 지갑 초기화',
+    confirm_passcode: '암호 확인', enable: '활성화', cancel: '취소',
+    notif_enabled: 'ChainPay 알림이 켜졌습니다.', notif_blocked: '브라우저 설정에서 알림이 차단되었습니다.',
+  },
+}
+export function t(lang, key) { return (STRINGS[lang] || STRINGS.en)[key] || STRINGS.en[key] || key }
 
 /* ── balances + sends ─────────────────────────────────────────────────── */
 export async function getBalances(address) {

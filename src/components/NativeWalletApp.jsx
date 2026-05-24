@@ -1,13 +1,27 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { Browser } from '@capacitor/browser'
 import QRCode from './QRCode.jsx'
 import {
   hasWallet, mnemonicConfirmed, setMnemonicConfirmed,
   createWallet, importMnemonic, save, unlock, reset, revealMnemonic,
   loadSettings, saveSettings,
+  biometricAvailable, hasBiometric, enableBiometric, disableBiometric, biometricUnlock,
+  requestNotificationPermission, fireNotification,
   getBalances, sendUSDC, sendETH, formatUnits, parseUnits, BASE,
   getQuote, getUsdcAllowance, approveUsdc, swapEthForUsdc, swapUsdcForEth, MAX_UINT256,
+  getPrices, t,
 } from '../lib/nativeWallet.js'
+
+/* ─── Settings context — single source of truth for live settings ───── */
+const SettingsCtx = createContext({
+  settings: null,
+  update: () => {},
+  bumpIdle: () => {},
+  bioOk: false,
+  bioEnrolled: false,
+})
+const useSettings = () => useContext(SettingsCtx)
+const tt = (s, k) => t(s?.language || 'en', k)
 
 /* ─── identity palette (same as ChainPay.jsx) ─────────────────────────── */
 const C = {
@@ -45,9 +59,13 @@ const IconTrash = (p) => <SvgIcon {...p} d={<><path d="M3 6h18M8 6V4a2 2 0 0 1 2
 const IconEye   = (p) => <SvgIcon {...p} d={<><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></>} />
 
 const short = (a) => a ? `${a.slice(0, 6)}…${a.slice(-4)}` : ''
-const fmtUsd = (n) => Number.isFinite(n)
-  ? n.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 2 })
-  : '$0.00'
+const fmtMoney = (n, ccy = 'USD') => Number.isFinite(n)
+  ? n.toLocaleString(ccy === 'KRW' ? 'ko-KR' : undefined, {
+      style: 'currency', currency: ccy,
+      maximumFractionDigits: ccy === 'KRW' ? 0 : 2,
+      minimumFractionDigits: ccy === 'KRW' ? 0 : 2,
+    })
+  : (ccy === 'KRW' ? '₩0' : '$0.00')
 
 /* ────────────────────────────────────────────────────────────────────────── *
  * Modal
@@ -229,6 +247,7 @@ function Onboarding({ onDone }) {
  * Unlock screen
  * ────────────────────────────────────────────────────────────────────────── */
 function UnlockScreen({ onUnlocked, onReset }) {
+  const { settings, bioEnrolled } = useSettings()
   const [pass, setPass] = useState('')
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
@@ -237,6 +256,16 @@ function UnlockScreen({ onUnlocked, onReset }) {
     try { onUnlocked(await unlock(pass)) }
     catch (e) { setErr('Wrong passcode.'); setBusy(false) }
   }
+  const tryBio = async () => {
+    setErr(''); setBusy(true)
+    try { onUnlocked(await biometricUnlock()) }
+    catch (e) { setErr(e?.message || 'Biometric unlock failed.'); setBusy(false) }
+  }
+  // Auto-prompt biometrics once on mount if enrolled.
+  useEffect(() => {
+    if (bioEnrolled && settings?.faceId) { tryBio() }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   return (
     <div style={{ padding: '60px 24px', maxWidth: 460, margin: '0 auto', textAlign: 'center', color: C.white }}>
       <div style={{
@@ -246,8 +275,8 @@ function UnlockScreen({ onUnlocked, onReset }) {
       }}>
         <SvgIcon d={<><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></>} size={32} stroke={C.teal}/>
       </div>
-      <h1 style={{ fontFamily: FONT_HEAD, fontSize: 28, fontWeight: 600, margin: '0 0 8px' }}>Welcome back</h1>
-      <div style={{ color: C.text2, fontSize: 14, marginBottom: 28 }}>Enter your passcode to unlock ChainPay.</div>
+      <h1 style={{ fontFamily: FONT_HEAD, fontSize: 28, fontWeight: 600, margin: '0 0 8px' }}>{tt(settings, 'welcome_back')}</h1>
+      <div style={{ color: C.text2, fontSize: 14, marginBottom: 28 }}>{tt(settings, 'enter_passcode')}</div>
       <input
         type="password" value={pass}
         onChange={(e) => setPass(e.target.value)}
@@ -264,10 +293,21 @@ function UnlockScreen({ onUnlocked, onReset }) {
         width: '100%', padding: '14px 0', borderRadius: 14, marginTop: 16,
         background: C.teal, color: C.bg, border: 0, fontWeight: 700, fontSize: 16,
         cursor: 'pointer', opacity: busy ? 0.7 : 1,
-      }}>{busy ? 'Unlocking…' : 'Unlock'}</button>
+      }}>{busy ? '…' : tt(settings, 'unlock')}</button>
+      {bioEnrolled && settings?.faceId && (
+        <button onClick={tryBio} disabled={busy} style={{
+          width: '100%', padding: '12px 0', borderRadius: 14, marginTop: 10,
+          background: 'transparent', border: '1px solid ' + C.lineStr,
+          color: C.white, fontWeight: 600, fontSize: 14, cursor: 'pointer',
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+        }}>
+          <SvgIcon size={16} stroke={C.white} d={<><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></>}/>
+          {tt(settings, 'unlock_face')}
+        </button>
+      )}
       <button onClick={onReset} style={{
         marginTop: 18, background: 'transparent', border: 0, color: C.muted, fontSize: 12, cursor: 'pointer',
-      }}>Forgot passcode · reset wallet</button>
+      }}>{tt(settings, 'forgot')}</button>
     </div>
   )
 }
@@ -497,6 +537,54 @@ function Group({ title, footer, children }) {
   )
 }
 
+function EnableBiometricModal({ open, onClose, onEnabled }) {
+  const { settings } = useSettings()
+  const [pass, setPass] = useState('')
+  const [err, setErr]   = useState('')
+  const [busy, setBusy] = useState(false)
+  useEffect(() => { if (!open) { setPass(''); setErr(''); setBusy(false) } }, [open])
+
+  const submit = async () => {
+    setErr(''); setBusy(true)
+    try {
+      await enableBiometric(pass)
+      onEnabled()
+    } catch (e) {
+      const m = e?.message || ''
+      if (m.toLowerCase().includes('invalid password') || m.toLowerCase().includes('mac')) setErr('Wrong passcode.')
+      else if (m.includes('cancel')) setErr('Cancelled. Try again.')
+      else setErr(m || 'Could not enable biometrics.')
+    } finally { setBusy(false) }
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title={tt(settings, 'row_face_id')}>
+      <div style={{
+        padding: '10px 12px', borderRadius: 12, marginBottom: 14,
+        background: 'rgba(0,224,184,0.08)', border: '1px solid rgba(0,224,184,0.24)',
+        color: C.text2, fontSize: 12, lineHeight: 1.5,
+      }}>{tt(settings, 'detail_face_off')}</div>
+      <div style={{ fontSize: 11, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: 6 }}>
+        {tt(settings, 'confirm_passcode')}
+      </div>
+      <input type="password" value={pass} onChange={(e) => setPass(e.target.value)}
+        onKeyDown={(e) => e.key === 'Enter' && submit()}
+        autoFocus placeholder="Passcode"
+        style={{
+          width: '100%', boxSizing: 'border-box', padding: '12px 14px',
+          background: C.surface2, border: '1px solid ' + C.line, color: C.white,
+          borderRadius: 12, fontSize: 15, outline: 'none', fontFamily: 'inherit',
+        }}/>
+      {err && <div style={{ color: C.red, fontSize: 13, marginTop: 10 }}>{err}</div>}
+      <button onClick={submit} disabled={busy} style={{
+        width: '100%', padding: '14px 0', marginTop: 16, borderRadius: 14,
+        background: C.teal, color: C.bg, border: 0, fontWeight: 700, fontSize: 16,
+        cursor: 'pointer', opacity: busy ? 0.7 : 1,
+      }}>{busy ? '…' : tt(settings, 'enable')}</button>
+    </Modal>
+  )
+}
+
 function RevealPhraseModal({ open, onClose }) {
   const [pass, setPass]   = useState('')
   const [phrase, setPhrase] = useState('')
@@ -585,16 +673,41 @@ function RevealPhraseModal({ open, onClose }) {
 }
 
 function SettingsScreen({ wallet, onBack, onLock, onReset }) {
-  const [settings, setSettings] = useState(null)
+  const { settings, update, bioOk, bioEnrolled, setBioEnrolled } = useSettings()
   const [reveal, setReveal] = useState(false)
+  const [enrollOpen, setEnrollOpen] = useState(false)
 
-  useEffect(() => { loadSettings().then(setSettings) }, [])
-  const update = (patch) => {
-    const next = { ...settings, ...patch }
-    setSettings(next)
-    saveSettings(next).catch(() => {})
-  }
   const updNet = (key, on) => update({ networks: { ...settings.networks, [key]: on } })
+
+  const toggleFaceId = async () => {
+    if (settings.faceId) {
+      await disableBiometric()
+      setBioEnrolled(false)
+      update({ faceId: false })
+    } else {
+      if (!bioOk) { alert(tt(settings, 'detail_face_unavailable')); return }
+      setEnrollOpen(true)
+    }
+  }
+
+  const toggleNotifications = async (v) => {
+    if (v) {
+      const granted = await requestNotificationPermission()
+      if (!granted) {
+        update({ notifications: false })
+        alert(tt(settings, 'notif_blocked'))
+        return
+      }
+      fireNotification('ChainPay', tt(settings, 'notif_enabled'))
+    }
+    update({ notifications: v })
+  }
+
+  const cycleAutoLock = () => {
+    const next = settings.autoLock === '1m' ? '5m' : settings.autoLock === '5m' ? 'never' : '1m'
+    update({ autoLock: next })
+  }
+  const autoLockLabel = (v) => tt(settings, v === '1m' ? 'auto_1m' : v === '5m' ? 'auto_5m' : 'auto_never')
 
   if (!settings) return <div style={{ background: C.bg, minHeight: '100vh' }}/>
 
@@ -610,7 +723,7 @@ function SettingsScreen({ wallet, onBack, onLock, onReset }) {
           width: 38, height: 38, borderRadius: '50%', background: C.surface,
           border: '1px solid ' + C.lineStr, display: 'grid', placeItems: 'center', cursor: 'pointer',
         }}><IconBack size={18} stroke={C.white}/></button>
-        <div style={{ fontFamily: FONT_HEAD, fontWeight: 600, fontSize: 18, letterSpacing: '-0.02em' }}>Settings</div>
+        <div style={{ fontFamily: FONT_HEAD, fontWeight: 600, fontSize: 18, letterSpacing: '-0.02em' }}>{tt(settings, 'settings')}</div>
         <div style={{ width: 38 }}/>
       </div>
 
@@ -643,7 +756,7 @@ function SettingsScreen({ wallet, onBack, onLock, onReset }) {
       </div>
 
       {/* Accounts */}
-      <Group title="Accounts">
+      <Group title={tt(settings, 'sec_accounts')}>
         <Row icon={IconWalletI} title="This wallet"
              detail="1 wallet · 1 account · Base"
              iconTint="teal"/>
@@ -653,21 +766,23 @@ function SettingsScreen({ wallet, onBack, onLock, onReset }) {
       </Group>
 
       {/* Security */}
-      <Group title="Security" footer="Auto-lock applies whenever ChainPay goes to background.">
-        <Row icon={IconLock} title="Face ID / Biometrics"
-             detail="Native biometric unlock ships in v0.2"
-             iconTint="muted" showChev={false}
-             control={<Toggle on={settings.faceId} disabled onChange={() => {}}/>}/>
-        <Row icon={IconLock} title="Auto-lock"
-             iconTint="teal" value={settings.autoLock === '1m' ? '1 minute' : settings.autoLock}
-             onClick={() => update({ autoLock: settings.autoLock === '1m' ? '5m' : settings.autoLock === '5m' ? 'never' : '1m' })}/>
-        <Row icon={IconShieldCheck} title="Recovery phrase"
-             detail="Reveal — verify your backup is correct"
+      <Group title={tt(settings, 'sec_security')} footer="Auto-lock applies whenever ChainPay goes to background.">
+        <Row icon={IconLock} title={tt(settings, 'row_face_id')}
+             detail={!bioOk ? tt(settings, 'detail_face_unavailable')
+                            : settings.faceId ? tt(settings, 'detail_face_on')
+                            : tt(settings, 'detail_face_off')}
+             iconTint={settings.faceId ? 'teal' : 'muted'} showChev={false}
+             control={<Toggle on={settings.faceId} disabled={!bioOk} onChange={toggleFaceId}/>}/>
+        <Row icon={IconLock} title={tt(settings, 'row_auto_lock')}
+             iconTint="teal" value={autoLockLabel(settings.autoLock)}
+             onClick={cycleAutoLock}/>
+        <Row icon={IconShieldCheck} title={tt(settings, 'row_recovery')}
+             detail={tt(settings, 'detail_recovery')}
              iconTint="amber" alert onClick={() => setReveal(true)} isLast/>
       </Group>
 
       {/* Networks */}
-      <Group title="Networks" footer="Toggling a network off hides its assets across ChainPay. Only Base is supported in this build.">
+      <Group title={tt(settings, 'sec_networks')} footer="Toggling a network off hides its assets across ChainPay. Only Base is supported in this build.">
         {[
           ['base', 'Base',     'ETH · USDC · ERC-20',  true],
           ['eth',  'Ethereum', 'ETH · ERC-20 · ERC-721', false],
@@ -699,25 +814,25 @@ function SettingsScreen({ wallet, onBack, onLock, onReset }) {
         ))}
       </Group>
 
-      {/* Preferences */}
-      <Group title="Preferences">
-        <Row icon={IconCash}  title="Display currency"
-             iconTint="teal" value={`${settings.displayCurrency} · $`}
+      {/* Accounts label fix above already handled — preferences */}
+      <Group title={tt(settings, 'sec_preferences')}>
+        <Row icon={IconCash}  title={tt(settings, 'row_display_currency')}
+             iconTint="teal" value={settings.displayCurrency === 'USD' ? 'USD · $' : 'KRW · ₩'}
              onClick={() => update({ displayCurrency: settings.displayCurrency === 'USD' ? 'KRW' : 'USD' })}/>
-        <Row icon={IconGlobe} title="Language"
+        <Row icon={IconGlobe} title={tt(settings, 'row_language')}
              iconTint="teal" value={settings.language === 'en' ? 'English' : '한국어'}
              onClick={() => update({ language: settings.language === 'en' ? 'ko' : 'en' })}/>
-        <Row icon={IconBell}  title="Notifications"
+        <Row icon={IconBell}  title={tt(settings, 'row_notifications')}
              iconTint="teal" showChev={false}
-             control={<Toggle on={settings.notifications} onChange={(v) => update({ notifications: v })}/>}
+             control={<Toggle on={settings.notifications} onChange={toggleNotifications}/>}
              isLast/>
       </Group>
 
       {/* Help */}
-      <Group title="Help & legal">
-        <Row icon={IconHelp}  title="Help center"      iconTint="muted"
+      <Group title={tt(settings, 'sec_help')}>
+        <Row icon={IconHelp}  title={tt(settings, 'row_help')}      iconTint="muted"
              onClick={() => Browser.open({ url: 'https://chainwork.chainbrief.kr/#/pay' })}/>
-        <Row icon={IconShieldCheck} title="Privacy & terms" iconTint="muted" isLast
+        <Row icon={IconShieldCheck} title={tt(settings, 'row_privacy')} iconTint="muted" isLast
              onClick={() => Browser.open({ url: 'https://chainwork.chainbrief.kr/#/privacy' })}/>
       </Group>
 
@@ -729,7 +844,7 @@ function SettingsScreen({ wallet, onBack, onLock, onReset }) {
           color: C.red, fontWeight: 600, fontSize: 14.5,
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer',
         }}>
-          <IconLogout size={16} stroke={C.red}/> Lock & sign out
+          <IconLogout size={16} stroke={C.red}/> {tt(settings, 'lock_signout')}
         </button>
         <button onClick={onReset} style={{
           width: '100%', padding: 14, borderRadius: 16,
@@ -737,7 +852,7 @@ function SettingsScreen({ wallet, onBack, onLock, onReset }) {
           color: C.muted, fontWeight: 600, fontSize: 13,
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer',
         }}>
-          <IconTrash size={14} stroke={C.muted}/> Reset wallet (requires recovery phrase to restore)
+          <IconTrash size={14} stroke={C.muted}/> {tt(settings, 'reset_wallet')}
         </button>
       </div>
 
@@ -747,6 +862,15 @@ function SettingsScreen({ wallet, onBack, onLock, onReset }) {
       }}>ChainPay 0.1.0 · build 2026.05</div>
 
       <RevealPhraseModal open={reveal} onClose={() => setReveal(false)}/>
+      <EnableBiometricModal
+        open={enrollOpen}
+        onClose={() => setEnrollOpen(false)}
+        onEnabled={() => {
+          setEnrollOpen(false)
+          setBioEnrolled(true)
+          update({ faceId: true })
+        }}
+      />
     </div>
   )
 }
@@ -996,8 +1120,10 @@ function SwapSheet({ open, onClose, wallet, balances, onSwapped }) {
  * Main wallet UI
  * ────────────────────────────────────────────────────────────────────────── */
 function Home({ wallet, onLock, onSettings }) {
+  const { settings } = useSettings()
+  const ccy = settings?.displayCurrency || 'USD'
   const [balances, setBalances] = useState({ eth: 0n, usdc: 0n })
-  const [ethUsd,   setEthUsd]   = useState(0)
+  const [prices,   setPrices]   = useState({ eth: { USD: 0, KRW: 0 }, usdcKrw: 1340 })
   const [tab,      setTab]      = useState('Assets')
   const [send,     setSend]     = useState(false)
   const [recv,     setRecv]     = useState(false)
@@ -1014,15 +1140,16 @@ function Home({ wallet, onLock, onSettings }) {
     return () => clearInterval(id)
   }, [address])
   useEffect(() => {
-    const f = () => fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd')
-      .then((r) => r.json()).then((j) => setEthUsd(Number(j?.ethereum?.usd) || 0)).catch(() => {})
+    const f = () => getPrices().then(setPrices).catch(() => {})
     f(); const id = setInterval(f, 60_000); return () => clearInterval(id)
   }, [])
 
   const usdcNum = Number(formatUnits(balances.usdc, BASE.usdcDecimals))
   const ethNum  = Number(formatUnits(balances.eth, 18))
-  const total   = usdcNum + ethNum * ethUsd
-  const [whole, frac] = fmtUsd(total).split('.')
+  const ethRate = ccy === 'KRW' ? prices.eth.KRW : prices.eth.USD
+  const usdcRate = ccy === 'KRW' ? prices.usdcKrw : 1
+  const total   = usdcNum * usdcRate + ethNum * ethRate
+  const [whole, frac] = fmtMoney(total, ccy).split('.')
 
   const openOnramp = () => Browser.open({
     url: `https://pay.coinbase.com/buy/select-asset?destinationWallets=%5B%7B%22address%22%3A%22${address}%22%2C%22blockchains%22%3A%5B%22base%22%5D%7D%5D`,
@@ -1071,12 +1198,14 @@ function Home({ wallet, onLock, onSettings }) {
           boxShadow: '0 20px 40px -10px rgba(0,224,184,0.25)', overflow: 'hidden' }}>
           <div style={{ fontSize: 10, color: 'rgba(244,247,251,0.65)',
             letterSpacing: '0.16em', textTransform: 'uppercase', fontFamily: FONT_MONO }}>
-            Total balance · USD
+            {tt(settings, 'total_balance')} · {ccy}
           </div>
           <div style={{ fontWeight: 600, fontSize: 44, letterSpacing: '-0.035em',
             lineHeight: 1.02, margin: '10px 0 14px', fontFamily: FONT_HEAD,
             fontVariantNumeric: 'tabular-nums' }}>
-            {whole}<span style={{ color: 'rgba(244,247,251,0.5)', fontSize: 28 }}>.{frac || '00'}</span>
+            {ccy === 'KRW'
+              ? whole
+              : <>{whole}<span style={{ color: 'rgba(244,247,251,0.5)', fontSize: 28 }}>.{frac || '00'}</span></>}
           </div>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6,
             background: 'rgba(60,214,140,0.16)', color: C.green,
@@ -1090,10 +1219,10 @@ function Home({ wallet, onLock, onSettings }) {
       {/* Action row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, padding: '22px 20px 8px' }}>
         {[
-          { label: 'Send',    Ic: IconSend, on: () => setSend(true)   },
-          { label: 'Receive', Ic: IconRecv, on: () => setRecv(true)   },
-          { label: 'Swap',    Ic: IconSwap, on: () => setSwap(true)    },
-          { label: 'Buy',     Ic: IconBuy,  on: openOnramp             },
+          { label: tt(settings, 'send'),    Ic: IconSend, on: () => setSend(true)   },
+          { label: tt(settings, 'receive'), Ic: IconRecv, on: () => setRecv(true)   },
+          { label: tt(settings, 'swap'),    Ic: IconSwap, on: () => setSwap(true)    },
+          { label: tt(settings, 'buy'),     Ic: IconBuy,  on: openOnramp             },
         ].map(({ label, Ic, on }) => (
           <button key={label} onClick={on} style={{
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
@@ -1111,15 +1240,15 @@ function Home({ wallet, onLock, onSettings }) {
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 6, padding: '12px 20px' }}>
-        {['Assets', 'Activity'].map((t) => {
-          const on = tab === t
+        {[['Assets', tt(settings, 'assets')], ['Activity', tt(settings, 'activity')]].map(([k, label]) => {
+          const on = tab === k
           return (
-            <button key={t} onClick={() => setTab(t)} style={{
+            <button key={k} onClick={() => setTab(k)} style={{
               border: '1px solid ' + (on ? C.lineStr : 'transparent'),
               background: on ? C.surface2 : 'transparent',
               color: on ? C.white : C.muted, padding: '8px 14px', borderRadius: 999,
               fontWeight: on ? 600 : 500, fontSize: 13, cursor: 'pointer',
-            }}>{t}</button>
+            }}>{label}</button>
           )
         })}
       </div>
@@ -1130,9 +1259,9 @@ function Home({ wallet, onLock, onSettings }) {
           background: C.surface, border: '1px solid ' + C.line, borderRadius: 20 }}>
           {[
             { name: 'USD Coin', symbol: 'USDC', bg: '#2775CA', mark: '$',
-              bal: formatUnits(balances.usdc, BASE.usdcDecimals), usd: usdcNum },
+              bal: formatUnits(balances.usdc, BASE.usdcDecimals), fiat: usdcNum * usdcRate },
             { name: 'Ethereum', symbol: 'ETH', bg: '#1E2742', mark: 'Ξ',
-              bal: formatUnits(balances.eth, 18).slice(0, 8), usd: ethNum * ethUsd },
+              bal: formatUnits(balances.eth, 18).slice(0, 8), fiat: ethNum * ethRate },
           ].map((r, i, arr) => (
             <div key={r.symbol} style={{ display: 'grid', gridTemplateColumns: '40px 1fr auto',
               gap: 14, alignItems: 'center', padding: '14px 4px',
@@ -1144,7 +1273,7 @@ function Home({ wallet, onLock, onSettings }) {
                 <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: C.muted, marginTop: 2 }}>Base</div>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontWeight: 600, fontSize: 15 }}>${r.usd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                <div style={{ fontWeight: 600, fontSize: 15 }}>{fmtMoney(r.fiat, ccy)}</div>
                 <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: C.muted, marginTop: 2 }}>{r.bal} {r.symbol}</div>
               </div>
             </div>
@@ -1156,7 +1285,7 @@ function Home({ wallet, onLock, onSettings }) {
         <div style={{ margin: '4px 16px 0', padding: activity.length ? '10px 16px' : '40px 20px',
           background: C.surface, border: '1px solid ' + C.line, borderRadius: 20,
           textAlign: activity.length ? 'left' : 'center', color: activity.length ? C.white : C.muted, fontSize: 14 }}>
-          {!activity.length && 'Your recent transactions appear here.'}
+          {!activity.length && tt(settings, 'activity_empty')}
           {activity.map((a, i) => {
             const isSwap = a.kind === 'swap'
             return (
@@ -1204,31 +1333,77 @@ export default function NativeWalletApp() {
   const [state, setState] = useState('loading') // loading | onboard | locked | unlocked
   const [view,  setView]  = useState('home')    // home | settings
   const [wallet, setWallet] = useState(null)
+  const [settings, setSettings] = useState(null)
+  const [bioOk, setBioOk] = useState(false)
+  const [bioEnrolled, setBioEnrolled] = useState(false)
+  const idleRef = useRef(0)
 
   useEffect(() => {
     (async () => {
       try {
         const has = await hasWallet()
         const ok  = await mnemonicConfirmed()
+        const s   = await loadSettings()
+        setSettings(s)
+        setBioOk(await biometricAvailable())
+        setBioEnrolled(await hasBiometric())
         setState(has && ok ? 'locked' : 'onboard')
       } catch { setState('onboard') }
     })()
   }, [])
 
+  const update = async (patch) => {
+    const next = { ...settings, ...patch }
+    setSettings(next)
+    try { await saveSettings(next) } catch {}
+  }
+
   const lock = () => { setWallet(null); setView('home'); setState('locked') }
   const doReset = async () => {
     if (!confirm('This wipes the wallet from this phone. Make sure you have your recovery phrase. Continue?')) return
-    await reset(); setWallet(null); setView('home'); setState('onboard')
+    await reset(); await disableBiometric()
+    setBioEnrolled(false)
+    setWallet(null); setView('home'); setState('onboard')
   }
 
-  if (state === 'loading') return <div style={{ background: C.bg, minHeight: '100vh' }}/>
-  if (state === 'onboard') return <div style={{ background: C.bg, minHeight: '100vh' }}>
-    <Onboarding onDone={(w) => { setWallet(w); setState('unlocked') }}/>
-  </div>
-  if (state === 'locked')  return <div style={{ background: C.bg, minHeight: '100vh' }}>
-    <UnlockScreen onUnlocked={(w) => { setWallet(w); setState('unlocked') }} onReset={doReset}/>
-  </div>
-  if (view === 'settings') return (
+  /* ── auto-lock idle timer ──────────────────────────────────────────── */
+  const bumpIdle = () => { idleRef.current = Date.now() }
+  useEffect(() => {
+    if (state !== 'unlocked' || !settings) return
+    const map = { '1m': 60_000, '5m': 300_000, never: 0 }
+    const ms = map[settings.autoLock] ?? 60_000
+    if (!ms) return
+    bumpIdle()
+    const onAct = () => bumpIdle()
+    const evs = ['pointerdown', 'keydown', 'touchstart', 'wheel']
+    evs.forEach((e) => window.addEventListener(e, onAct, { passive: true }))
+    const onVis = () => { if (document.hidden) idleRef.current -= ms / 2 }
+    document.addEventListener('visibilitychange', onVis)
+    const id = setInterval(() => {
+      if (Date.now() - idleRef.current >= ms) lock()
+    }, 5_000)
+    return () => {
+      evs.forEach((e) => window.removeEventListener(e, onAct))
+      document.removeEventListener('visibilitychange', onVis)
+      clearInterval(id)
+    }
+  }, [state, settings?.autoLock])
+
+  const ctx = { settings, update, bumpIdle, bioOk, bioEnrolled, setBioEnrolled }
+
+  if (state === 'loading' || !settings) return <div style={{ background: C.bg, minHeight: '100vh' }}/>
+  let inner
+  if (state === 'onboard') inner = (
+    <div style={{ background: C.bg, minHeight: '100vh' }}>
+      <Onboarding onDone={(w) => { setWallet(w); setState('unlocked') }}/>
+    </div>
+  )
+  else if (state === 'locked') inner = (
+    <div style={{ background: C.bg, minHeight: '100vh' }}>
+      <UnlockScreen onUnlocked={(w) => { setWallet(w); setState('unlocked') }} onReset={doReset}/>
+    </div>
+  )
+  else if (view === 'settings') inner = (
     <SettingsScreen
       wallet={wallet}
       onBack={() => setView('home')}
@@ -1236,5 +1411,7 @@ export default function NativeWalletApp() {
       onReset={doReset}
     />
   )
-  return <Home wallet={wallet} onLock={lock} onSettings={() => setView('settings')}/>
+  else inner = <Home wallet={wallet} onLock={lock} onSettings={() => setView('settings')}/>
+
+  return <SettingsCtx.Provider value={ctx}>{inner}</SettingsCtx.Provider>
 }

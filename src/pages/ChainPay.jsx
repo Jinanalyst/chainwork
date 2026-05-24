@@ -1026,10 +1026,15 @@ const Hero = ({ onDownload }) => (
           <SvgIcon stroke={C.bg} sw={2} size={18} d={<path d="M12 3v12m0 0l-5-5m5 5l5-5M5 21h14"/>}/>
           Download for Android
         </button>
-        <a href="#wallet" style={{
+        <a href="#/pay" onClick={(e) => {
+          e.preventDefault()
+          const el = document.getElementById('wallet')
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }} style={{
           background: 'transparent', color: C.white, padding: '14px 22px',
           borderRadius: 14, fontWeight: 600, fontSize: 15,
           border: '1px solid ' + C.lineStr, textDecoration: 'none',
+          cursor: 'pointer',
         }}>Preview the live wallet</a>
       </div>
       <div style={{
