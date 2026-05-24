@@ -1,5 +1,6 @@
 import React from 'react'
 import ConversationalForm from '../components/ConversationalForm.jsx'
+import { useProfile } from '../hooks/useProfile.js'
 
 const QUESTIONS = [
   {
@@ -37,16 +38,38 @@ const QUESTIONS = [
   },
 ]
 
+const parseSkills = (raw) =>
+  String(raw || '')
+    .split(/[,\n]/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 24)
+
 export default function JoinAsWorker() {
+  const { update } = useProfile()
+
   return (
     <ConversationalForm
       eyebrow="Join as a worker"
       questions={QUESTIONS}
       submitLabel="Create my profile"
       successTitle="Welcome to ChainWork."
-      successBody="Your profile is being reviewed. You'll be matched to tasks that fit your skills within a day."
-      onSubmit={(answers) => {
-        console.log('[ChainWork] worker joined:', answers)
+      successBody="Your profile is live. Hirers browsing /talents can find and message you right now."
+      onSubmit={async (answers) => {
+        const patch = {
+          role:          'worker',
+          title:         answers.role?.trim()         || null,
+          skills:        parseSkills(answers.skills),
+          portfolio_url: answers.portfolio?.trim()    || null,
+          experience:    answers.experience?.trim()   || null,
+          bio:           answers.experience?.trim()   || null,
+          availability:  answers.availability?.trim() || null,
+        }
+        const res = await update(patch)
+        if (!res.ok) {
+          alert('Could not save your profile: ' + (res.error || 'unknown error'))
+          throw new Error(res.error || 'Save failed')
+        }
       }}
     />
   )

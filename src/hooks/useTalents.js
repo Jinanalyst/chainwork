@@ -57,12 +57,13 @@ const seededNumber = (value, min, max) => {
 }
 
 const normalizeTalent = (row, index) => {
-  const text = [row.display_name, row.company, row.bio].filter(Boolean).join(' ')
+  const realSkills = Array.isArray(row.skills) ? row.skills.filter(Boolean) : []
+  const text = [row.display_name, row.title, row.company, row.bio, realSkills.join(' ')].filter(Boolean).join(' ')
   // Deterministic dashed-words handle from the wallet address (or row id as
   // last resort). Used as the display name when the worker hasn't set one.
   const dashedHandle = handleFor(row.wallet_address || row.id)
   const name = row.display_name || dashedHandle || 'ChainWork worker'
-  const role = row.company || 'Verified ChainWork worker'
+  const role = row.title || row.company || 'Verified ChainWork worker'
   const categories = inferCategories(text)
 
   return {
@@ -70,7 +71,7 @@ const normalizeTalent = (row, index) => {
     name,
     handle: dashedHandle || (name || row.id).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
     role,
-    location: 'Remote',
+    location: row.location || 'Remote',
     accent: ACCENTS[index % ACCENTS.length],
     rating: 5,
     reviews: 0,
@@ -79,11 +80,12 @@ const normalizeTalent = (row, index) => {
     responseTime: '1d',
     verified: true,
     topRated: false,
-    availability: 'Available now',
+    availability: row.availability || 'Available now',
     categories,
-    skills: inferSkills(text),
+    skills: realSkills.length ? realSkills.slice(0, 8) : inferSkills(text),
     about: row.bio || 'Verified ChainWork profile. Invite this worker with a focused brief to start the conversation.',
     portfolio: [ACCENTS[index % ACCENTS.length]],
+    portfolioUrl: row.portfolio_url || null,
     source: 'profile',
   }
 }
@@ -108,7 +110,7 @@ export function useTalents() {
       try {
         const { data, error } = await supabase
           .from('worker_directory')
-          .select('id, display_name, company, bio, avatar_url, wallet_address, updated_at')
+          .select('id, display_name, title, company, location, bio, skills, availability, portfolio_url, avatar_url, wallet_address, updated_at')
           .order('updated_at', { ascending: false })
           .limit(60)
         if (cancelled) return
