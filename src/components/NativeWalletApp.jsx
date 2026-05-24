@@ -1171,10 +1171,7 @@ function Home({ wallet, onLock, onSettings }) {
         <div style={{
           background: C.surface, border: '1px solid ' + C.lineStr,
           padding: '8px 14px', borderRadius: 999, fontWeight: 600, fontSize: 14,
-          display: 'flex', alignItems: 'center', gap: 8,
         }}>
-          <span style={{ width: 14, height: 14, borderRadius: '50%',
-            background: 'linear-gradient(135deg,#00E0B8,#2A6FDB)' }}/>
           {short(address)}
         </div>
         <button onClick={onSettings} style={{
