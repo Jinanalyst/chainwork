@@ -68,14 +68,19 @@ async function signInLinkedIn() {
 }
 
 async function signInSolana() {
-  if (!detectSolanaProvider()) {
+  const provider = detectSolanaProvider()
+  if (!provider) {
     window.open(SOL_INSTALL_URL, '_blank', 'noopener,noreferrer')
     throw new Error('No Solana wallet detected. Install Phantom to continue.')
   }
   try {
+    // Pass the explicit provider — when multiple Solana wallets are installed,
+    // window.solana may point at a different one than the popup that actually
+    // signs, and supabase-js then hangs waiting on a signature it can't see.
     const { data, error } = await supabase.auth.signInWithWeb3({
       chain: 'solana',
       statement: STATEMENT,
+      wallet: provider,
     })
     if (error) throw error
     return data
