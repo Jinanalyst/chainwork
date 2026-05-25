@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { Browser } from '@capacitor/browser'
+import { getAddress } from 'ethers'
 import QRCode from './QRCode.jsx'
 import {
   hasWallet, mnemonicConfirmed, setMnemonicConfirmed,
@@ -61,6 +62,17 @@ const C = {
 }
 const FONT_HEAD = "'Space Grotesk', sans-serif"
 const FONT_MONO = "'JetBrains Mono', ui-monospace, monospace"
+
+// EIP-55 checksum validator. Returns the canonical checksummed address, or null
+// if the input is malformed or mixed-case with a wrong checksum (which almost
+// always indicates a typo — a single hex char flip changes the case of nearby
+// letters). On-chain transfers to a wrong address are irrecoverable, so we
+// gate sends behind this and a visual confirm step.
+const checksumAddress = (a) => {
+  const s = (a || '').trim()
+  if (!/^0x[a-fA-F0-9]{40}$/.test(s)) return null
+  try { return getAddress(s) } catch { return null }
+}
 
 const SvgIcon = ({ d, size = 20, stroke = C.white, sw = 1.6, fill = 'none' }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke={stroke}
@@ -405,23 +417,31 @@ function SendSheet({ open, onClose, wallet, chainKey, balances, onSent }) {
   const [err,   setErr]   = useState('')
   const [hash,  setHash]  = useState('')
   const [status, setStatus] = useState('')
+  const [pending, setPending] = useState(null)
 
-  useEffect(() => { if (open) { setTo(''); setAmt(''); setHash(''); setStatus(''); setErr(''); setToken('USDC') } }, [open, chainKey])
+  useEffect(() => { if (open) { setTo(''); setAmt(''); setHash(''); setStatus(''); setErr(''); setToken('USDC'); setPending(null) } }, [open, chainKey])
 
-  const send = async () => {
+  const prepare = () => {
     setErr('')
-    if (!/^0x[a-fA-F0-9]{40}$/.test(to)) return setErr('Recipient must be a 0x address.')
+    const checked = checksumAddress(to)
+    if (!checked) return setErr('Recipient address is invalid. Check it character-by-character — a single typo can send funds to a dead address.')
     if (!amt || Number(amt) <= 0) return setErr('Enter an amount.')
-    setBusy(true)
+    setPending({ token, to: checked, amount: amt })
+  }
+
+  const doSend = async () => {
+    if (!pending) return
+    const { token: tkn, to: dest, amount: amount_ } = pending
+    setBusy(true); setErr('')
     try {
-      const tx = token === 'USDC'
-        ? await sendUSDC(wallet, chainKey, to, amt)
-        : await sendNative(wallet, chainKey, to, amt)
-      setHash(tx.hash); setStatus('pending')
+      const tx = tkn === 'USDC'
+        ? await sendUSDC(wallet, chainKey, dest, amount_)
+        : await sendNative(wallet, chainKey, dest, amount_)
+      setHash(tx.hash); setStatus('pending'); setPending(null)
       const r = await tx.wait()
       const ok = r.status === 1
       setStatus(ok ? 'confirmed' : 'failed')
-      onSent({ kind: 'send', token, amount: amt, to, hash: tx.hash, chain: chain.name, chainKey, explorer: chain.explorer, status: ok ? 'confirmed' : 'failed', ts: Date.now() })
+      onSent({ kind: 'send', token: tkn, amount: amount_, to: dest, hash: tx.hash, chain: chain.name, chainKey, explorer: chain.explorer, status: ok ? 'confirmed' : 'failed', ts: Date.now() })
     } catch (e) { setErr(e?.shortMessage || e?.message || 'Send failed') }
     finally { setBusy(false) }
   }
@@ -470,11 +490,53 @@ function SendSheet({ open, onClose, wallet, chainKey, balances, onSent }) {
       {err && <div style={{ marginTop: 12, padding: '8px 12px', borderRadius: 10,
         background: 'rgba(255,122,138,0.12)', border: '1px solid rgba(255,122,138,0.3)',
         color: C.red, fontSize: 12 }}>{err}</div>}
-      <button onClick={send} disabled={busy} style={{
-        marginTop: 16, width: '100%', padding: '14px 0', borderRadius: 14,
-        background: C.teal, color: C.bg, border: 0, fontWeight: 700, fontSize: 16,
-        cursor: 'pointer', opacity: busy ? 0.7 : 1,
-      }}>{busy ? 'Sending…' : `Send ${amt || '0'} ${token}`}</button>
+      {pending ? (
+        <div style={{
+          marginTop: 16, padding: 14, borderRadius: 14,
+          background: C.surface2, border: '1px solid ' + C.lineStr,
+          display: 'flex', flexDirection: 'column', gap: 12,
+        }}>
+          <div style={{ fontSize: 11, color: C.muted, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
+            Confirm — funds cannot be recovered
+          </div>
+          <div>
+            <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>Sending on {chain.name}</div>
+            <div style={{ fontFamily: FONT_MONO, fontSize: 16, fontWeight: 700, color: C.white }}>
+              {pending.amount} {pending.token === 'USDC' ? 'USDC' : nativeSym}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>To address</div>
+            <div style={{ fontFamily: FONT_MONO, fontSize: 13, color: C.white, wordBreak: 'break-all', lineHeight: 1.4 }}>
+              {pending.to.slice(0, -4)}
+              <span style={{ color: C.teal, fontWeight: 700, background: 'rgba(0,224,184,0.12)', padding: '0 4px', borderRadius: 4 }}>
+                {pending.to.slice(-4)}
+              </span>
+            </div>
+            <div style={{ marginTop: 6, fontSize: 11, color: C.muted }}>
+              Verify the highlighted last 4 characters match the recipient you intend to pay.
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => setPending(null)} disabled={busy} style={{
+              flex: 1, padding: '10px 0', borderRadius: 12, background: 'transparent',
+              border: '1px solid ' + C.lineStr, color: C.text2, fontWeight: 600,
+              cursor: busy ? 'progress' : 'pointer',
+            }}>Back</button>
+            <button onClick={doSend} disabled={busy} style={{
+              flex: 2, padding: '10px 0', borderRadius: 12,
+              background: C.teal, color: C.bg, border: 0, fontWeight: 700,
+              cursor: busy ? 'progress' : 'pointer', opacity: busy ? 0.7 : 1,
+            }}>{busy ? 'Signing…' : 'Confirm & send'}</button>
+          </div>
+        </div>
+      ) : (
+        <button onClick={prepare} disabled={busy} style={{
+          marginTop: 16, width: '100%', padding: '14px 0', borderRadius: 14,
+          background: C.teal, color: C.bg, border: 0, fontWeight: 700, fontSize: 16,
+          cursor: 'pointer', opacity: busy ? 0.7 : 1,
+        }}>Review {amt || '0'} {token}</button>
+      )}
       {hash && (
         <div style={{ marginTop: 14, padding: 12, borderRadius: 12, background: C.surface2,
           border: '1px solid ' + C.line, fontSize: 12 }}>

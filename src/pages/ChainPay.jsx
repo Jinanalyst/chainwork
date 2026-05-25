@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Capacitor } from '@capacitor/core'
-import { Wallet } from 'ethers'
+import { Wallet, getAddress } from 'ethers'
 import { Icon, useHashRoute, navigate } from '../components/ui.jsx'
 import { useSession, getWalletAddress } from '../hooks/useSession.js'
 import { PLATFORM_WALLETS, savePaymentProof, userReference } from '../lib/platform.js'
@@ -56,6 +56,16 @@ const pad32      = (hex) => stripHex(hex).padStart(64, '0')
 const addrPad    = (a) => pad32((a || '').toLowerCase())
 const uintPad    = (n) => pad32(n.toString(16))
 const isAddr     = (a) => /^0x[a-fA-F0-9]{40}$/.test(a || '')
+
+// Returns the EIP-55 checksummed form of `a`, or null if the address is
+// malformed *or* the user typed a mixed-case address whose checksum is wrong.
+// A single hex-character typo flips the case of nearby letters, so this catches
+// almost all single-character mistypes that the loose `0x + 40 hex` regex misses.
+const checksumAddress = (a) => {
+  const s = (a || '').trim()
+  if (!/^0x[a-fA-F0-9]{40}$/.test(s)) return null
+  try { return getAddress(s) } catch { return null }
+}
 
 const formatUnits = (raw, decimals, maxFrac = decimals) => {
   const s = raw.toString().padStart(decimals + 1, '0')
@@ -341,6 +351,63 @@ function Modal({ open, onClose, title, children }) {
 }
 
 /* ────────────────────────────────────────────────────────────────────────── *
+ * Shared "confirm before signing" panel.
+ *
+ * Address typos in EVM transactions are irrecoverable: there's no protocol-level
+ * undo, and a valid-looking 0x address with a one-character typo is still a
+ * mathematically valid address that just happens to belong to nobody (or
+ * somebody else). EIP-55 checksum validation catches most typos, and this panel
+ * is the last human-readable checkpoint: it forces the user to eyeball the full
+ * address — with the last 4 characters highlighted — before the tx is broadcast.
+ * ────────────────────────────────────────────────────────────────────────── */
+function ConfirmSendPanel({ palette, to, amount, token, busy, onCancel, onConfirm }) {
+  const P = palette
+  const head = to.slice(0, to.length - 4)
+  const tail = to.slice(-4)
+  return (
+    <div style={{
+      marginTop: 4, padding: 14, borderRadius: 14,
+      background: P.surface2, border: '1px solid ' + P.lineStr,
+      display: 'flex', flexDirection: 'column', gap: 12,
+    }}>
+      <div style={{ fontSize: 11, color: P.muted, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
+        Confirm — funds cannot be recovered
+      </div>
+      <div>
+        <div style={{ fontSize: 11, color: P.muted, marginBottom: 4 }}>Sending</div>
+        <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 16, fontWeight: 700, color: P.white }}>
+          {amount} {token}
+        </div>
+      </div>
+      <div>
+        <div style={{ fontSize: 11, color: P.muted, marginBottom: 4 }}>To address</div>
+        <div style={{
+          fontFamily: 'JetBrains Mono, monospace', fontSize: 13, color: P.white,
+          wordBreak: 'break-all', lineHeight: 1.4,
+        }}>
+          {head}<span style={{ color: P.teal, fontWeight: 700, background: 'rgba(0,224,184,0.12)', padding: '0 4px', borderRadius: 4 }}>{tail}</span>
+        </div>
+        <div style={{ marginTop: 6, fontSize: 11, color: P.muted }}>
+          Verify the highlighted last 4 characters match the recipient you intend to pay.
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button onClick={onCancel} disabled={busy} style={{
+          flex: 1, padding: '10px 0', borderRadius: 12, background: 'transparent',
+          border: '1px solid ' + P.lineStr, color: P.text2, fontWeight: 600,
+          cursor: busy ? 'progress' : 'pointer',
+        }}>Back</button>
+        <button onClick={onConfirm} disabled={busy} style={{
+          flex: 2, padding: '10px 0', borderRadius: 12,
+          background: P.teal, color: P.bg, border: 0, fontWeight: 700,
+          cursor: busy ? 'progress' : 'pointer', opacity: busy ? 0.7 : 1,
+        }}>{busy ? 'Signing…' : 'Confirm & send'}</button>
+      </div>
+    </div>
+  )
+}
+
+/* ────────────────────────────────────────────────────────────────────────── *
  * Send / Receive / Swap / Buy modals
  * ────────────────────────────────────────────────────────────────────────── */
 function SendModal({ open, onClose, w, pushActivity, prefillTo = '' }) {
@@ -353,13 +420,19 @@ function SendModal({ open, onClose, w, pushActivity, prefillTo = '' }) {
   const [hash,    setHash]    = useState('')
   const [status,  setStatus]  = useState('')
   const [error,   setError]   = useState('')
+  // When non-null, the form is hidden and a confirmation panel is shown.
+  // Holds the checksum-normalized recipient + final amount/token to broadcast.
+  const [pending, setPending] = useState(null)
 
-  useEffect(() => { if (open) { setTo(prefillTo); setAmount(''); setHash(''); setStatus(''); setError('') } }, [open, prefillTo])
+  useEffect(() => { if (open) { setTo(prefillTo); setAmount(''); setHash(''); setStatus(''); setError(''); setPending(null) } }, [open, prefillTo])
 
-  const send = async () => {
+  // Step 1: validate inputs (format + EIP-55 checksum + balance) and stage a
+  // confirmation. The actual broadcast happens in `doSend` from the confirm UI.
+  const prepare = () => {
     setError('')
-    if (!w.wallet)   return setError('Unlock your ChainPay wallet first.')
-    if (!isAddr(to)) return setError('Recipient must be a valid 0x address.')
+    if (!w.wallet) return setError('Unlock your ChainPay wallet first.')
+    const checked = checksumAddress(to)
+    if (!checked) return setError('Recipient address is invalid. Check it character-by-character — a single typo can send funds to a dead address.')
     if (!amount || Number(amount) <= 0) return setError('Enter an amount.')
 
     try {
@@ -370,24 +443,31 @@ function SendModal({ open, onClose, w, pushActivity, prefillTo = '' }) {
       }
     } catch { return setError('Invalid amount.') }
 
-    setBusy(true)
+    setPending({ token, to: checked, amount })
+  }
+
+  // Step 2: actually broadcast the staged transaction.
+  const doSend = async () => {
+    if (!pending) return
+    const { token: tkn, to: dest, amount: amt } = pending
+    setBusy(true); setError('')
     try {
-      const txResp = await w.sendTx({ token, to, amount })
+      const txResp = await w.sendTx({ token: tkn, to: dest, amount: amt })
       const h = txResp.hash
-      setHash(h); setStatus('pending')
-      pushActivity({ kind: 'send', token, amount, to, hash: h, status: 'pending', ts: Date.now() })
+      setHash(h); setStatus('pending'); setPending(null)
+      pushActivity({ kind: 'send', token: tkn, amount: amt, to: dest, hash: h, status: 'pending', ts: Date.now() })
 
       txResp.wait().then(async (receipt) => {
         const ok = receipt?.status === 1
         setStatus(ok ? 'confirmed' : 'failed')
-        pushActivity({ kind: 'send', token, amount, to, hash: h, status: ok ? 'confirmed' : 'failed', ts: Date.now() })
+        pushActivity({ kind: 'send', token: tkn, amount: amt, to: dest, hash: h, status: ok ? 'confirmed' : 'failed', ts: Date.now() })
         w.refresh()
         if (ok) {
           try {
             await savePaymentProof({
-              kind: to.toLowerCase() === ESCROW_USDC.toLowerCase() ? 'task' : 'transfer',
-              reference: memo, amount: `${amount} ${token}`, token, chain: 'Base',
-              toAddress: to, fromWallet: w.address, txHash: h,
+              kind: dest.toLowerCase() === ESCROW_USDC.toLowerCase() ? 'task' : 'transfer',
+              reference: memo, amount: `${amt} ${tkn}`, token: tkn, chain: 'Base',
+              toAddress: dest, fromWallet: w.address, txHash: h,
             })
           } catch {}
         }
@@ -455,14 +535,21 @@ function SendModal({ open, onClose, w, pushActivity, prefillTo = '' }) {
         }}>{error}</div>
       )}
 
-      <button onClick={send} disabled={busy || !w.onBase}
-        style={{
-          marginTop: 16, width: '100%', padding: '12px 0', borderRadius: 14,
-          background: C.teal, color: C.bg, border: 0, fontWeight: 700, fontSize: 15,
-          cursor: busy ? 'progress' : 'pointer', opacity: busy ? 0.7 : 1,
-        }}>
-        {busy ? 'Awaiting signature…' : `Send ${amount || '0'} ${token}`}
-      </button>
+      {pending ? (
+        <div style={{ marginTop: 16 }}>
+          <ConfirmSendPanel palette={C} to={pending.to} amount={pending.amount} token={pending.token}
+            busy={busy} onCancel={() => setPending(null)} onConfirm={doSend}/>
+        </div>
+      ) : (
+        <button onClick={prepare} disabled={busy || !w.onBase}
+          style={{
+            marginTop: 16, width: '100%', padding: '12px 0', borderRadius: 14,
+            background: C.teal, color: C.bg, border: 0, fontWeight: 700, fontSize: 15,
+            cursor: busy ? 'progress' : 'pointer', opacity: busy ? 0.7 : 1,
+          }}>
+          Review {amount || '0'} {token}
+        </button>
+      )}
 
       {hash && (
         <div style={{
@@ -2081,13 +2168,15 @@ const SendCard = ({ w, pushActivity }) => {
   const [hash,   setHash]   = useState('')
   const [status, setStatus] = useState('')
   const [error,  setError]  = useState('')
+  const [pending, setPending] = useState(null)
 
   useEffect(() => { setMemo(userReference(user)) }, [user?.id])
 
-  const send = async () => {
+  const prepare = () => {
     setError(''); setHash(''); setStatus('')
-    if (!w.wallet)   return setError('Unlock your ChainPay wallet first.')
-    if (!isAddr(to)) return setError('Recipient must be a valid 0x address.')
+    if (!w.wallet) return setError('Unlock your ChainPay wallet first.')
+    const checked = checksumAddress(to)
+    if (!checked) return setError('Recipient address is invalid. Check it character-by-character — a single typo can send funds to a dead address.')
     if (!amount || Number(amount) <= 0) return setError('Enter an amount greater than zero.')
 
     try {
@@ -2098,24 +2187,30 @@ const SendCard = ({ w, pushActivity }) => {
       }
     } catch { return setError('Invalid amount.') }
 
-    setBusy(true)
+    setPending({ token, to: checked, amount })
+  }
+
+  const doSend = async () => {
+    if (!pending) return
+    const { token: tkn, to: dest, amount: amt } = pending
+    setBusy(true); setError('')
     try {
-      const txResp = await w.sendTx({ token, to, amount })
+      const txResp = await w.sendTx({ token: tkn, to: dest, amount: amt })
       const h = txResp.hash
-      setHash(h); setStatus('pending')
-      pushActivity({ kind: 'send', token, amount, to, hash: h, status: 'pending', ts: Date.now() })
+      setHash(h); setStatus('pending'); setPending(null)
+      pushActivity({ kind: 'send', token: tkn, amount: amt, to: dest, hash: h, status: 'pending', ts: Date.now() })
 
       txResp.wait().then(async (receipt) => {
         const ok = receipt?.status === 1
         setStatus(ok ? 'confirmed' : 'failed')
-        pushActivity({ kind: 'send', token, amount, to, hash: h, status: ok ? 'confirmed' : 'failed', ts: Date.now() })
+        pushActivity({ kind: 'send', token: tkn, amount: amt, to: dest, hash: h, status: ok ? 'confirmed' : 'failed', ts: Date.now() })
         w.refresh()
         if (ok) {
           try {
             await savePaymentProof({
-              kind: to.toLowerCase() === ESCROW_USDC.toLowerCase() ? 'task' : 'transfer',
-              reference: memo, amount: `${amount} ${token}`, token, chain: 'Base',
-              toAddress: to, fromWallet: w.address, txHash: h,
+              kind: dest.toLowerCase() === ESCROW_USDC.toLowerCase() ? 'task' : 'transfer',
+              reference: memo, amount: `${amt} ${tkn}`, token: tkn, chain: 'Base',
+              toAddress: dest, fromWallet: w.address, txHash: h,
             })
           } catch {}
         }
@@ -2195,15 +2290,20 @@ const SendCard = ({ w, pushActivity }) => {
         }}>{error}</div>
       )}
 
-      <button onClick={send} disabled={busy || !w.address || !w.onBase}
-        style={{
-          marginTop: 4, padding: '13px 0', borderRadius: 14,
-          background: D.teal, color: D.bg, border: 0,
-          fontWeight: 700, fontSize: 14, cursor: busy ? 'progress' : 'pointer',
-          opacity: (busy || !w.address || !w.onBase) ? 0.5 : 1,
-        }}>
-        {busy ? 'Awaiting signature…' : !w.address ? 'Connect wallet to send' : `Send ${amount || '0'} ${token}`}
-      </button>
+      {pending ? (
+        <ConfirmSendPanel palette={D} to={pending.to} amount={pending.amount} token={pending.token}
+          busy={busy} onCancel={() => setPending(null)} onConfirm={doSend}/>
+      ) : (
+        <button onClick={prepare} disabled={busy || !w.address || !w.onBase}
+          style={{
+            marginTop: 4, padding: '13px 0', borderRadius: 14,
+            background: D.teal, color: D.bg, border: 0,
+            fontWeight: 700, fontSize: 14, cursor: busy ? 'progress' : 'pointer',
+            opacity: (busy || !w.address || !w.onBase) ? 0.5 : 1,
+          }}>
+          {!w.address ? 'Connect wallet to send' : `Review ${amount || '0'} ${token}`}
+        </button>
+      )}
 
       {hash && (
         <div style={{
