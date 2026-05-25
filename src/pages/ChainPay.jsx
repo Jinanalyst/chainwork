@@ -1381,7 +1381,7 @@ const Topbar = () => (
         fontFamily: FONT_MONO, fontSize: 11, color: C.muted,
         letterSpacing: '0.04em', textTransform: 'uppercase',
       }}>
-        <span>Wallet v0.1.2</span>
+        <span>Wallet v0.1.3</span>
         <span style={{ marginLeft: 24 }}>Android</span>
       </div>
       <a href="#/" style={{
@@ -1468,7 +1468,7 @@ const Hero = ({ onDownload }) => (
         borderTop: '1px solid ' + C.line, flexWrap: 'wrap',
       }}>
         {[
-          ['v0.1.2', 'Latest build'],
+          ['v0.1.3', 'Latest build'],
           ['Android 9+', 'Requires'],
           ['Self-custodial', 'Always'],
         ].map(([head, sub]) => (
@@ -1571,16 +1571,16 @@ const Panel = ({ children, style = {}, label, corner }) => (
  * 01 — Download flow (APK)
  * ────────────────────────────────────────────────────────────────────────── */
 const APK = {
-  version:  '0.1.2',
-  file:     '/chainpay-v0.1.2.apk',
-  filename: 'chainpay-v0.1.2.apk',
-  size:     '28.1 MB',
-  sha256:   'cabe75f0468a79e9838abcdabad5717265d12e3aee24895620b22a146eb0a162',
+  version:  '0.1.3',
+  file:     '/chainpay-v0.1.3.apk',
+  filename: 'chainpay-v0.1.3.apk',
+  size:     '33.5 MB',
+  sha256:   'a3df0141b4cc6e258950cec9a6f1556e70adcc14a9da1c2a76666bf52b7d7d99',
   built:    'May 2026',
   minSdk:   'Android 7 (Nougat) · API 24',
   signer:   'Debug keystore · self-signed',
   format:   'Signed Android APK',
-  contents: 'Native wallet · in-app keys · on-chain swap · activity indexer · settings',
+  contents: 'Multi-token activity (USDC/USDT/DAI/WETH) · native ETH/MATIC tx history · live mainnet balances · on-chain swap',
 }
 
 const DownloadSection = () => {
@@ -1595,7 +1595,7 @@ const DownloadSection = () => {
   }
 
   const steps = [
-    ['Tap "Download APK".', 'Your browser saves chainpay-v0.1.2.apk to Downloads.'],
+    ['Tap "Download APK".', 'Your browser saves chainpay-v0.1.3.apk to Downloads.'],
     ['Allow installs from this source.', 'Android may ask once — say yes for your browser.'],
     ['Tap the file to install.', 'A standard Android install prompt opens. Tap Install.'],
     ['Open ChainPay and back up your phrase.', 'On first launch the app generates your recovery phrase. Write it down — you\'re the only one with it.'],
