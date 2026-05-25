@@ -1,10 +1,24 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Capacitor } from '@capacitor/core'
+import { Wallet } from 'ethers'
 import { Icon, useHashRoute, navigate } from '../components/ui.jsx'
 import { useSession, getWalletAddress } from '../hooks/useSession.js'
 import { PLATFORM_WALLETS, savePaymentProof, userReference } from '../lib/platform.js'
 import NativeWalletApp from '../components/NativeWalletApp.jsx'
 import QRCode from '../components/QRCode.jsx'
+import {
+  hasWallet as cpHasWallet,
+  createWallet as cpCreateWallet,
+  importMnemonic as cpImportMnemonic,
+  save as cpSaveWallet,
+  unlock as cpUnlockWallet,
+  reset as cpResetWallet,
+  revealMnemonic as cpRevealMnemonic,
+  getBalances as cpGetBalances,
+  sendUSDC as cpSendUSDC,
+  sendNative as cpSendNative,
+  provider as cpProvider,
+} from '../lib/nativeWallet.js'
 
 /* ────────────────────────────────────────────────────────────────────────── *
  * Chain config — USDC on Base mainnet
@@ -117,71 +131,124 @@ const IconCopy  = (p) => <SvgIcon {...p} d={<><rect x="9" y="9" width="11" heigh
 const IconExt   = (p) => <SvgIcon {...p} d={<><path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/><path d="M14 4h6v6M20 4l-9 9"/></>} />
 
 /* ────────────────────────────────────────────────────────────────────────── *
- * Wallet hook — connection + live balances + price
+ * ChainPay browser wallet — self-custodial keystore in the page.
+ * No MetaMask / OKX / external extension. The keystore (ethers encrypted
+ * JSON) lives in localStorage via Capacitor Preferences' web fallback, so
+ * the wallet is the same across reloads. The unlocked private key is held
+ * only in sessionStorage so it auto-locks when the tab closes.
+ *
+ * Returns the same shape the old useWallet did (address, usdc, ethBal,
+ * onBase, refresh, …) so every existing call site keeps working, plus
+ * ChainPay-specific fields: wallet (ethers.Wallet), hasStored, unlock(),
+ * createAndSave(), importAndSave(), lock(), wipe(), sendTx().
  * ────────────────────────────────────────────────────────────────────────── */
+const CP_SESSION_PK = 'chainpay.web.pk.session'
+const CP_ADDR_CACHE = 'chainpay.web.addr.cache'
+
 function useWallet() {
-  const [address, setAddress] = useState('')
-  const [chainId, setChainId] = useState(null)
+  const [wallet,    setWallet]    = useState(null)   // ethers.Wallet | null
+  const [hasStored, setHasStored] = useState(false)  // is there a keystore at all?
+  const [cachedAddr, setCachedAddr] = useState(() => {
+    try { return localStorage.getItem(CP_ADDR_CACHE) || '' } catch { return '' }
+  })
   const [usdc,    setUsdc]    = useState(0n)
   const [ethBal,  setEthBal]  = useState(0n)
   const [ethUsd,  setEthUsd]  = useState(0)
   const [loading, setLoading] = useState(false)
   const [err,     setErr]     = useState('')
-  const eth1193 = typeof window !== 'undefined' ? window.ethereum : null
 
-  const connect = async () => {
-    setErr('')
-    if (!eth1193) { setErr('No browser wallet detected. Install MetaMask to use ChainPay.'); return }
-    try {
-      const accs = await eth1193.request({ method: 'eth_requestAccounts' })
-      setAddress(accs?.[0] || '')
-      setChainId(await eth1193.request({ method: 'eth_chainId' }))
-    } catch (e) { setErr(e?.message || 'Connection rejected') }
-  }
+  const address = wallet?.address || ''
 
-  const switchToBase = async () => {
-    if (!eth1193) return
-    setErr('')
-    try {
-      await eth1193.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: BASE_CHAIN_ID_HEX }] })
-    } catch (e) {
-      if (e?.code === 4902) {
-        try {
-          await eth1193.request({
-            method: 'wallet_addEthereumChain',
-            params: [{
-              chainId: BASE_CHAIN_ID_HEX,
-              chainName: 'Base',
-              nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-              rpcUrls: [BASE_RPC],
-              blockExplorerUrls: ['https://basescan.org'],
-            }],
-          })
-        } catch (e2) { setErr(e2?.message || 'Could not add Base') }
-      } else { setErr(e?.message || 'Network switch rejected') }
-    }
-  }
-
+  // Probe for a stored keystore. If we previously unlocked in this tab,
+  // restore the wallet from sessionStorage so a refresh doesn't re-prompt.
   useEffect(() => {
-    if (!eth1193) return
-    const onAccs  = (a) => setAddress(a?.[0] || '')
-    const onChain = (c) => setChainId(c)
-    eth1193.on?.('accountsChanged', onAccs)
-    eth1193.on?.('chainChanged',    onChain)
-    eth1193.request?.({ method: 'eth_accounts' }).then((a) => { if (a?.[0]) setAddress(a[0]) }).catch(() => {})
-    eth1193.request?.({ method: 'eth_chainId' }).then(setChainId).catch(() => {})
-    return () => {
-      eth1193.removeListener?.('accountsChanged', onAccs)
-      eth1193.removeListener?.('chainChanged',    onChain)
+    let cancelled = false
+    cpHasWallet()
+      .then((v) => { if (!cancelled) setHasStored(!!v) })
+      .catch(() => { if (!cancelled) setHasStored(false) })
+    try {
+      const pk = sessionStorage.getItem(CP_SESSION_PK)
+      if (pk) {
+        const w = new Wallet(pk, cpProvider('base'))
+        if (!cancelled) {
+          setWallet(w)
+          try { localStorage.setItem(CP_ADDR_CACHE, w.address); setCachedAddr(w.address) } catch {}
+        }
+      }
+    } catch {}
+    return () => { cancelled = true }
+  }, [])
+
+  const adopt = (w) => {
+    setWallet(w)
+    try { sessionStorage.setItem(CP_SESSION_PK, w.privateKey) } catch {}
+    try { localStorage.setItem(CP_ADDR_CACHE, w.address); setCachedAddr(w.address) } catch {}
+  }
+
+  const unlock = async (passcode) => {
+    setErr('')
+    try {
+      const w = await cpUnlockWallet(passcode)
+      adopt(w)
+      setHasStored(true)
+      return w
+    } catch (e) {
+      const msg = e?.message || 'Wrong passcode'
+      setErr(msg)
+      throw new Error(msg)
     }
-  }, [eth1193])
+  }
+
+  const createAndSave = async (passcode) => {
+    setErr('')
+    const { wallet: hd, mnemonic } = cpCreateWallet()
+    await cpSaveWallet(hd, passcode)
+    const pkWallet = new Wallet(hd.privateKey, cpProvider('base'))
+    adopt(pkWallet)
+    setHasStored(true)
+    return { wallet: pkWallet, mnemonic }
+  }
+
+  const importAndSave = async (phrase, passcode) => {
+    setErr('')
+    const { wallet: hd, mnemonic } = cpImportMnemonic(phrase)
+    await cpSaveWallet(hd, passcode)
+    const pkWallet = new Wallet(hd.privateKey, cpProvider('base'))
+    adopt(pkWallet)
+    setHasStored(true)
+    return { wallet: pkWallet, mnemonic }
+  }
+
+  // Drop the unlocked key from memory (and tab) but keep the keystore on disk.
+  const lock = () => {
+    setWallet(null)
+    setUsdc(0n); setEthBal(0n)
+    try { sessionStorage.removeItem(CP_SESSION_PK) } catch {}
+  }
+
+  // Nuke the keystore entirely — used by "Remove wallet".
+  const wipe = async () => {
+    await cpResetWallet().catch(() => {})
+    lock()
+    setHasStored(false)
+    try { localStorage.removeItem(CP_ADDR_CACHE); setCachedAddr('') } catch {}
+  }
+
+  const revealMnemonic = async (passcode) => cpRevealMnemonic(passcode)
+
+  // Send USDC or ETH on Base, signed by the in-page ChainPay key.
+  const sendTx = async ({ token, to, amount }) => {
+    if (!wallet) throw new Error('Unlock your ChainPay wallet first.')
+    if (token === 'USDC') return cpSendUSDC(wallet, 'base', to, amount)
+    return cpSendNative(wallet, 'base', to, amount)
+  }
 
   const refresh = async () => {
     if (!address) return
     setLoading(true)
     try {
-      const [u, e] = await Promise.all([fetchUsdcBalance(address), fetchEthBalance(address)])
-      setUsdc(u); setEthBal(e)
+      const b = await cpGetBalances(address, 'base')
+      setUsdc(b.usdc); setEthBal(b.native)
     } catch (e) { setErr(e?.message || 'Balance fetch failed') }
     finally { setLoading(false) }
   }
@@ -190,6 +257,7 @@ function useWallet() {
     refresh()
     const id = setInterval(refresh, 10_000)
     return () => clearInterval(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address])
 
   useEffect(() => {
@@ -203,9 +271,28 @@ function useWallet() {
   const totalUsd = usdcNum + ethNum * ethUsd
 
   return {
-    eth1193, address, chainId, usdc, ethBal, ethUsd, usdcNum, ethNum, totalUsd,
-    loading, err, setErr, connect, switchToBase, refresh,
-    onBase: chainId === BASE_CHAIN_ID_HEX,
+    // legacy-compatible surface
+    eth1193: null,                       // signal: no EIP-1193 / no MetaMask
+    address,
+    chainId: BASE_CHAIN_ID_HEX,
+    usdc, ethBal, ethUsd, usdcNum, ethNum, totalUsd,
+    loading, err, setErr,
+    onBase: true,                        // ChainPay wallet always talks Base
+    switchToBase: () => {},              // no-op (kept for call-site compat)
+    refresh,
+    // ChainPay-specific surface
+    wallet,
+    hasStored,
+    cachedAddr,                          // shown when keystore exists but locked
+    unlock, createAndSave, importAndSave,
+    lock, wipe, revealMnemonic,
+    sendTx,
+    // legacy `connect` — routes the user to the desktop wallet's setup/unlock UI
+    connect: () => {
+      if (typeof window !== 'undefined') {
+        if (!window.location.hash.startsWith('#/pay/desktop')) navigate('#/pay/desktop')
+      }
+    },
   }
 }
 
@@ -271,58 +358,42 @@ function SendModal({ open, onClose, w, pushActivity, prefillTo = '' }) {
 
   const send = async () => {
     setError('')
-    if (!w.address)   return setError('Connect a wallet first.')
-    if (!isAddr(to))  return setError('Recipient must be a valid 0x address.')
+    if (!w.wallet)   return setError('Unlock your ChainPay wallet first.')
+    if (!isAddr(to)) return setError('Recipient must be a valid 0x address.')
     if (!amount || Number(amount) <= 0) return setError('Enter an amount.')
-    if (!w.onBase)    return setError('Switch to Base network first.')
 
-    let tx
     try {
       if (token === 'USDC') {
-        const raw = parseUnits(amount, USDC_DECIMALS)
-        if (raw > w.usdc) return setError('Amount exceeds USDC balance.')
-        const data = '0xa9059cbb' + addrPad(to) + uintPad(raw)
-        tx = { from: w.address, to: USDC_BASE, data, value: '0x0' }
+        if (parseUnits(amount, USDC_DECIMALS) > w.usdc) return setError('Amount exceeds USDC balance.')
       } else {
-        const raw = parseUnits(amount, 18)
-        if (raw > w.ethBal) return setError('Amount exceeds ETH balance.')
-        tx = { from: w.address, to, value: '0x' + raw.toString(16) }
+        if (parseUnits(amount, 18) > w.ethBal) return setError('Amount exceeds ETH balance.')
       }
     } catch { return setError('Invalid amount.') }
 
     setBusy(true)
     try {
-      const h = await w.eth1193.request({ method: 'eth_sendTransaction', params: [tx] })
+      const txResp = await w.sendTx({ token, to, amount })
+      const h = txResp.hash
       setHash(h); setStatus('pending')
-      pushActivity({
-        kind: 'send', token, amount, to, hash: h, status: 'pending', ts: Date.now(),
-      })
+      pushActivity({ kind: 'send', token, amount, to, hash: h, status: 'pending', ts: Date.now() })
 
-      const poll = async () => {
-        try {
-          const r = await rpc('eth_getTransactionReceipt', [h])
-          if (r) {
-            const ok = r.status === '0x1'
-            setStatus(ok ? 'confirmed' : 'failed')
-            pushActivity({ kind: 'send', token, amount, to, hash: h, status: ok ? 'confirmed' : 'failed', ts: Date.now() })
-            w.refresh()
-            if (ok) {
-              try {
-                await savePaymentProof({
-                  kind: to.toLowerCase() === ESCROW_USDC.toLowerCase() ? 'task' : 'transfer',
-                  reference: memo, amount: `${amount} ${token}`, token, chain: 'Base',
-                  toAddress: to, fromWallet: w.address, txHash: h,
-                })
-              } catch {}
-            }
-            return
-          }
-        } catch {}
-        setTimeout(poll, 3000)
-      }
-      poll()
+      txResp.wait().then(async (receipt) => {
+        const ok = receipt?.status === 1
+        setStatus(ok ? 'confirmed' : 'failed')
+        pushActivity({ kind: 'send', token, amount, to, hash: h, status: ok ? 'confirmed' : 'failed', ts: Date.now() })
+        w.refresh()
+        if (ok) {
+          try {
+            await savePaymentProof({
+              kind: to.toLowerCase() === ESCROW_USDC.toLowerCase() ? 'task' : 'transfer',
+              reference: memo, amount: `${amount} ${token}`, token, chain: 'Base',
+              toAddress: to, fromWallet: w.address, txHash: h,
+            })
+          } catch {}
+        }
+      }).catch(() => { setStatus('failed') })
     } catch (e) {
-      setError(e?.message || 'Transaction rejected')
+      setError(e?.shortMessage || e?.message || 'Transaction failed')
     } finally { setBusy(false) }
   }
 
@@ -948,15 +1019,235 @@ const Page = ({ children }) => (
   </div>
 )
 
+/* ────────────────────────────────────────────────────────────────────────── *
+ * ChainPay wallet setup card — create / import / unlock entirely in-page.
+ * Replaces every external-wallet flow (MetaMask, OKX, Coinbase Wallet).
+ * Used both as a popover and as the centred panel inside DesktopWalletApp.
+ * ────────────────────────────────────────────────────────────────────────── */
+const WalletSetupCard = ({ w, onDone, compact = false }) => {
+  // Mode auto-selects based on whether a keystore already exists.
+  const [mode, setMode] = useState(w.hasStored ? 'unlock' : 'choose')
+  const [pass,  setPass]  = useState('')
+  const [pass2, setPass2] = useState('')
+  const [phrase, setPhrase] = useState('')
+  const [busy,   setBusy]   = useState(false)
+  const [mnemonic, setMnemonic] = useState('')
+  const [error,  setError]  = useState('')
+
+  useEffect(() => { setMode(w.hasStored ? 'unlock' : 'choose') }, [w.hasStored])
+
+  const fieldLabel = {
+    fontFamily: FONT_MONO, fontSize: 10, color: C.muted,
+    letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: 8,
+  }
+  const fieldInput = {
+    width: '100%', boxSizing: 'border-box',
+    background: C.surface2, border: '1px solid ' + C.line, color: C.white,
+    padding: '11px 13px', borderRadius: 12,
+    fontFamily: FONT_UI, fontSize: 14, outline: 'none',
+  }
+  const primaryBtn = (disabled) => ({
+    marginTop: 14, width: '100%', padding: '13px 0', borderRadius: 14,
+    background: C.teal, color: C.bg, border: 0,
+    fontWeight: 700, fontSize: 15,
+    cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1,
+  })
+
+  const doUnlock = async () => {
+    setError(''); setBusy(true)
+    try { await w.unlock(pass); setPass(''); onDone?.() }
+    catch (e) { setError(e?.message || 'Wrong passcode') }
+    finally { setBusy(false) }
+  }
+
+  const doCreate = async () => {
+    setError('')
+    if (pass.length < 6) return setError('Passcode must be at least 6 characters.')
+    if (pass !== pass2)  return setError('Passcodes do not match.')
+    setBusy(true)
+    try {
+      const { mnemonic: m } = await w.createAndSave(pass)
+      setMnemonic(m); setPass(''); setPass2('')
+      setMode('seed')
+    } catch (e) { setError(e?.message || 'Could not create wallet') }
+    finally { setBusy(false) }
+  }
+
+  const doImport = async () => {
+    setError('')
+    const words = phrase.trim().split(/\s+/).length
+    if (words !== 12 && words !== 24) return setError('Recovery phrase must be 12 or 24 words.')
+    if (pass.length < 6) return setError('Passcode must be at least 6 characters.')
+    if (pass !== pass2)  return setError('Passcodes do not match.')
+    setBusy(true)
+    try {
+      await w.importAndSave(phrase.trim(), pass)
+      setPass(''); setPass2(''); setPhrase('')
+      onDone?.()
+    } catch (e) { setError(e?.message || 'Invalid recovery phrase') }
+    finally { setBusy(false) }
+  }
+
+  const tabs = (
+    <div style={{ display: 'flex', gap: 4, padding: 4,
+      background: C.surface2, border: '1px solid ' + C.line, borderRadius: 999, marginBottom: 16 }}>
+      {[['create', 'Create new'], ['import', 'Import phrase']].map(([k, label]) => (
+        <button key={k} onClick={() => { setMode(k); setError('') }} style={{
+          flex: 1, padding: '7px 10px', borderRadius: 999,
+          background: mode === k ? C.white : 'transparent',
+          color: mode === k ? C.bg : C.text2,
+          border: 0, fontWeight: 700, fontSize: 12, cursor: 'pointer',
+        }}>{label}</button>
+      ))}
+    </div>
+  )
+
+  const headerBlock = (
+    <div style={{ textAlign: 'center', marginBottom: compact ? 12 : 18 }}>
+      <CPMark size={compact ? 36 : 52}/>
+      <div style={{ marginTop: 10, fontFamily: FONT_HEAD, fontWeight: 500,
+        fontSize: compact ? 18 : 26, letterSpacing: '-0.02em' }}>
+        {mode === 'unlock' ? 'Unlock ChainPay wallet'
+          : mode === 'seed' ? 'Back up your recovery phrase'
+          : 'Set up your ChainPay wallet'}
+      </div>
+      <div style={{ marginTop: 6, fontSize: 13, color: C.text2, maxWidth: 360, marginInline: 'auto' }}>
+        {mode === 'unlock'
+          ? 'Enter the passcode you set when you created or imported this wallet.'
+          : mode === 'seed'
+          ? 'Write these 12 words down on paper. They are the ONLY way to recover this wallet. Anyone with them controls the funds.'
+          : 'Self-custodial. Lives in your browser. No extension, no MetaMask, no OKX — just ChainPay.'}
+      </div>
+    </div>
+  )
+
+  return (
+    <div style={{
+      width: '100%', maxWidth: 460,
+      padding: compact ? '20px 22px' : '28px 28px 26px',
+      background: C.surface, border: '1px solid ' + C.lineStr, borderRadius: 22,
+      boxShadow: '0 30px 80px rgba(0,0,0,0.4)',
+    }}>
+      {headerBlock}
+
+      {mode === 'unlock' && (
+        <>
+          <div style={fieldLabel}>Passcode</div>
+          <input type="password" value={pass}
+                 onChange={(e) => setPass(e.target.value)}
+                 onKeyDown={(e) => { if (e.key === 'Enter') doUnlock() }}
+                 placeholder="••••••" style={fieldInput}/>
+          {w.cachedAddr && (
+            <div style={{ marginTop: 8, fontFamily: FONT_MONO, fontSize: 11, color: C.muted, textAlign: 'center' }}>
+              {w.cachedAddr.slice(0, 8)}…{w.cachedAddr.slice(-6)}
+            </div>
+          )}
+          {error && <div style={{
+            marginTop: 12, padding: '8px 12px', borderRadius: 10,
+            background: 'rgba(255,122,138,0.10)', border: '1px solid rgba(255,122,138,0.28)',
+            color: C.red, fontSize: 12,
+          }}>{error}</div>}
+          <button onClick={doUnlock} disabled={busy || !pass} style={primaryBtn(busy || !pass)}>
+            {busy ? 'Unlocking…' : 'Unlock'}
+          </button>
+          <button onClick={() => { setMode('choose'); setError('') }} style={{
+            marginTop: 10, width: '100%', background: 'transparent', border: 0,
+            color: C.muted, fontSize: 12, cursor: 'pointer',
+          }}>Use a different wallet</button>
+        </>
+      )}
+
+      {mode === 'choose' && (
+        <>
+          {tabs}
+          <div style={fieldLabel}>Choose a passcode (≥ 6 chars)</div>
+          <input type="password" value={pass} onChange={(e) => setPass(e.target.value)}
+                 placeholder="••••••" style={fieldInput}/>
+          <div style={{ ...fieldLabel, marginTop: 12 }}>Confirm passcode</div>
+          <input type="password" value={pass2} onChange={(e) => setPass2(e.target.value)}
+                 placeholder="••••••" style={fieldInput}/>
+          {error && <div style={{
+            marginTop: 12, padding: '8px 12px', borderRadius: 10,
+            background: 'rgba(255,122,138,0.10)', border: '1px solid rgba(255,122,138,0.28)',
+            color: C.red, fontSize: 12,
+          }}>{error}</div>}
+          <button onClick={doCreate} disabled={busy} style={primaryBtn(busy)}>
+            {busy ? 'Generating…' : 'Create wallet'}
+          </button>
+          <button onClick={() => { setMode('import'); setError('') }} style={{
+            marginTop: 10, width: '100%', background: 'transparent', border: 0,
+            color: C.teal, fontSize: 13, cursor: 'pointer',
+          }}>I already have a recovery phrase →</button>
+        </>
+      )}
+
+      {mode === 'import' && (
+        <>
+          {tabs}
+          <div style={fieldLabel}>Recovery phrase (12 or 24 words)</div>
+          <textarea value={phrase} onChange={(e) => setPhrase(e.target.value)}
+                    placeholder="word word word word word word word word word word word word"
+                    rows={3} style={{ ...fieldInput, fontFamily: FONT_MONO, fontSize: 13, resize: 'none' }}/>
+          <div style={{ ...fieldLabel, marginTop: 12 }}>Passcode (≥ 6 chars)</div>
+          <input type="password" value={pass} onChange={(e) => setPass(e.target.value)}
+                 placeholder="••••••" style={fieldInput}/>
+          <div style={{ ...fieldLabel, marginTop: 12 }}>Confirm passcode</div>
+          <input type="password" value={pass2} onChange={(e) => setPass2(e.target.value)}
+                 placeholder="••••••" style={fieldInput}/>
+          {error && <div style={{
+            marginTop: 12, padding: '8px 12px', borderRadius: 10,
+            background: 'rgba(255,122,138,0.10)', border: '1px solid rgba(255,122,138,0.28)',
+            color: C.red, fontSize: 12,
+          }}>{error}</div>}
+          <button onClick={doImport} disabled={busy} style={primaryBtn(busy)}>
+            {busy ? 'Importing…' : 'Import wallet'}
+          </button>
+          <button onClick={() => { setMode('choose'); setError('') }} style={{
+            marginTop: 10, width: '100%', background: 'transparent', border: 0,
+            color: C.muted, fontSize: 12, cursor: 'pointer',
+          }}>← Create new instead</button>
+        </>
+      )}
+
+      {mode === 'seed' && (
+        <>
+          <div style={{
+            padding: 16, borderRadius: 14,
+            background: C.surface2, border: '1px solid ' + C.line,
+            fontFamily: FONT_MONO, fontSize: 14, lineHeight: 1.8, wordSpacing: 4,
+          }}>{mnemonic}</div>
+          <div style={{
+            marginTop: 12, padding: '10px 12px', borderRadius: 10,
+            background: 'rgba(255,181,71,0.08)', border: '1px solid rgba(255,181,71,0.28)',
+            color: C.amber, fontSize: 12,
+          }}>Anyone with this phrase can spend the wallet. Don't store it digitally.</div>
+          <button onClick={() => onDone?.()} style={primaryBtn(false)}>
+            I've written it down — open my wallet
+          </button>
+          <button onClick={async () => {
+            try { await navigator.clipboard.writeText(mnemonic) } catch {}
+          }} style={{
+            marginTop: 8, width: '100%', background: 'transparent', border: 0,
+            color: C.muted, fontSize: 12, cursor: 'pointer',
+          }}>Copy to clipboard (not recommended)</button>
+        </>
+      )}
+    </div>
+  )
+}
+
 const ConnectWalletButton = ({ compact = false }) => {
   const w = useWallet()
-  const [menu, setMenu] = useState(false)
+  const [menu, setMenu]   = useState(false)
+  const [pop,  setPop]    = useState(false) // unlock popover
   const [copied, setCopied] = useState(false)
   const ref = useRef(null)
   const short = (a) => a ? `${a.slice(0, 6)}…${a.slice(-4)}` : ''
 
   useEffect(() => {
-    const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target)) setMenu(false) }
+    const onDoc = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) { setMenu(false); setPop(false) }
+    }
     document.addEventListener('mousedown', onDoc)
     return () => document.removeEventListener('mousedown', onDoc)
   }, [])
@@ -966,24 +1257,17 @@ const ConnectWalletButton = ({ compact = false }) => {
     try { await navigator.clipboard.writeText(w.address); setCopied(true); setTimeout(() => setCopied(false), 1500) } catch {}
   }
 
-  const openDesktop = () => { setMenu(false); navigate('#/pay/desktop') }
+  const openDesktop = () => { setMenu(false); setPop(false); navigate('#/pay/desktop') }
 
-  const onClick = async () => {
-    if (!w.address) {
-      await w.connect()
-      if (typeof window !== 'undefined' && window.ethereum) {
-        const accs = await window.ethereum.request({ method: 'eth_accounts' }).catch(() => [])
-        if (accs?.[0]) navigate('#/pay/desktop')
-      }
-    } else {
-      setMenu((v) => !v)
-    }
+  const onClick = () => {
+    if (w.address) { setMenu((v) => !v); return }
+    if (w.hasStored) { setPop((v) => !v); return }
+    // No keystore yet — full setup happens inline on the desktop wallet page.
+    navigate('#/pay/desktop')
   }
 
   const padding = compact ? '8px 14px' : '10px 16px'
   const fontSize = compact ? 13 : 14
-  const onBaseChip = w.address && w.onBase
-  const wrongChain = w.address && !w.onBase
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
@@ -1000,18 +1284,30 @@ const ConnectWalletButton = ({ compact = false }) => {
       }}>
         <span style={{
           width: 10, height: 10, borderRadius: '50%',
-          background: w.address ? (onBaseChip ? C.green : C.amber) : C.bg,
-          boxShadow: w.address ? '0 0 10px ' + (onBaseChip ? C.green : C.amber) : 'none',
+          background: w.address ? C.green : C.bg,
+          boxShadow: w.address ? '0 0 10px ' + C.green : 'none',
         }}/>
-        {w.address ? short(w.address) : 'Connect wallet'}
+        {w.address
+          ? short(w.address)
+          : w.hasStored ? 'Unlock ChainPay' : 'Connect ChainPay wallet'}
         {w.address && (
           <SvgIcon stroke={C.text2} sw={1.8} size={14} d={<path d="M6 9l6 6 6-6"/>}/>
         )}
       </button>
 
+      {/* Unlock popover — appears when keystore exists but isn't unlocked */}
+      {pop && !w.address && w.hasStored && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 50,
+        }}>
+          <WalletSetupCard w={w} compact onDone={() => setPop(false)}/>
+        </div>
+      )}
+
+      {/* Connected dropdown */}
       {menu && w.address && (
         <div style={{
-          position: 'absolute', top: 'calc(100% + 8px)', right: 0, minWidth: 280,
+          position: 'absolute', top: 'calc(100% + 8px)', right: 0, minWidth: 300,
           background: C.surface, border: '1px solid ' + C.lineStr,
           borderRadius: 16, boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
           zIndex: 50, overflow: 'hidden',
@@ -1020,7 +1316,7 @@ const ConnectWalletButton = ({ compact = false }) => {
             <div style={{
               fontFamily: FONT_MONO, fontSize: 10, color: C.muted,
               letterSpacing: '0.16em', textTransform: 'uppercase',
-            }}>Connected</div>
+            }}>ChainPay wallet · Connected</div>
             <button onClick={copyAddr} style={{
               marginTop: 6, width: '100%', textAlign: 'left',
               fontFamily: FONT_MONO, fontSize: 12, color: C.text2,
@@ -1039,14 +1335,6 @@ const ConnectWalletButton = ({ compact = false }) => {
               <span>ETH {Number(formatUnits(w.ethBal, 18, 4)).toFixed(4)}</span>
             </div>
           </div>
-          {wrongChain && (
-            <button onClick={() => { w.switchToBase(); setMenu(false) }} style={{
-              width: '100%', textAlign: 'left', padding: '12px 16px',
-              background: 'rgba(255,181,71,0.10)', border: 0,
-              color: C.amber, fontWeight: 600, fontSize: 13, cursor: 'pointer',
-              borderBottom: '1px solid ' + C.line,
-            }}>Switch to Base mainnet</button>
-          )}
           <button onClick={openDesktop} style={{
             width: '100%', textAlign: 'left', padding: '12px 16px',
             background: 'transparent', border: 0, color: C.white,
@@ -1056,6 +1344,20 @@ const ConnectWalletButton = ({ compact = false }) => {
             display: 'block', padding: '12px 16px', color: C.text2, fontSize: 13,
             textDecoration: 'none', borderTop: '1px solid ' + C.line,
           }}>View on BaseScan ↗</a>
+          <button onClick={() => { w.lock(); setMenu(false) }} style={{
+            width: '100%', textAlign: 'left', padding: '12px 16px',
+            background: 'transparent', border: 0, color: C.text2,
+            fontSize: 13, cursor: 'pointer', borderTop: '1px solid ' + C.line,
+          }}>Lock wallet</button>
+          <button onClick={async () => {
+            if (confirm('Remove ChainPay wallet from this browser? You will need your recovery phrase to restore it.')) {
+              await w.wipe(); setMenu(false)
+            }
+          }} style={{
+            width: '100%', textAlign: 'left', padding: '12px 16px',
+            background: 'transparent', border: 0, color: C.red,
+            fontSize: 13, cursor: 'pointer', borderTop: '1px solid ' + C.line,
+          }}>Remove wallet from this browser</button>
         </div>
       )}
     </div>
@@ -1784,56 +2086,42 @@ const SendCard = ({ w, pushActivity }) => {
 
   const send = async () => {
     setError(''); setHash(''); setStatus('')
-    if (!w.address)   return setError('Connect a wallet first.')
-    if (!isAddr(to))  return setError('Recipient must be a valid 0x address.')
+    if (!w.wallet)   return setError('Unlock your ChainPay wallet first.')
+    if (!isAddr(to)) return setError('Recipient must be a valid 0x address.')
     if (!amount || Number(amount) <= 0) return setError('Enter an amount greater than zero.')
-    if (!w.onBase)    return setError('Switch to Base network first.')
 
-    let tx
     try {
       if (token === 'USDC') {
-        const raw = parseUnits(amount, USDC_DECIMALS)
-        if (raw > w.usdc) return setError('Amount exceeds USDC balance.')
-        const data = '0xa9059cbb' + addrPad(to) + uintPad(raw)
-        tx = { from: w.address, to: USDC_BASE, data, value: '0x0' }
+        if (parseUnits(amount, USDC_DECIMALS) > w.usdc) return setError('Amount exceeds USDC balance.')
       } else {
-        const raw = parseUnits(amount, 18)
-        if (raw > w.ethBal) return setError('Amount exceeds ETH balance.')
-        tx = { from: w.address, to, value: '0x' + raw.toString(16) }
+        if (parseUnits(amount, 18) > w.ethBal) return setError('Amount exceeds ETH balance.')
       }
     } catch { return setError('Invalid amount.') }
 
     setBusy(true)
     try {
-      const h = await w.eth1193.request({ method: 'eth_sendTransaction', params: [tx] })
+      const txResp = await w.sendTx({ token, to, amount })
+      const h = txResp.hash
       setHash(h); setStatus('pending')
       pushActivity({ kind: 'send', token, amount, to, hash: h, status: 'pending', ts: Date.now() })
 
-      const poll = async () => {
-        try {
-          const r = await rpc('eth_getTransactionReceipt', [h])
-          if (r) {
-            const ok = r.status === '0x1'
-            setStatus(ok ? 'confirmed' : 'failed')
-            pushActivity({ kind: 'send', token, amount, to, hash: h, status: ok ? 'confirmed' : 'failed', ts: Date.now() })
-            w.refresh()
-            if (ok) {
-              try {
-                await savePaymentProof({
-                  kind: to.toLowerCase() === ESCROW_USDC.toLowerCase() ? 'task' : 'transfer',
-                  reference: memo, amount: `${amount} ${token}`, token, chain: 'Base',
-                  toAddress: to, fromWallet: w.address, txHash: h,
-                })
-              } catch {}
-            }
-            return
-          }
-        } catch {}
-        setTimeout(poll, 3000)
-      }
-      poll()
+      txResp.wait().then(async (receipt) => {
+        const ok = receipt?.status === 1
+        setStatus(ok ? 'confirmed' : 'failed')
+        pushActivity({ kind: 'send', token, amount, to, hash: h, status: ok ? 'confirmed' : 'failed', ts: Date.now() })
+        w.refresh()
+        if (ok) {
+          try {
+            await savePaymentProof({
+              kind: to.toLowerCase() === ESCROW_USDC.toLowerCase() ? 'task' : 'transfer',
+              reference: memo, amount: `${amount} ${token}`, token, chain: 'Base',
+              toAddress: to, fromWallet: w.address, txHash: h,
+            })
+          } catch {}
+        }
+      }).catch(() => { setStatus('failed') })
     } catch (e) {
-      setError(e?.message || 'Transaction rejected')
+      setError(e?.shortMessage || e?.message || 'Transaction failed')
     } finally { setBusy(false) }
   }
 
@@ -2160,6 +2448,31 @@ function DesktopWalletApp() {
       Send: sendRef, Receive: recvRef, Swap: swapRef, Activity: actRef,
     }[key]
     if (target?.current) target.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  // Setup / unlock takes over the whole canvas until the in-page wallet is
+  // ready — there's no point rendering Send/Swap/Receive against no address.
+  if (!w.wallet) {
+    return (
+      <div style={{
+        width: '100%', minHeight: '100vh',
+        background:
+          'radial-gradient(60% 40% at 50% 0%, rgba(0,224,184,0.08), transparent 60%),' + D.bg,
+        color: D.white, fontFamily: FONT_UI,
+        display: 'flex',
+      }}>
+        <DesktopSidebar active="Dashboard" onPick={() => {}}/>
+        <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+          <DesktopTopBar w={w} onRefresh={w.refresh}/>
+          <div style={{
+            flex: 1, display: 'grid', placeItems: 'center',
+            padding: '40px 24px',
+          }}>
+            <WalletSetupCard w={w}/>
+          </div>
+        </main>
+      </div>
+    )
   }
 
   return (

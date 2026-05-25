@@ -574,16 +574,82 @@ const STRINGS = {
 }
 export function t(lang, key) { return (STRINGS[lang] || STRINGS.en)[key] || STRINGS.en[key] || key }
 
+/* ── token registry ──────────────────────────────────────────────────────
+ * The major stablecoins + wrapped-native tokens we want to surface for
+ * balances and Activity. USDC is duplicated here (same as the per-chain
+ * `usdc` field on CHAINS) so the indexer can treat every token uniformly.
+ *
+ * Adding a token here means it'll appear in `getBalances().tokens`, get
+ * indexed by `getTokenTransfers`, and show up in Activity if seen.
+ */
+const MAINNET_TOKENS = {
+  base: [
+    { symbol: 'USDC', address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', decimals: 6  },
+    { symbol: 'USDT', address: '0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2', decimals: 6  },
+    { symbol: 'DAI',  address: '0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb', decimals: 18 },
+    { symbol: 'WETH', address: '0x4200000000000000000000000000000000000006', decimals: 18 },
+    { symbol: 'cbETH',address: '0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22', decimals: 18 },
+  ],
+  eth: [
+    { symbol: 'USDC', address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', decimals: 6  },
+    { symbol: 'USDT', address: '0xdAC17F958D2ee523a2206206994597C13D831ec7', decimals: 6  },
+    { symbol: 'DAI',  address: '0x6B175474E89094C44Da98b954EedeAC495271d0F', decimals: 18 },
+    { symbol: 'WETH', address: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', decimals: 18 },
+    { symbol: 'WBTC', address: '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599', decimals: 8  },
+  ],
+  pol: [
+    { symbol: 'USDC',   address: '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359', decimals: 6  },
+    { symbol: 'USDC.e', address: '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174', decimals: 6  },
+    { symbol: 'USDT',   address: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F', decimals: 6  },
+    { symbol: 'DAI',    address: '0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063', decimals: 18 },
+    { symbol: 'WMATIC', address: '0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270', decimals: 18 },
+    { symbol: 'WETH',   address: '0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619', decimals: 18 },
+  ],
+  arb: [
+    { symbol: 'USDC',   address: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831', decimals: 6  },
+    { symbol: 'USDC.e', address: '0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8', decimals: 6  },
+    { symbol: 'USDT',   address: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9', decimals: 6  },
+    { symbol: 'DAI',    address: '0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1', decimals: 18 },
+    { symbol: 'WETH',   address: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1', decimals: 18 },
+    { symbol: 'ARB',    address: '0x912CE59144191C1204E64559FE8253a0e49E6548', decimals: 18 },
+  ],
+}
+const TESTNET_TOKENS = {
+  base: [{ symbol: 'USDC', address: '0x036CbD53842c5426634e7929541eC2318f3dCF7e', decimals: 6 }],
+  eth:  [{ symbol: 'USDC', address: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238', decimals: 6 }],
+  pol:  [{ symbol: 'USDC', address: '0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582', decimals: 6 }],
+  arb:  [{ symbol: 'USDC', address: '0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d', decimals: 6 }],
+}
+const TOKENS_BY_ENV = { mainnet: MAINNET_TOKENS, testnet: TESTNET_TOKENS, devnet: {} }
+
+export function tokensFor(chainKey) {
+  const map = TOKENS_BY_ENV[_activeEnv] || {}
+  return map[chainKey] || []
+}
+
 /* ── balances + sends ─────────────────────────────────────────────────── */
+/**
+ * Returns the user's portfolio on `chainKey`:
+ *   - `native`: bigint wei of the gas token
+ *   - `tokens`: { [symbol]: bigint }  raw token units for every entry in
+ *     `tokensFor(chainKey)` (USDC, USDT, DAI, WETH/WMATIC, …)
+ *   - `usdc`:   bigint (back-compat alias for tokens.USDC)
+ *
+ * Balances are read directly from each token's `balanceOf` view, so when
+ * the user receives funds on mainnet the next 15s refresh in the wallet UI
+ * will reflect the new balance — no indexer involvement required.
+ */
 export async function getBalances(address, chainKey = 'base') {
-  const c = chainOf(chainKey)
   const p = provider(chainKey)
-  const usdc = new Contract(c.usdc, ERC20_ABI, p)
-  const [native, u] = await Promise.all([
-    p.getBalance(address),
-    usdc.balanceOf(address),
+  const list = tokensFor(chainKey)
+  const calls = list.map((t) => new Contract(t.address, ERC20_ABI, p).balanceOf(address).catch(() => 0n))
+  const [native, ...balances] = await Promise.all([
+    p.getBalance(address).catch(() => 0n),
+    ...calls,
   ])
-  return { native, usdc: u }
+  const tokens = {}
+  list.forEach((t, i) => { tokens[t.symbol] = balances[i] || 0n })
+  return { native, tokens, usdc: tokens.USDC || 0n }
 }
 
 export async function sendUSDC(wallet, chainKey, to, amountStr) {
@@ -670,19 +736,28 @@ export const swapEthForUsdc  = (wallet, amt, min) => swapNativeForUsdc(wallet, '
 export const swapUsdcForEth  = (wallet, amt, min) => swapUsdcForNative(wallet, 'base', amt, min)
 
 /* ── on-chain activity indexing ───────────────────────────────────────────
- * Public RPCs typically don't expose historical tx-by-address — there's no
- * standard JSON-RPC for it. But ERC-20 Transfer events are indexed by topic,
- * so eth_getLogs filtered on the USDC contract gives us a complete record of
- * incoming and outgoing USDC for an address. Native (ETH/MATIC) transfers
- * have no event — we keep tracking those from the local "I just sent" log.
+ * Two data sources, combined:
  *
- * We scan in chunks (public RPCs cap eth_getLogs range, typically 5k–10k
- * blocks per call) and remember the last block scanned per (env,address,chain)
- * so subsequent refreshes are incremental and cheap.
+ *  1. ERC-20 Transfer events via `eth_getLogs` — indexed by topic on every
+ *     public RPC, so we can pull all incoming/outgoing transfers for every
+ *     token in the chain's token list (USDC, USDT, DAI, WETH/WMATIC, …) in
+ *     one filter per chunk.
+ *
+ *  2. Native (ETH / MATIC) transfers via the Etherscan-family v2 multichain
+ *     API. There is no standard JSON-RPC for "txs by address", and native
+ *     transfers emit no event, so a block-explorer index is the only way to
+ *     backfill them. An Etherscan API key can be set with `setExplorerApiKey`
+ *     (or via localStorage `chainpay.etherscan.apikey`). Without a key the
+ *     call still works on Etherscan's free tier at 1 req/5s but may be
+ *     throttled — we degrade gracefully (locally-sent native txs already
+ *     appear in Activity from `mergeActivity`).
+ *
+ * Both sources track an incremental cursor per (env,address,chain[,source])
+ * so subsequent refreshes are cheap.
  */
 const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
 const padTopic = (addr) => '0x' + addr.toLowerCase().replace(/^0x/, '').padStart(64, '0')
-const SCAN_CURSOR_KEY = 'chainpay.scan-cursor.v1' // localStorage map keyed by env:address:chain → lastScannedBlock
+const SCAN_CURSOR_KEY = 'chainpay.scan-cursor.v1' // localStorage map keyed by env:address:chain[:source] → lastScannedBlock
 
 function loadScanCursors() {
   try { return JSON.parse(localStorage.getItem(SCAN_CURSOR_KEY) || '{}') } catch { return {} }
@@ -690,29 +765,40 @@ function loadScanCursors() {
 function saveScanCursors(map) {
   try { localStorage.setItem(SCAN_CURSOR_KEY, JSON.stringify(map)) } catch {}
 }
-function cursorKey(address, chainKey) {
-  return `${_activeEnv}:${address?.toLowerCase()}:${chainKey}`
+function cursorKey(address, chainKey, source = 'erc20') {
+  return `${_activeEnv}:${address?.toLowerCase()}:${chainKey}:${source}`
 }
 
 /**
- * Fetch USDC Transfer events involving `address` on `chainKey`.
- *   - First call (no stored cursor): scans the last `initialLookback` blocks.
- *   - Subsequent calls: scans only from the stored cursor onward.
- * Returns normalized entries: { hash, blockNumber, from, to, amount (bigint),
- * direction: 'in'|'out', token: 'USDC', chain, ts }.
+ * Fetch ERC-20 Transfer events involving `address` on `chainKey`, across every
+ * token in `tokens` (defaults to the chain's full token list).
+ *   - First call: scans the last `initialLookback` blocks.
+ *   - Subsequent calls: incremental from the stored cursor.
+ *
+ * One pair of `eth_getLogs` calls per chunk handles every token at once —
+ * the filter accepts an array of contract addresses.
+ *
+ * Returns normalized entries:
+ *   { hash, blockNumber, logIndex, from, to, amount (bigint),
+ *     direction: 'in'|'out', token (symbol), tokenAddress, decimals,
+ *     chain (key), ts }
  */
-export async function getUsdcTransfers(address, chainKey, {
+export async function getTokenTransfers(address, chainKey, {
+  tokens,
   initialLookback = 200_000,
   chunkSize = 9_000,
   maxChunks = 30,
 } = {}) {
   if (!address) return []
-  const c = chainOf(chainKey)
+  const list = tokens || tokensFor(chainKey)
+  if (!list.length) return []
+  const byAddr = new Map(list.map((t) => [t.address.toLowerCase(), t]))
+  const addresses = list.map((t) => t.address)
   const p = provider(chainKey)
   const latest = Number(await p.getBlockNumber())
 
   const cursors = loadScanCursors()
-  const k = cursorKey(address, chainKey)
+  const k = cursorKey(address, chainKey, 'erc20')
   const stored = Number(cursors[k] || 0)
   const start = stored > 0
     ? Math.min(stored + 1, latest)
@@ -723,14 +809,12 @@ export async function getUsdcTransfers(address, chainKey, {
   const me = padTopic(address)
   const logs = []
 
-  // Walk forward in chunks. Bail if we'd exceed maxChunks so the UI stays snappy
-  // even on a brand-new wallet pointed at an active address.
   let from = start
   let chunks = 0
   while (from <= latest && chunks < maxChunks) {
     const to = Math.min(latest, from + chunkSize)
     const base = {
-      address: c.usdc,
+      address: addresses, // eth_getLogs accepts an array of contracts
       fromBlock: '0x' + from.toString(16),
       toBlock:   '0x' + to.toString(16),
     }
@@ -742,7 +826,7 @@ export async function getUsdcTransfers(address, chainKey, {
       if (Array.isArray(sent)) logs.push(...sent)
       if (Array.isArray(recv)) logs.push(...recv)
     } catch {
-      // Some RPCs may reject the range; halve and retry once, then move on.
+      // Some RPCs reject the range or the multi-address filter; halve and retry.
       const mid = Math.floor((from + to) / 2)
       if (mid > from) {
         try {
@@ -760,18 +844,17 @@ export async function getUsdcTransfers(address, chainKey, {
     chunks++
   }
 
-  // Update cursor only as far as we actually scanned, so a curtailed run
-  // resumes where it left off next time.
   cursors[k] = Math.min(latest, from - 1)
   saveScanCursors(cursors)
 
-  // Dedupe by (hash, logIndex) — a self-transfer would otherwise appear twice.
   const seen = new Set()
   const uniq = []
   for (const lg of logs) {
     const id = `${lg.transactionHash}:${lg.logIndex}`
     if (seen.has(id)) continue
     seen.add(id)
+    const tk = byAddr.get((lg.address || '').toLowerCase())
+    if (!tk) continue
     const fromAddr = '0x' + lg.topics[1].slice(-40)
     const toAddr   = '0x' + lg.topics[2].slice(-40)
     const amount = BigInt(lg.data || '0x0')
@@ -785,12 +868,13 @@ export async function getUsdcTransfers(address, chainKey, {
       logIndex: parseInt(lg.logIndex, 16),
       from: fromAddr, to: toAddr,
       amount, direction,
-      token: 'USDC',
+      token: tk.symbol,
+      tokenAddress: tk.address,
+      decimals: tk.decimals,
       chain: chainKey,
     })
   }
 
-  // Fetch block timestamps once per unique block (parallel).
   const blocks = [...new Set(uniq.map((x) => x.blockNumber))]
   const blockTs = {}
   await Promise.all(blocks.map(async (bn) => {
@@ -805,12 +889,118 @@ export async function getUsdcTransfers(address, chainKey, {
   return uniq
 }
 
+// Back-compat: same shape as the old USDC-only indexer.
+export async function getUsdcTransfers(address, chainKey, opts = {}) {
+  const list = tokensFor(chainKey).filter((t) => t.symbol === 'USDC')
+  return getTokenTransfers(address, chainKey, { ...opts, tokens: list })
+}
+
+/* ── native (ETH / MATIC) transfer history via Etherscan v2 ─────────────── */
+const EXPLORER_API_KEY_LS = 'chainpay.etherscan.apikey'
+export function setExplorerApiKey(key) {
+  try {
+    if (key) localStorage.setItem(EXPLORER_API_KEY_LS, key)
+    else localStorage.removeItem(EXPLORER_API_KEY_LS)
+  } catch {}
+}
+export function getExplorerApiKey() {
+  try { return localStorage.getItem(EXPLORER_API_KEY_LS) || '' } catch { return '' }
+}
+
+/**
+ * Pull native-currency transfers for `address` on `chainKey` from the
+ * Etherscan v2 multichain API. Used to populate Activity entries for sends
+ * and receives of ETH / MATIC, which emit no on-chain event.
+ *
+ * Returns the same normalized entry shape as `getTokenTransfers`, with
+ * `token` set to the chain's nativeSymbol.
+ */
+export async function getNativeTransfers(address, chainKey, { maxResults = 100 } = {}) {
+  if (!address) return []
+  const c = chainOf(chainKey)
+  const key = getExplorerApiKey()
+  const cursors = loadScanCursors()
+  const ck = cursorKey(address, chainKey, 'native')
+  const startBlock = Number(cursors[ck] || 0)
+
+  const url = `https://api.etherscan.io/v2/api`
+    + `?chainid=${c.chainId}`
+    + `&module=account&action=txlist`
+    + `&address=${address}`
+    + `&startblock=${startBlock}`
+    + `&endblock=99999999`
+    + `&page=1&offset=${maxResults}&sort=desc`
+    + (key ? `&apikey=${encodeURIComponent(key)}` : '')
+
+  let txs = []
+  try {
+    const r = await fetch(url)
+    const j = await r.json()
+    // Etherscan returns status:"0" with an empty result list when there's
+    // nothing new, and status:"0" with a message when rate-limited or
+    // missing a key. Both should degrade silently.
+    if (Array.isArray(j?.result)) txs = j.result
+  } catch { return [] }
+
+  const meLow = address.toLowerCase()
+  const out = []
+  let maxBlock = startBlock
+  for (const tx of txs) {
+    // Skip contract calls / failed txs and ERC-20s (txlist is "normal" txs).
+    if (tx.isError === '1') continue
+    const valueWei = BigInt(tx.value || '0')
+    if (valueWei === 0n) continue
+    const fromAddr = (tx.from || '').toLowerCase()
+    const toAddr   = (tx.to   || '').toLowerCase()
+    if (fromAddr !== meLow && toAddr !== meLow) continue
+    const bn = Number(tx.blockNumber || 0)
+    if (bn > maxBlock) maxBlock = bn
+    out.push({
+      hash: tx.hash,
+      blockNumber: bn,
+      logIndex: 0,
+      from: tx.from,
+      to:   tx.to,
+      amount: valueWei,
+      direction: toAddr === meLow && fromAddr !== meLow ? 'in' : 'out',
+      token: c.nativeSymbol,
+      tokenAddress: null,
+      decimals: 18,
+      chain: chainKey,
+      ts: Number(tx.timeStamp || 0) * 1000 || Date.now(),
+    })
+  }
+
+  if (maxBlock > startBlock) {
+    cursors[ck] = maxBlock
+    saveScanCursors(cursors)
+  }
+  out.sort((a, b) => b.blockNumber - a.blockNumber)
+  return out
+}
+
+/**
+ * One-stop indexer: returns every on-chain transfer (every tracked ERC-20 +
+ * native) involving `address` on `chainKey`, merged and sorted newest-first.
+ */
+export async function getOnchainActivity(address, chainKey) {
+  if (!address) return []
+  const [tokens, native] = await Promise.all([
+    getTokenTransfers(address, chainKey).catch(() => []),
+    getNativeTransfers(address, chainKey).catch(() => []),
+  ])
+  return [...tokens, ...native].sort((a, b) =>
+    (b.blockNumber - a.blockNumber) || ((b.ts || 0) - (a.ts || 0))
+  )
+}
+
 /** Wipe the per-(env,address) scan cursor — used when a user adds an account
  *  or switches envs and wants a fresh historical scan. */
 export function resetScanCursor(address, chainKey) {
   const cursors = loadScanCursors()
-  if (chainKey) delete cursors[cursorKey(address, chainKey)]
-  else {
+  if (chainKey) {
+    for (const src of ['erc20', 'native']) delete cursors[cursorKey(address, chainKey, src)]
+  } else {
     const prefix = `${_activeEnv}:${address?.toLowerCase()}:`
     for (const k of Object.keys(cursors)) if (k.startsWith(prefix)) delete cursors[k]
   }

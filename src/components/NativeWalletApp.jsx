@@ -12,7 +12,8 @@ import {
   CHAINS, chainOf, setActiveEnv, swapSupported,
   getQuote, getUsdcAllowance, approveUsdc, swapNativeForUsdc, swapUsdcForNative, MAX_UINT256,
   getPrices, nativePrice, t,
-  getUsdcTransfers, loadActivity, saveActivity, resetScanCursor,
+  getOnchainActivity, loadActivity, saveActivity, resetScanCursor,
+  tokensFor,
 } from '../lib/nativeWallet.js'
 
 // EVM chains we currently support end-to-end (send, receive, swap).
@@ -1441,14 +1442,15 @@ function Home({ wallet, onLock, onSettings }) {
     })
   }
 
-  // Index USDC Transfer logs (incoming + outgoing) across every enabled chain,
-  // so receives show up in Activity without the user having sent anything first.
+  // Index every tracked token's Transfer logs plus native (ETH/MATIC) txs
+  // across every enabled chain, so receives in any supported asset show up
+  // in Activity without the user having sent anything first.
   const scanChainActivity = async () => {
     if (!address || !enabledChains.length) return
     setScanning(true)
     try {
       const lists = await Promise.all(enabledChains.map((k) =>
-        getUsdcTransfers(address, k).catch(() => [])
+        getOnchainActivity(address, k).catch(() => [])
       ))
       const entries = []
       for (const list of lists) {
@@ -1456,8 +1458,8 @@ function Home({ wallet, onLock, onSettings }) {
           const cc = chainOf(tx.chain)
           entries.push({
             kind: tx.direction === 'in' ? 'receive' : 'send',
-            token: 'USDC',
-            amount: formatUnits(tx.amount, cc.usdcDecimals),
+            token: tx.token,
+            amount: formatUnits(tx.amount, tx.decimals ?? 18),
             from: tx.from,
             to: tx.to,
             hash: tx.hash,
@@ -1498,20 +1500,43 @@ function Home({ wallet, onLock, onSettings }) {
     f(); const id = setInterval(f, 60_000); return () => clearInterval(id)
   }, [])
 
-  const balances = chainBalances[activeChain] || { native: 0n, usdc: 0n }
+  const balances = chainBalances[activeChain] || { native: 0n, tokens: {}, usdc: 0n }
   const np = nativePrice(prices, activeChain)
-  const usdcNum   = Number(formatUnits(balances.usdc, chain.usdcDecimals))
+  const usdcNum   = Number(formatUnits(balances.usdc || 0n, chain.usdcDecimals))
   const nativeNum = Number(formatUnits(balances.native, 18))
   const nativeRate = ccy === 'KRW' ? np.KRW : np.USD
   const usdcRate   = ccy === 'KRW' ? prices.usdcKrw : 1
+
+  // Rough fiat valuation per token symbol. Stablecoins peg to 1 USD; the
+  // wrapped native (WETH on Base/ETH/Arb, WMATIC on Polygon) tracks the
+  // chain's native price. Anything else (WBTC, ARB, cbETH, …) shows balance
+  // but contributes 0 to the fiat total — better than guessing a wrong price.
+  const STABLES = new Set(['USDC', 'USDT', 'DAI', 'USDC.e'])
+  const priceForToken = (symbol, chainKey) => {
+    if (STABLES.has(symbol)) return usdcRate
+    const p = nativePrice(prices, chainKey)
+    const r = ccy === 'KRW' ? p.KRW : p.USD
+    const cc = chainOf(chainKey)
+    if (symbol === 'WETH'   && cc.nativeSymbol === 'ETH')   return r
+    if (symbol === 'WMATIC' && cc.nativeSymbol === 'MATIC') return r
+    return 0
+  }
+
   const total = enabledChains.reduce((sum, k) => {
     const cc = chainOf(k)
-    const b  = chainBalances[k] || { native: 0n, usdc: 0n }
-    const u  = Number(formatUnits(b.usdc, cc.usdcDecimals))
+    const b  = chainBalances[k] || { native: 0n, tokens: {} }
     const n  = Number(formatUnits(b.native, 18))
     const p  = nativePrice(prices, k)
     const nr = ccy === 'KRW' ? p.KRW : p.USD
-    return sum + u * usdcRate + n * nr
+    let chainSum = n * nr
+    const tlist = tokensFor(k)
+    for (const t of tlist) {
+      const raw = (b.tokens && b.tokens[t.symbol]) || 0n
+      if (raw === 0n) continue
+      const amt = Number(formatUnits(raw, t.decimals))
+      chainSum += amt * priceForToken(t.symbol, k)
+    }
+    return sum + chainSum
   }, 0)
   const [whole, frac] = fmtMoney(total, ccy).split('.')
 
@@ -1661,17 +1686,43 @@ function Home({ wallet, onLock, onSettings }) {
       </div>
 
       {/* Asset list */}
-      {tab === 'Assets' && (
+      {tab === 'Assets' && (() => {
+        const TOKEN_LOOK = {
+          USDC:   { name: 'USD Coin',     bg: '#2775CA', mark: '$' },
+          'USDC.e':{name: 'USDC (bridged)', bg: '#2775CA', mark: '$' },
+          USDT:   { name: 'Tether USD',   bg: '#26A17B', mark: '₮' },
+          DAI:    { name: 'Dai',          bg: '#F5AC37', mark: '◈' },
+          WETH:   { name: 'Wrapped Ether',bg: '#3E4A6B', mark: 'Ξ' },
+          WMATIC: { name: 'Wrapped MATIC',bg: '#7B3FE4', mark: '◇' },
+          WBTC:   { name: 'Wrapped BTC',  bg: '#F7931A', mark: '₿' },
+          ARB:    { name: 'Arbitrum',     bg: '#1B2A3F', mark: '▲' },
+          cbETH:  { name: 'Coinbase Wrapped ETH', bg: '#0052FF', mark: 'Ξ' },
+        }
+        const rows = [{
+          name: chain.nativeSymbol === 'MATIC' ? 'Polygon' : 'Ethereum',
+          symbol: chain.nativeSymbol, bg: '#1E2742',
+          mark: chain.nativeSymbol === 'MATIC' ? '◇' : 'Ξ',
+          bal: formatUnits(balances.native, 18).slice(0, 8),
+          fiat: nativeNum * nativeRate,
+          raw: balances.native,
+        }]
+        for (const t of tokensFor(activeChain)) {
+          const raw = (balances.tokens && balances.tokens[t.symbol]) || 0n
+          // Always show USDC; show others only when non-zero.
+          if (raw === 0n && t.symbol !== 'USDC') continue
+          const meta = TOKEN_LOOK[t.symbol] || { name: t.symbol, bg: '#444', mark: '◦' }
+          const amt  = Number(formatUnits(raw, t.decimals))
+          rows.push({
+            name: meta.name, symbol: t.symbol, bg: meta.bg, mark: meta.mark,
+            bal: formatUnits(raw, t.decimals),
+            fiat: amt * priceForToken(t.symbol, activeChain),
+            raw,
+          })
+        }
+        return (
         <div style={{ margin: '4px 16px 0', padding: '10px 16px',
           background: C.surface, border: '1px solid ' + C.line, borderRadius: 20 }}>
-          {[
-            { name: 'USD Coin', symbol: 'USDC', bg: '#2775CA', mark: '$',
-              bal: formatUnits(balances.usdc, chain.usdcDecimals), fiat: usdcNum * usdcRate },
-            { name: chain.nativeSymbol === 'MATIC' ? 'Polygon' : 'Ethereum',
-              symbol: chain.nativeSymbol, bg: '#1E2742',
-              mark: chain.nativeSymbol === 'MATIC' ? '◇' : 'Ξ',
-              bal: formatUnits(balances.native, 18).slice(0, 8), fiat: nativeNum * nativeRate },
-          ].map((r, i, arr) => (
+          {rows.map((r, i, arr) => (
             <div key={r.symbol} style={{ display: 'grid', gridTemplateColumns: '40px 1fr auto',
               gap: 14, alignItems: 'center', padding: '14px 4px',
               borderBottom: i === arr.length - 1 ? 0 : '1px solid ' + C.line }}>
@@ -1688,7 +1739,8 @@ function Home({ wallet, onLock, onSettings }) {
             </div>
           ))}
         </div>
-      )}
+        )
+      })()}
 
       {tab === 'Activity' && (
         <div style={{ margin: '4px 16px 0', padding: activity.length ? '10px 16px' : '40px 20px',
@@ -1698,7 +1750,7 @@ function Home({ wallet, onLock, onSettings }) {
             <>
               <div>{tt(settings, 'activity_empty')}</div>
               <div style={{ marginTop: 6, fontSize: 12, color: C.muted }}>
-                {scanning ? 'Scanning chain for USDC transfers…' : 'Receives show up automatically once detected on chain.'}
+                {scanning ? 'Scanning chains for transfers…' : 'Receives show up automatically once detected on chain.'}
               </div>
             </>
           )}
