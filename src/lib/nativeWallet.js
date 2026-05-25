@@ -669,4 +669,174 @@ export const sendETH         = (wallet, to, amt) => sendNative(wallet, 'base', t
 export const swapEthForUsdc  = (wallet, amt, min) => swapNativeForUsdc(wallet, 'base', amt, min)
 export const swapUsdcForEth  = (wallet, amt, min) => swapUsdcForNative(wallet, 'base', amt, min)
 
+/* ── on-chain activity indexing ───────────────────────────────────────────
+ * Public RPCs typically don't expose historical tx-by-address — there's no
+ * standard JSON-RPC for it. But ERC-20 Transfer events are indexed by topic,
+ * so eth_getLogs filtered on the USDC contract gives us a complete record of
+ * incoming and outgoing USDC for an address. Native (ETH/MATIC) transfers
+ * have no event — we keep tracking those from the local "I just sent" log.
+ *
+ * We scan in chunks (public RPCs cap eth_getLogs range, typically 5k–10k
+ * blocks per call) and remember the last block scanned per (env,address,chain)
+ * so subsequent refreshes are incremental and cheap.
+ */
+const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
+const padTopic = (addr) => '0x' + addr.toLowerCase().replace(/^0x/, '').padStart(64, '0')
+const SCAN_CURSOR_KEY = 'chainpay.scan-cursor.v1' // localStorage map keyed by env:address:chain → lastScannedBlock
+
+function loadScanCursors() {
+  try { return JSON.parse(localStorage.getItem(SCAN_CURSOR_KEY) || '{}') } catch { return {} }
+}
+function saveScanCursors(map) {
+  try { localStorage.setItem(SCAN_CURSOR_KEY, JSON.stringify(map)) } catch {}
+}
+function cursorKey(address, chainKey) {
+  return `${_activeEnv}:${address?.toLowerCase()}:${chainKey}`
+}
+
+/**
+ * Fetch USDC Transfer events involving `address` on `chainKey`.
+ *   - First call (no stored cursor): scans the last `initialLookback` blocks.
+ *   - Subsequent calls: scans only from the stored cursor onward.
+ * Returns normalized entries: { hash, blockNumber, from, to, amount (bigint),
+ * direction: 'in'|'out', token: 'USDC', chain, ts }.
+ */
+export async function getUsdcTransfers(address, chainKey, {
+  initialLookback = 200_000,
+  chunkSize = 9_000,
+  maxChunks = 30,
+} = {}) {
+  if (!address) return []
+  const c = chainOf(chainKey)
+  const p = provider(chainKey)
+  const latest = Number(await p.getBlockNumber())
+
+  const cursors = loadScanCursors()
+  const k = cursorKey(address, chainKey)
+  const stored = Number(cursors[k] || 0)
+  const start = stored > 0
+    ? Math.min(stored + 1, latest)
+    : Math.max(0, latest - initialLookback)
+
+  if (start > latest) return []
+
+  const me = padTopic(address)
+  const logs = []
+
+  // Walk forward in chunks. Bail if we'd exceed maxChunks so the UI stays snappy
+  // even on a brand-new wallet pointed at an active address.
+  let from = start
+  let chunks = 0
+  while (from <= latest && chunks < maxChunks) {
+    const to = Math.min(latest, from + chunkSize)
+    const base = {
+      address: c.usdc,
+      fromBlock: '0x' + from.toString(16),
+      toBlock:   '0x' + to.toString(16),
+    }
+    try {
+      const [sent, recv] = await Promise.all([
+        p.send('eth_getLogs', [{ ...base, topics: [TRANSFER_TOPIC, me, null] }]),
+        p.send('eth_getLogs', [{ ...base, topics: [TRANSFER_TOPIC, null, me] }]),
+      ])
+      if (Array.isArray(sent)) logs.push(...sent)
+      if (Array.isArray(recv)) logs.push(...recv)
+    } catch {
+      // Some RPCs may reject the range; halve and retry once, then move on.
+      const mid = Math.floor((from + to) / 2)
+      if (mid > from) {
+        try {
+          const half = { ...base, toBlock: '0x' + mid.toString(16) }
+          const [s, r] = await Promise.all([
+            p.send('eth_getLogs', [{ ...half, topics: [TRANSFER_TOPIC, me, null] }]).catch(() => []),
+            p.send('eth_getLogs', [{ ...half, topics: [TRANSFER_TOPIC, null, me] }]).catch(() => []),
+          ])
+          if (Array.isArray(s)) logs.push(...s)
+          if (Array.isArray(r)) logs.push(...r)
+        } catch {}
+      }
+    }
+    from = to + 1
+    chunks++
+  }
+
+  // Update cursor only as far as we actually scanned, so a curtailed run
+  // resumes where it left off next time.
+  cursors[k] = Math.min(latest, from - 1)
+  saveScanCursors(cursors)
+
+  // Dedupe by (hash, logIndex) — a self-transfer would otherwise appear twice.
+  const seen = new Set()
+  const uniq = []
+  for (const lg of logs) {
+    const id = `${lg.transactionHash}:${lg.logIndex}`
+    if (seen.has(id)) continue
+    seen.add(id)
+    const fromAddr = '0x' + lg.topics[1].slice(-40)
+    const toAddr   = '0x' + lg.topics[2].slice(-40)
+    const amount = BigInt(lg.data || '0x0')
+    const meLow = address.toLowerCase()
+    const direction = toAddr.toLowerCase() === meLow && fromAddr.toLowerCase() !== meLow
+      ? 'in'
+      : 'out'
+    uniq.push({
+      hash: lg.transactionHash,
+      blockNumber: parseInt(lg.blockNumber, 16),
+      logIndex: parseInt(lg.logIndex, 16),
+      from: fromAddr, to: toAddr,
+      amount, direction,
+      token: 'USDC',
+      chain: chainKey,
+    })
+  }
+
+  // Fetch block timestamps once per unique block (parallel).
+  const blocks = [...new Set(uniq.map((x) => x.blockNumber))]
+  const blockTs = {}
+  await Promise.all(blocks.map(async (bn) => {
+    try {
+      const b = await p.send('eth_getBlockByNumber', ['0x' + bn.toString(16), false])
+      if (b?.timestamp) blockTs[bn] = parseInt(b.timestamp, 16) * 1000
+    } catch {}
+  }))
+  for (const x of uniq) x.ts = blockTs[x.blockNumber] || Date.now()
+
+  uniq.sort((a, b) => b.blockNumber - a.blockNumber || b.logIndex - a.logIndex)
+  return uniq
+}
+
+/** Wipe the per-(env,address) scan cursor — used when a user adds an account
+ *  or switches envs and wants a fresh historical scan. */
+export function resetScanCursor(address, chainKey) {
+  const cursors = loadScanCursors()
+  if (chainKey) delete cursors[cursorKey(address, chainKey)]
+  else {
+    const prefix = `${_activeEnv}:${address?.toLowerCase()}:`
+    for (const k of Object.keys(cursors)) if (k.startsWith(prefix)) delete cursors[k]
+  }
+  saveScanCursors(cursors)
+}
+
+/* ── persistent activity log (localStorage, per env+address) ─────────────── */
+const ACTIVITY_KEY = 'chainpay.activity.v2'
+const activityScope = (env, address) => `${env}:${(address || '').toLowerCase()}`
+
+export function loadActivity(env, address) {
+  if (!address) return []
+  try {
+    const all = JSON.parse(localStorage.getItem(ACTIVITY_KEY) || '{}')
+    const list = all[activityScope(env, address)]
+    return Array.isArray(list) ? list : []
+  } catch { return [] }
+}
+
+export function saveActivity(env, address, list) {
+  if (!address) return
+  try {
+    const all = JSON.parse(localStorage.getItem(ACTIVITY_KEY) || '{}')
+    all[activityScope(env, address)] = list.slice(0, 100)
+    localStorage.setItem(ACTIVITY_KEY, JSON.stringify(all))
+  } catch {}
+}
+
 export { formatUnits, parseUnits }

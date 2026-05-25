@@ -12,6 +12,7 @@ import {
   CHAINS, chainOf, setActiveEnv, swapSupported,
   getQuote, getUsdcAllowance, approveUsdc, swapNativeForUsdc, swapUsdcForNative, MAX_UINT256,
   getPrices, nativePrice, t,
+  getUsdcTransfers, loadActivity, saveActivity, resetScanCursor,
 } from '../lib/nativeWallet.js'
 
 // EVM chains we currently support end-to-end (send, receive, swap).
@@ -1412,7 +1413,66 @@ function Home({ wallet, onLock, onSettings }) {
   const [swap,     setSwap]     = useState(false)
   const [envOpen,  setEnvOpen]  = useState(false)
   const [activity, setActivity] = useState([])
+  const [scanning, setScanning] = useState(false)
   const address = wallet.address
+
+  // Reload persisted activity whenever address or env changes — activity is
+  // scoped per (env, address) so testnet entries don't leak into mainnet.
+  useEffect(() => {
+    setActivity(loadActivity(env, address))
+  }, [env, address])
+
+  // Merge new entries by tx hash; on-chain entries override any pending local
+  // placeholder with the same hash, and the list stays sorted by ts desc.
+  const mergeActivity = (incoming) => {
+    setActivity((prev) => {
+      const byHash = new Map()
+      for (const a of [...incoming, ...prev]) {
+        const key = a.hash ? a.hash.toLowerCase() : `nh:${a.ts}:${a.amount}:${a.token}`
+        const existing = byHash.get(key)
+        if (!existing) byHash.set(key, a)
+        else if (a.status === 'confirmed' && existing.status !== 'confirmed') byHash.set(key, a)
+      }
+      const merged = Array.from(byHash.values())
+        .sort((a, b) => (b.ts || 0) - (a.ts || 0))
+        .slice(0, 100)
+      saveActivity(env, address, merged)
+      return merged
+    })
+  }
+
+  // Index USDC Transfer logs (incoming + outgoing) across every enabled chain,
+  // so receives show up in Activity without the user having sent anything first.
+  const scanChainActivity = async () => {
+    if (!address || !enabledChains.length) return
+    setScanning(true)
+    try {
+      const lists = await Promise.all(enabledChains.map((k) =>
+        getUsdcTransfers(address, k).catch(() => [])
+      ))
+      const entries = []
+      for (const list of lists) {
+        for (const tx of list) {
+          const cc = chainOf(tx.chain)
+          entries.push({
+            kind: tx.direction === 'in' ? 'receive' : 'send',
+            token: 'USDC',
+            amount: formatUnits(tx.amount, cc.usdcDecimals),
+            from: tx.from,
+            to: tx.to,
+            hash: tx.hash,
+            chain: cc.name,
+            chainKey: tx.chain,
+            ts: tx.ts,
+            status: 'confirmed',
+          })
+        }
+      }
+      if (entries.length) mergeActivity(entries)
+    } finally {
+      setScanning(false)
+    }
+  }
 
   // Pull balances for every enabled chain in parallel so the total card reflects
   // the user's full portfolio, not just the active chain.
@@ -1428,7 +1488,8 @@ function Home({ wallet, onLock, onSettings }) {
   useEffect(() => {
     setChainBalances({}) // clear stale balances when env/chain-set flips
     refresh()
-    const id = setInterval(refresh, 10_000)
+    scanChainActivity()
+    const id = setInterval(() => { refresh(); scanChainActivity() }, 15_000)
     return () => clearInterval(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address, chainsKey, env])
@@ -1633,43 +1694,67 @@ function Home({ wallet, onLock, onSettings }) {
         <div style={{ margin: '4px 16px 0', padding: activity.length ? '10px 16px' : '40px 20px',
           background: C.surface, border: '1px solid ' + C.line, borderRadius: 20,
           textAlign: activity.length ? 'left' : 'center', color: activity.length ? C.white : C.muted, fontSize: 14 }}>
-          {!activity.length && tt(settings, 'activity_empty')}
+          {!activity.length && (
+            <>
+              <div>{tt(settings, 'activity_empty')}</div>
+              <div style={{ marginTop: 6, fontSize: 12, color: C.muted }}>
+                {scanning ? 'Scanning chain for USDC transfers…' : 'Receives show up automatically once detected on chain.'}
+              </div>
+            </>
+          )}
           {activity.map((a, i) => {
             const isSwap = a.kind === 'swap'
-            return (
-              <div key={i} style={{ display: 'grid', gridTemplateColumns: '40px 1fr auto',
+            const isRecv = a.kind === 'receive'
+            const cc = a.chainKey ? chainOf(a.chainKey) : null
+            const explorerHref = a.hash && cc?.explorer ? `${cc.explorer}/tx/${a.hash}` : null
+            const Ic    = isSwap ? IconSwap : isRecv ? IconRecv : IconSend
+            const sign  = isSwap ? '+' : isRecv ? '+' : '−'
+            const value = isSwap ? `${a.amountOut} ${a.receive}` : `${a.amount} ${a.token}`
+            const amountColor = isRecv ? C.green : C.white
+            const title = isSwap
+              ? `Swap ${a.token} → ${a.receive}`
+              : isRecv ? `Received ${a.token}` : `Sent ${a.token}`
+            const sub = isSwap
+              ? `Uniswap V3 on ${a.chain || 'Base'}`
+              : isRecv
+                ? `from ${short(a.from)} on ${a.chain || 'Base'}`
+                : `to ${short(a.to)} on ${a.chain || 'Base'}`
+            const row = (
+              <div key={a.hash ? `${a.hash}:${i}` : i} style={{ display: 'grid', gridTemplateColumns: '40px 1fr auto',
                 gap: 14, alignItems: 'center', padding: '12px 4px',
                 borderBottom: i === activity.length - 1 ? 0 : '1px solid ' + C.line }}>
                 <div style={{ width: 40, height: 40, borderRadius: '50%', background: C.surface2,
                   display: 'grid', placeItems: 'center' }}>
-                  {isSwap ? <IconSwap size={18} stroke={C.teal}/> : <IconSend size={18} stroke={C.teal}/>}
+                  <Ic size={18} stroke={isRecv ? C.green : C.teal}/>
                 </div>
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>
-                    {isSwap ? `Swap ${a.token} → ${a.receive}` : `Sent ${a.token}`}
-                  </div>
-                  <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: C.muted, marginTop: 2 }}>
-                    {isSwap ? `Uniswap V3 on ${a.chain || 'Base'}` : `to ${short(a.to)} on ${a.chain || 'Base'}`} · {new Date(a.ts).toLocaleString()}
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>{title}</div>
+                  <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: C.muted, marginTop: 2,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {sub} · {new Date(a.ts).toLocaleString()}
                   </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>
-                    {isSwap ? `+${a.amountOut} ${a.receive}` : `−${a.amount} ${a.token}`}
-                  </div>
+                  <div style={{ fontWeight: 600, fontSize: 14, color: amountColor }}>{sign}{value}</div>
                   <div style={{ fontFamily: FONT_MONO, fontSize: 11, marginTop: 2,
                     color: a.status === 'confirmed' ? C.green : a.status === 'failed' ? C.red : C.amber }}>{a.status}</div>
                 </div>
               </div>
             )
+            return explorerHref ? (
+              <a key={a.hash ? `${a.hash}:${i}` : i} href={explorerHref}
+                 onClick={(e) => { e.preventDefault(); Browser.open({ url: explorerHref }) }}
+                 style={{ color: 'inherit', textDecoration: 'none', display: 'block' }}>{row}</a>
+            ) : row
           })}
         </div>
       )}
 
       <SendSheet    open={send} onClose={() => setSend(false)} wallet={wallet} chainKey={activeChain} balances={balances}
-                    onSent={(e) => { setActivity((p) => [e, ...p].slice(0, 50)); refresh() }}/>
+                    onSent={(e) => { mergeActivity([e]); refresh(); scanChainActivity() }}/>
       <ReceiveSheet open={recv} onClose={() => setRecv(false)} address={address} chainKey={activeChain}/>
       <SwapSheet    open={swap} onClose={() => setSwap(false)} wallet={wallet} chainKey={activeChain} balances={balances}
-                    onSwapped={(e) => { setActivity((p) => [e, ...p].slice(0, 50)); refresh() }}/>
+                    onSwapped={(e) => { mergeActivity([e]); refresh(); scanChainActivity() }}/>
       <EnvSheet     open={envOpen} onClose={() => setEnvOpen(false)} env={env}
                     onChange={(next) => update({ env: next })}/>
       <AccountSwitcher

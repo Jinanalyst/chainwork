@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Capacitor } from '@capacitor/core'
-import { Icon } from '../components/ui.jsx'
+import { Icon, useHashRoute, navigate } from '../components/ui.jsx'
 import { useSession, getWalletAddress } from '../hooks/useSession.js'
 import { PLATFORM_WALLETS, savePaymentProof, userReference } from '../lib/platform.js'
 import NativeWalletApp from '../components/NativeWalletApp.jsx'
@@ -948,6 +948,120 @@ const Page = ({ children }) => (
   </div>
 )
 
+const ConnectWalletButton = ({ compact = false }) => {
+  const w = useWallet()
+  const [menu, setMenu] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const ref = useRef(null)
+  const short = (a) => a ? `${a.slice(0, 6)}…${a.slice(-4)}` : ''
+
+  useEffect(() => {
+    const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target)) setMenu(false) }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [])
+
+  const copyAddr = async () => {
+    if (!w.address) return
+    try { await navigator.clipboard.writeText(w.address); setCopied(true); setTimeout(() => setCopied(false), 1500) } catch {}
+  }
+
+  const openDesktop = () => { setMenu(false); navigate('#/pay/desktop') }
+
+  const onClick = async () => {
+    if (!w.address) {
+      await w.connect()
+      if (typeof window !== 'undefined' && window.ethereum) {
+        const accs = await window.ethereum.request({ method: 'eth_accounts' }).catch(() => [])
+        if (accs?.[0]) navigate('#/pay/desktop')
+      }
+    } else {
+      setMenu((v) => !v)
+    }
+  }
+
+  const padding = compact ? '8px 14px' : '10px 16px'
+  const fontSize = compact ? 13 : 14
+  const onBaseChip = w.address && w.onBase
+  const wrongChain = w.address && !w.onBase
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button onClick={onClick} style={{
+        display: 'inline-flex', alignItems: 'center', gap: 10,
+        padding, borderRadius: 999,
+        border: '1px solid ' + (w.address ? 'rgba(0,224,184,0.4)' : C.lineStr),
+        background: w.address
+          ? 'linear-gradient(135deg, rgba(0,224,184,0.14), rgba(42,111,219,0.12))'
+          : C.teal,
+        color: w.address ? C.white : C.bg,
+        fontFamily: FONT_UI, fontSize, fontWeight: 700,
+        cursor: 'pointer',
+      }}>
+        <span style={{
+          width: 10, height: 10, borderRadius: '50%',
+          background: w.address ? (onBaseChip ? C.green : C.amber) : C.bg,
+          boxShadow: w.address ? '0 0 10px ' + (onBaseChip ? C.green : C.amber) : 'none',
+        }}/>
+        {w.address ? short(w.address) : 'Connect wallet'}
+        {w.address && (
+          <SvgIcon stroke={C.text2} sw={1.8} size={14} d={<path d="M6 9l6 6 6-6"/>}/>
+        )}
+      </button>
+
+      {menu && w.address && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 8px)', right: 0, minWidth: 280,
+          background: C.surface, border: '1px solid ' + C.lineStr,
+          borderRadius: 16, boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+          zIndex: 50, overflow: 'hidden',
+        }}>
+          <div style={{ padding: '14px 16px', borderBottom: '1px solid ' + C.line }}>
+            <div style={{
+              fontFamily: FONT_MONO, fontSize: 10, color: C.muted,
+              letterSpacing: '0.16em', textTransform: 'uppercase',
+            }}>Connected</div>
+            <button onClick={copyAddr} style={{
+              marginTop: 6, width: '100%', textAlign: 'left',
+              fontFamily: FONT_MONO, fontSize: 12, color: C.text2,
+              background: 'transparent', border: 0, cursor: 'pointer', padding: 0,
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8,
+            }}>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{w.address}</span>
+              <span style={{ color: copied ? C.green : C.teal, fontSize: 11 }}>{copied ? 'Copied' : 'Copy'}</span>
+            </button>
+            <div style={{
+              marginTop: 10, display: 'flex', gap: 8,
+              fontFamily: FONT_MONO, fontSize: 11, color: C.muted,
+            }}>
+              <span>USDC {Number(formatUnits(w.usdc, USDC_DECIMALS)).toFixed(2)}</span>
+              <span>·</span>
+              <span>ETH {Number(formatUnits(w.ethBal, 18, 4)).toFixed(4)}</span>
+            </div>
+          </div>
+          {wrongChain && (
+            <button onClick={() => { w.switchToBase(); setMenu(false) }} style={{
+              width: '100%', textAlign: 'left', padding: '12px 16px',
+              background: 'rgba(255,181,71,0.10)', border: 0,
+              color: C.amber, fontWeight: 600, fontSize: 13, cursor: 'pointer',
+              borderBottom: '1px solid ' + C.line,
+            }}>Switch to Base mainnet</button>
+          )}
+          <button onClick={openDesktop} style={{
+            width: '100%', textAlign: 'left', padding: '12px 16px',
+            background: 'transparent', border: 0, color: C.white,
+            fontSize: 13, cursor: 'pointer',
+          }}>Open desktop wallet →</button>
+          <a href={`https://basescan.org/address/${w.address}`} target="_blank" rel="noreferrer" style={{
+            display: 'block', padding: '12px 16px', color: C.text2, fontSize: 13,
+            textDecoration: 'none', borderTop: '1px solid ' + C.line,
+          }}>View on BaseScan ↗</a>
+        </div>
+      )}
+    </div>
+  )
+}
+
 const Topbar = () => (
   <header style={{
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -960,12 +1074,12 @@ const Topbar = () => (
         chainpay
       </span>
     </div>
-    <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
       <div style={{
         fontFamily: FONT_MONO, fontSize: 11, color: C.muted,
         letterSpacing: '0.04em', textTransform: 'uppercase',
       }}>
-        <span>Wallet v0.1.0</span>
+        <span>Wallet v0.1.2</span>
         <span style={{ marginLeft: 24 }}>Android</span>
       </div>
       <a href="#/" style={{
@@ -978,6 +1092,16 @@ const Topbar = () => (
         <SvgIcon stroke={C.text2} sw={1.8} size={14} d={<path d="M15 18l-6-6 6-6"/>}/>
         Back to ChainWork
       </a>
+      <a href="#/pay/desktop" style={{
+        display: 'inline-flex', alignItems: 'center', gap: 8,
+        padding: '8px 14px', borderRadius: 999,
+        border: '1px solid ' + C.lineStr, background: C.surface,
+        color: C.white, textDecoration: 'none',
+        fontFamily: FONT_UI, fontSize: 13, fontWeight: 500,
+      }}>
+        Desktop wallet →
+      </a>
+      <ConnectWalletButton/>
     </div>
   </header>
 )
@@ -1042,7 +1166,7 @@ const Hero = ({ onDownload }) => (
         borderTop: '1px solid ' + C.line, flexWrap: 'wrap',
       }}>
         {[
-          ['v0.1.0', 'Latest build'],
+          ['v0.1.2', 'Latest build'],
           ['Android 9+', 'Requires'],
           ['Self-custodial', 'Always'],
         ].map(([head, sub]) => (
@@ -1145,16 +1269,16 @@ const Panel = ({ children, style = {}, label, corner }) => (
  * 01 — Download flow (APK)
  * ────────────────────────────────────────────────────────────────────────── */
 const APK = {
-  version:  '0.1.1',
-  file:     '/chainpay-v0.1.1.apk',
-  filename: 'chainpay-v0.1.1.apk',
-  size:     '22.7 MB',
-  sha256:   'bc90cb1a613a6719b7e4b362ea9fcdafa1ed27148c14021416885bd4be7fe5d3',
+  version:  '0.1.2',
+  file:     '/chainpay-v0.1.2.apk',
+  filename: 'chainpay-v0.1.2.apk',
+  size:     '28.1 MB',
+  sha256:   'cabe75f0468a79e9838abcdabad5717265d12e3aee24895620b22a146eb0a162',
   built:    'May 2026',
   minSdk:   'Android 7 (Nougat) · API 24',
   signer:   'Debug keystore · self-signed',
   format:   'Signed Android APK',
-  contents: 'Native wallet · in-app keys · on-chain swap · settings',
+  contents: 'Native wallet · in-app keys · on-chain swap · activity indexer · settings',
 }
 
 const DownloadSection = () => {
@@ -1169,7 +1293,7 @@ const DownloadSection = () => {
   }
 
   const steps = [
-    ['Tap "Download APK".', 'Your browser saves chainpay-v0.1.1.apk to Downloads.'],
+    ['Tap "Download APK".', 'Your browser saves chainpay-v0.1.2.apk to Downloads.'],
     ['Allow installs from this source.', 'Android may ask once — say yes for your browser.'],
     ['Tap the file to install.', 'A standard Android install prompt opens. Tap Install.'],
     ['Open ChainPay and back up your phrase.', 'On first launch the app generates your recovery phrase. Write it down — you\'re the only one with it.'],
@@ -1375,12 +1499,723 @@ const TaglineList = () => {
   )
 }
 
+/* ────────────────────────────────────────────────────────────────────────── *
+ * Desktop wallet — full-screen, multi-pane layout (no modals; inline forms)
+ * Mirrors the prompted "ChainPay Desktop Wallet" design.
+ * ────────────────────────────────────────────────────────────────────────── */
+const D = {
+  bg:       '#0E1018',
+  bgSoft:   '#11141F',
+  surface:  '#181C2A',
+  surface2: '#1F2438',
+  line:     'rgba(244,247,251,0.07)',
+  lineStr:  'rgba(244,247,251,0.14)',
+  white:    '#F4F7FB',
+  text2:    '#C5CCDF',
+  muted:    '#6B7390',
+  teal:     '#00E0B8',
+  amber:    '#FFB547',
+  green:    '#3CD68C',
+  red:      '#FF7A8A',
+}
+
+const DesktopSidebar = ({ active, onPick }) => {
+  const items = [
+    { key: 'Dashboard', Ic: IconHome  },
+    { key: 'Send',      Ic: IconSend  },
+    { key: 'Receive',   Ic: IconRecv  },
+    { key: 'Swap',      Ic: IconSwap  },
+    { key: 'Buy',       Ic: IconBuy   },
+    { key: 'Activity',  Ic: IconExt   },
+  ]
+  return (
+    <nav style={{
+      width: 232, flexShrink: 0,
+      background: D.bgSoft, borderRight: '1px solid ' + D.line,
+      padding: '22px 14px', display: 'flex', flexDirection: 'column', gap: 22,
+    }}>
+      <a href="#/pay" style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '4px 8px', color: D.white, textDecoration: 'none',
+      }}>
+        <CPMark size={26}/>
+        <span style={{ fontFamily: FONT_HEAD, fontWeight: 600, fontSize: 18, letterSpacing: '-0.01em' }}>
+          chainpay
+        </span>
+      </a>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>
+        {items.map(({ key, Ic }) => {
+          const on = active === key
+          return (
+            <button key={key} onClick={() => onPick(key)} style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              padding: '10px 12px', borderRadius: 12,
+              background: on ? D.surface2 : 'transparent',
+              border: '1px solid ' + (on ? D.lineStr : 'transparent'),
+              color: on ? D.white : D.text2,
+              fontFamily: FONT_UI, fontSize: 14, fontWeight: on ? 600 : 500,
+              cursor: 'pointer', textAlign: 'left',
+            }}>
+              <Ic size={18} stroke={on ? D.teal : D.text2}/>
+              {key}
+            </button>
+          )
+        })}
+      </div>
+      <div style={{
+        marginTop: 'auto', padding: '12px 14px',
+        background: D.surface, border: '1px solid ' + D.line, borderRadius: 14,
+        fontFamily: FONT_MONO, fontSize: 11, color: D.muted, lineHeight: 1.6,
+      }}>
+        <div style={{ color: D.teal, letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: 4 }}>Network</div>
+        <div style={{ color: D.white }}>Base mainnet</div>
+        <div>Chain ID 8453</div>
+      </div>
+    </nav>
+  )
+}
+
+const DesktopTopBar = ({ w, onRefresh }) => {
+  const short = (a) => a ? `${a.slice(0, 6)}…${a.slice(-4)}` : ''
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      padding: '18px 28px', borderBottom: '1px solid ' + D.line,
+      background: D.bgSoft,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <div style={{
+          fontFamily: FONT_MONO, fontSize: 11, color: D.muted,
+          letterSpacing: '0.16em', textTransform: 'uppercase',
+        }}>Dashboard</div>
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          padding: '4px 10px', borderRadius: 999,
+          background: w.address && w.onBase ? 'rgba(60,214,140,0.12)' : 'rgba(255,181,71,0.10)',
+          border: '1px solid ' + (w.address && w.onBase ? 'rgba(60,214,140,0.3)' : 'rgba(255,181,71,0.3)'),
+          color: w.address && w.onBase ? D.green : D.amber,
+          fontFamily: FONT_MONO, fontSize: 11, letterSpacing: '0.10em', textTransform: 'uppercase',
+        }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%',
+            background: w.address && w.onBase ? D.green : D.amber,
+            boxShadow: '0 0 8px ' + (w.address && w.onBase ? D.green : D.amber) }}/>
+          {!w.address ? 'Disconnected' : w.onBase ? 'Base · live' : 'Wrong network'}
+        </div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        {w.address && (
+          <button onClick={onRefresh} style={{
+            padding: '8px 14px', borderRadius: 999,
+            background: D.surface, color: D.text2, border: '1px solid ' + D.line,
+            fontFamily: FONT_UI, fontSize: 13, fontWeight: 500, cursor: 'pointer',
+          }}>{w.loading ? 'Syncing…' : 'Refresh'}</button>
+        )}
+        {w.address && !w.onBase && (
+          <button onClick={w.switchToBase} style={{
+            padding: '8px 14px', borderRadius: 999,
+            background: 'rgba(255,181,71,0.16)', color: D.amber,
+            border: '1px solid rgba(255,181,71,0.4)',
+            fontWeight: 600, fontSize: 13, cursor: 'pointer',
+          }}>Switch to Base</button>
+        )}
+        {!w.address ? (
+          <button onClick={w.connect} style={{
+            padding: '10px 18px', borderRadius: 999,
+            background: D.teal, color: D.bg, border: 0,
+            fontWeight: 700, fontSize: 13, cursor: 'pointer',
+          }}>Connect wallet</button>
+        ) : (
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 10,
+            padding: '8px 14px', borderRadius: 999,
+            background: 'linear-gradient(135deg, rgba(0,224,184,0.14), rgba(42,111,219,0.12))',
+            border: '1px solid rgba(0,224,184,0.35)',
+            color: D.white, fontFamily: FONT_MONO, fontSize: 12, fontWeight: 600,
+          }}>
+            <span style={{ width: 10, height: 10, borderRadius: '50%',
+              background: 'linear-gradient(135deg,#00E0B8,#2A6FDB)' }}/>
+            {short(w.address)}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+const PortfolioHero = ({ w }) => {
+  const [whole, frac] = fmtUsd(w.totalUsd).split('.')
+  return (
+    <div style={{ position: 'relative', margin: '24px 28px 0' }}>
+      <div style={{
+        position: 'absolute', inset: -30,
+        background: 'radial-gradient(60% 60% at 20% 30%, rgba(0,224,184,0.30), transparent 70%)',
+        filter: 'blur(20px)', pointerEvents: 'none',
+      }}/>
+      <div style={{
+        position: 'relative', borderRadius: 22, padding: '26px 28px',
+        background:
+          'radial-gradient(100% 80% at 100% 0%, rgba(0,224,184,0.36), transparent 60%),' +
+          'linear-gradient(160deg,#003D34 0%,#0E1018 65%)',
+        border: '1px solid rgba(0,224,184,0.25)',
+        boxShadow: '0 22px 50px -16px rgba(0,224,184,0.30)',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 24,
+      }}>
+        <div>
+          <div style={{
+            fontFamily: FONT_MONO, fontSize: 10, color: 'rgba(244,247,251,0.65)',
+            letterSpacing: '0.18em', textTransform: 'uppercase',
+          }}>Total balance · USD</div>
+          <div style={{
+            marginTop: 10, fontFamily: FONT_HEAD, fontWeight: 500,
+            fontSize: 64, letterSpacing: '-0.035em', lineHeight: 1, fontVariantNumeric: 'tabular-nums',
+          }}>
+            {whole}<span style={{ color: 'rgba(244,247,251,0.45)', fontSize: 40 }}>.{frac || '00'}</span>
+          </div>
+          <div style={{ marginTop: 14, display: 'flex', gap: 10, alignItems: 'center' }}>
+            <span style={{
+              padding: '5px 11px', borderRadius: 999,
+              background: 'rgba(60,214,140,0.16)', color: D.green,
+              border: '1px solid rgba(60,214,140,0.28)',
+              fontSize: 12, fontWeight: 600,
+            }}>{w.loading ? 'Syncing…' : w.address ? 'Live · 10s refresh' : 'Connect wallet'}</span>
+            <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: 'rgba(244,247,251,0.55)' }}>
+              ETH ≈ {fmtUsd(w.ethUsd)}
+            </span>
+          </div>
+        </div>
+        <div style={{
+          display: 'flex', gap: 10, flexWrap: 'wrap',
+        }}>
+          {w.address ? (
+            <a href={`https://basescan.org/address/${w.address}`} target="_blank" rel="noreferrer" style={{
+              padding: '10px 16px', borderRadius: 12,
+              background: 'rgba(255,255,255,0.06)', color: D.white,
+              border: '1px solid ' + D.lineStr, textDecoration: 'none',
+              fontWeight: 600, fontSize: 13,
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+            }}>View on BaseScan <IconExt size={14} stroke={D.white}/></a>
+          ) : (
+            <button onClick={w.connect} style={{
+              padding: '12px 20px', borderRadius: 12,
+              background: D.teal, color: D.bg, border: 0,
+              fontWeight: 700, fontSize: 14, cursor: 'pointer',
+            }}>Connect wallet</button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const BalanceRow = ({ w }) => {
+  const cells = [
+    {
+      logo: 'usdc', name: 'USD Coin', sym: 'USDC',
+      bal: formatUnits(w.usdc, USDC_DECIMALS),
+      usd: w.usdcNum,
+      price: '$1.00',
+    },
+    {
+      logo: 'eth', name: 'Ethereum', sym: 'ETH',
+      bal: formatUnits(w.ethBal, 18, 6),
+      usd: w.ethNum * w.ethUsd,
+      price: w.ethUsd ? `$${w.ethUsd.toFixed(2)}` : '—',
+    },
+  ]
+  return (
+    <div style={{
+      margin: '20px 28px 0',
+      display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14,
+    }}>
+      {cells.map((c) => (
+        <div key={c.sym} style={{
+          padding: '18px 20px', borderRadius: 18,
+          background: D.surface, border: '1px solid ' + D.line,
+          display: 'flex', alignItems: 'center', gap: 16,
+        }}>
+          <div style={{
+            width: 44, height: 44, borderRadius: '50%', flexShrink: 0,
+            background: c.logo === 'usdc' ? '#2775CA' : '#1E2742',
+            display: 'grid', placeItems: 'center',
+            color: '#fff', fontWeight: 700,
+          }}>{c.logo === 'usdc' ? '$' : <span style={{ color: '#9FA8C6' }}>Ξ</span>}</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 600, fontSize: 15 }}>{c.name}</div>
+            <div style={{
+              marginTop: 2, fontFamily: FONT_MONO, fontSize: 11, color: D.muted,
+            }}>Base · {c.price}</div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontWeight: 600, fontSize: 16, fontVariantNumeric: 'tabular-nums' }}>
+              {fmtUsd(c.usd)}
+            </div>
+            <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: D.muted, marginTop: 2 }}>
+              {c.bal} {c.sym}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+const fieldLabel = {
+  fontFamily: FONT_MONO, fontSize: 10, color: D.muted,
+  letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: 8,
+}
+const fieldInput = {
+  width: '100%', boxSizing: 'border-box',
+  background: D.surface2, border: '1px solid ' + D.line, color: D.white,
+  padding: '11px 13px', borderRadius: 12, fontFamily: FONT_UI, fontSize: 14, outline: 'none',
+}
+
+const SendCard = ({ w, pushActivity }) => {
+  const { user } = useSession()
+  const [token,  setToken]  = useState('USDC')
+  const [to,     setTo]     = useState('')
+  const [amount, setAmount] = useState('')
+  const [memo,   setMemo]   = useState(() => userReference(user))
+  const [busy,   setBusy]   = useState(false)
+  const [hash,   setHash]   = useState('')
+  const [status, setStatus] = useState('')
+  const [error,  setError]  = useState('')
+
+  useEffect(() => { setMemo(userReference(user)) }, [user?.id])
+
+  const send = async () => {
+    setError(''); setHash(''); setStatus('')
+    if (!w.address)   return setError('Connect a wallet first.')
+    if (!isAddr(to))  return setError('Recipient must be a valid 0x address.')
+    if (!amount || Number(amount) <= 0) return setError('Enter an amount greater than zero.')
+    if (!w.onBase)    return setError('Switch to Base network first.')
+
+    let tx
+    try {
+      if (token === 'USDC') {
+        const raw = parseUnits(amount, USDC_DECIMALS)
+        if (raw > w.usdc) return setError('Amount exceeds USDC balance.')
+        const data = '0xa9059cbb' + addrPad(to) + uintPad(raw)
+        tx = { from: w.address, to: USDC_BASE, data, value: '0x0' }
+      } else {
+        const raw = parseUnits(amount, 18)
+        if (raw > w.ethBal) return setError('Amount exceeds ETH balance.')
+        tx = { from: w.address, to, value: '0x' + raw.toString(16) }
+      }
+    } catch { return setError('Invalid amount.') }
+
+    setBusy(true)
+    try {
+      const h = await w.eth1193.request({ method: 'eth_sendTransaction', params: [tx] })
+      setHash(h); setStatus('pending')
+      pushActivity({ kind: 'send', token, amount, to, hash: h, status: 'pending', ts: Date.now() })
+
+      const poll = async () => {
+        try {
+          const r = await rpc('eth_getTransactionReceipt', [h])
+          if (r) {
+            const ok = r.status === '0x1'
+            setStatus(ok ? 'confirmed' : 'failed')
+            pushActivity({ kind: 'send', token, amount, to, hash: h, status: ok ? 'confirmed' : 'failed', ts: Date.now() })
+            w.refresh()
+            if (ok) {
+              try {
+                await savePaymentProof({
+                  kind: to.toLowerCase() === ESCROW_USDC.toLowerCase() ? 'task' : 'transfer',
+                  reference: memo, amount: `${amount} ${token}`, token, chain: 'Base',
+                  toAddress: to, fromWallet: w.address, txHash: h,
+                })
+              } catch {}
+            }
+            return
+          }
+        } catch {}
+        setTimeout(poll, 3000)
+      }
+      poll()
+    } catch (e) {
+      setError(e?.message || 'Transaction rejected')
+    } finally { setBusy(false) }
+  }
+
+  return (
+    <div style={{
+      padding: '20px 22px 22px', borderRadius: 18,
+      background: D.surface, border: '1px solid ' + D.line,
+      display: 'flex', flexDirection: 'column', gap: 14,
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <div style={{
+            fontFamily: FONT_MONO, fontSize: 10, color: D.muted,
+            letterSpacing: '0.16em', textTransform: 'uppercase',
+          }}>Send</div>
+          <div style={{ marginTop: 4, fontFamily: FONT_HEAD, fontWeight: 500, fontSize: 22, letterSpacing: '-0.01em' }}>
+            Pay someone on Base
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 4, padding: 4, background: D.surface2, borderRadius: 999, border: '1px solid ' + D.line }}>
+          {['USDC', 'ETH'].map((t) => (
+            <button key={t} onClick={() => setToken(t)} style={{
+              padding: '6px 16px', borderRadius: 999,
+              background: token === t ? D.white : 'transparent',
+              color: token === t ? D.bg : D.text2,
+              border: 0, fontWeight: 700, fontSize: 12, cursor: 'pointer',
+            }}>{t}</button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <div style={fieldLabel}>Recipient address</div>
+        <input value={to} onChange={(e) => setTo(e.target.value.trim())} placeholder="0x…"
+               style={{ ...fieldInput, fontFamily: FONT_MONO, fontSize: 12 }}/>
+        <button onClick={() => setTo(ESCROW_USDC)} style={{
+          marginTop: 6, background: 'transparent', border: 0, color: D.teal,
+          fontSize: 12, cursor: 'pointer', padding: 0,
+        }}>Use ChainWork escrow address →</button>
+      </div>
+
+      <div>
+        <div style={fieldLabel}>Amount</div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input type="number" min="0" step="0.000001" value={amount}
+                 onChange={(e) => setAmount(e.target.value)} placeholder="0.00"
+                 style={{ ...fieldInput, fontFamily: FONT_MONO }}/>
+          <button onClick={() => setAmount(
+            token === 'USDC' ? formatUnits(w.usdc, USDC_DECIMALS) : formatUnits(w.ethBal, 18, 8)
+          )} style={{
+            padding: '0 16px', borderRadius: 12, background: D.surface2,
+            border: '1px solid ' + D.line, color: D.text2, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+          }}>Max</button>
+        </div>
+        <div style={{ marginTop: 6, fontFamily: FONT_MONO, fontSize: 11, color: D.muted }}>
+          Balance: {token === 'USDC' ? formatUnits(w.usdc, USDC_DECIMALS) : formatUnits(w.ethBal, 18, 6)} {token}
+        </div>
+      </div>
+
+      <div>
+        <div style={fieldLabel}>Memo / reference</div>
+        <input value={memo} onChange={(e) => setMemo(e.target.value)}
+               style={{ ...fieldInput, fontFamily: FONT_MONO, fontSize: 12 }}/>
+      </div>
+
+      {error && (
+        <div style={{
+          padding: '8px 12px', borderRadius: 10,
+          background: 'rgba(255,122,138,0.10)', border: '1px solid rgba(255,122,138,0.28)',
+          color: D.red, fontSize: 12,
+        }}>{error}</div>
+      )}
+
+      <button onClick={send} disabled={busy || !w.address || !w.onBase}
+        style={{
+          marginTop: 4, padding: '13px 0', borderRadius: 14,
+          background: D.teal, color: D.bg, border: 0,
+          fontWeight: 700, fontSize: 14, cursor: busy ? 'progress' : 'pointer',
+          opacity: (busy || !w.address || !w.onBase) ? 0.5 : 1,
+        }}>
+        {busy ? 'Awaiting signature…' : !w.address ? 'Connect wallet to send' : `Send ${amount || '0'} ${token}`}
+      </button>
+
+      {hash && (
+        <div style={{
+          padding: 12, borderRadius: 12, background: D.surface2,
+          border: '1px solid ' + D.line, fontSize: 12,
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', color: D.muted }}>
+            <span>Status</span>
+            <span style={{
+              color: status === 'confirmed' ? D.green : status === 'failed' ? D.red : D.amber,
+              fontWeight: 700,
+            }}>
+              {status === 'pending'   && 'Pending…'}
+              {status === 'confirmed' && 'Confirmed'}
+              {status === 'failed'    && 'Failed'}
+            </span>
+          </div>
+          <a href={`https://basescan.org/tx/${hash}`} target="_blank" rel="noreferrer" style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            marginTop: 6, color: D.teal, textDecoration: 'none', fontFamily: FONT_MONO,
+          }}>
+            <span>{hash.slice(0, 10)}…{hash.slice(-8)}</span>
+            <IconExt size={14} stroke={D.teal}/>
+          </a>
+        </div>
+      )}
+    </div>
+  )
+}
+
+const SwapCard = ({ w }) => {
+  const [fromTok, setFromTok] = useState('USDC')
+  const [toTok,   setToTok]   = useState('ETH')
+  const [amount,  setAmount]  = useState('')
+  const price = w.ethUsd || 0
+  const out = useMemo(() => {
+    const n = Number(amount)
+    if (!n || !price) return ''
+    if (fromTok === 'USDC' && toTok === 'ETH') return (n / price).toFixed(6)
+    if (fromTok === 'ETH' && toTok === 'USDC') return (n * price).toFixed(2)
+    return n.toFixed(6)
+  }, [amount, price, fromTok, toTok])
+  const flip = () => { setFromTok(toTok); setToTok(fromTok); setAmount(out || '') }
+  const uniHref = `https://app.uniswap.org/#/swap?chain=base&inputCurrency=${fromTok === 'USDC' ? USDC_BASE : 'ETH'}&outputCurrency=${toTok === 'USDC' ? USDC_BASE : 'ETH'}`
+
+  const leg = {
+    background: D.surface2, border: '1px solid ' + D.line, borderRadius: 14, padding: '14px 16px',
+  }
+
+  return (
+    <div style={{
+      padding: '20px 22px 22px', borderRadius: 18,
+      background: D.surface, border: '1px solid ' + D.line,
+      display: 'flex', flexDirection: 'column', gap: 10,
+    }}>
+      <div>
+        <div style={{
+          fontFamily: FONT_MONO, fontSize: 10, color: D.muted,
+          letterSpacing: '0.16em', textTransform: 'uppercase',
+        }}>Swap</div>
+        <div style={{ marginTop: 4, fontFamily: FONT_HEAD, fontWeight: 500, fontSize: 22, letterSpacing: '-0.01em' }}>
+          Trade on Base via Uniswap
+        </div>
+      </div>
+
+      <div style={leg}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: FONT_MONO, fontSize: 11, color: D.muted, marginBottom: 8 }}>
+          <span>You pay</span>
+          <span>Balance {fromTok === 'USDC' ? formatUnits(w.usdc, USDC_DECIMALS) : formatUnits(w.ethBal, 18, 6)}</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <input type="number" min="0" step="0.000001" value={amount}
+                 onChange={(e) => setAmount(e.target.value)} placeholder="0.00"
+                 style={{ flex: 1, background: 'transparent', border: 0, color: D.white, fontSize: 24, outline: 'none', fontFamily: FONT_MONO }}/>
+          <div style={{ background: D.surface, padding: '6px 14px', borderRadius: 999, fontWeight: 700, fontSize: 13 }}>{fromTok}</div>
+        </div>
+      </div>
+
+      <div style={{ textAlign: 'center', margin: '-2px 0' }}>
+        <button onClick={flip} style={{
+          background: D.surface, border: '1px solid ' + D.line, borderRadius: '50%',
+          width: 36, height: 36, color: D.teal, cursor: 'pointer', fontSize: 16,
+        }}>⇅</button>
+      </div>
+
+      <div style={leg}>
+        <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: D.muted, marginBottom: 8 }}>You receive (estimated)</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ flex: 1, fontSize: 24, color: out ? D.white : D.muted, fontFamily: FONT_MONO }}>
+            {out || '0.00'}
+          </div>
+          <div style={{ background: D.surface, padding: '6px 14px', borderRadius: 999, fontWeight: 700, fontSize: 13 }}>{toTok}</div>
+        </div>
+      </div>
+
+      <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: D.muted, textAlign: 'center', marginTop: 4 }}>
+        Rate: 1 ETH ≈ {fmtUsd(price)} · live
+      </div>
+
+      <a href={uniHref} target="_blank" rel="noreferrer" style={{
+        marginTop: 4, padding: '13px 0', textAlign: 'center',
+        background: D.teal, color: D.bg, fontWeight: 700, fontSize: 14,
+        borderRadius: 14, textDecoration: 'none',
+      }}>Continue on Uniswap ↗</a>
+      <div style={{ fontFamily: FONT_MONO, fontSize: 10, color: D.muted, textAlign: 'center' }}>
+        Routed through Uniswap on Base for best execution. Your wallet signs the swap there.
+      </div>
+    </div>
+  )
+}
+
+const ReceiveCard = ({ w }) => {
+  const [copied, setCopied] = useState(false)
+  const copy = async () => {
+    if (!w.address) return
+    try { await navigator.clipboard.writeText(w.address); setCopied(true); setTimeout(() => setCopied(false), 1500) } catch {}
+  }
+  return (
+    <div style={{
+      padding: '18px 18px 20px', borderRadius: 18,
+      background: D.surface, border: '1px solid ' + D.line,
+    }}>
+      <div style={{
+        fontFamily: FONT_MONO, fontSize: 10, color: D.muted,
+        letterSpacing: '0.16em', textTransform: 'uppercase',
+      }}>Receive</div>
+      <div style={{ marginTop: 4, fontFamily: FONT_HEAD, fontWeight: 500, fontSize: 18, letterSpacing: '-0.01em' }}>
+        Your Base address
+      </div>
+      <div style={{
+        marginTop: 14, display: 'grid', placeItems: 'center',
+        padding: 10, background: D.surface2, border: '1px solid ' + D.line, borderRadius: 14,
+      }}>
+        {w.address ? (
+          <QRCode data={w.address} size={180} background={D.surface2} color={D.white}/>
+        ) : (
+          <div style={{ height: 180, display: 'grid', placeItems: 'center', color: D.muted, fontSize: 12 }}>
+            Connect a wallet to show QR
+          </div>
+        )}
+      </div>
+      <div style={{
+        marginTop: 12, fontFamily: FONT_MONO, fontSize: 11, color: D.text2,
+        background: D.surface2, border: '1px solid ' + D.line,
+        borderRadius: 10, padding: '10px 12px', wordBreak: 'break-all',
+      }}>{w.address || 'Not connected'}</div>
+      <button onClick={copy} disabled={!w.address} style={{
+        marginTop: 10, width: '100%', padding: '11px 0', borderRadius: 12,
+        background: copied ? D.green : D.teal, color: D.bg, border: 0,
+        fontWeight: 700, fontSize: 13, cursor: w.address ? 'pointer' : 'not-allowed',
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+        opacity: w.address ? 1 : 0.5,
+      }}>
+        <IconCopy size={14} stroke={D.bg}/>
+        {copied ? 'Copied' : 'Copy address'}
+      </button>
+      <div style={{ marginTop: 8, fontFamily: FONT_MONO, fontSize: 10, color: D.muted, textAlign: 'center' }}>
+        Base mainnet only — don't send from other chains.
+      </div>
+    </div>
+  )
+}
+
+const ActivityCard = ({ activity }) => (
+  <div style={{
+    padding: '18px 18px 12px', borderRadius: 18,
+    background: D.surface, border: '1px solid ' + D.line, flex: 1, minHeight: 200,
+  }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div>
+        <div style={{
+          fontFamily: FONT_MONO, fontSize: 10, color: D.muted,
+          letterSpacing: '0.16em', textTransform: 'uppercase',
+        }}>Activity</div>
+        <div style={{ marginTop: 4, fontFamily: FONT_HEAD, fontWeight: 500, fontSize: 18, letterSpacing: '-0.01em' }}>
+          Recent transactions
+        </div>
+      </div>
+      <div style={{
+        fontFamily: FONT_MONO, fontSize: 10, color: D.teal,
+        letterSpacing: '0.14em', textTransform: 'uppercase',
+      }}>{activity.length} entries</div>
+    </div>
+    <div style={{ marginTop: 12 }}>
+      {!activity.length && (
+        <div style={{
+          padding: '36px 12px', textAlign: 'center', color: D.muted, fontSize: 13,
+        }}>Sent transactions appear here.</div>
+      )}
+      {activity.slice(0, 8).map((a, i) => (
+        <div key={a.hash || i} style={{
+          display: 'grid', gridTemplateColumns: '36px 1fr auto', gap: 12, alignItems: 'center',
+          padding: '11px 2px', borderTop: i === 0 ? 0 : '1px solid ' + D.line,
+        }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: '50%', background: D.surface2,
+            display: 'grid', placeItems: 'center',
+          }}><IconSend size={16} stroke={D.teal}/></div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontWeight: 600, fontSize: 13 }}>Sent {a.token}</div>
+            <div style={{
+              fontFamily: FONT_MONO, fontSize: 10, color: D.muted, marginTop: 2,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              to {a.to ? `${a.to.slice(0, 6)}…${a.to.slice(-4)}` : ''} · {new Date(a.ts).toLocaleString()}
+            </div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontWeight: 600, fontSize: 13 }}>−{a.amount} {a.token}</div>
+            <a href={a.hash ? `https://basescan.org/tx/${a.hash}` : '#'} target="_blank" rel="noreferrer" style={{
+              fontFamily: FONT_MONO, fontSize: 10, marginTop: 2, textDecoration: 'none',
+              color: a.status === 'confirmed' ? D.green : a.status === 'failed' ? D.red : D.amber,
+            }}>{a.status || 'pending'} ↗</a>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+)
+
+function DesktopWalletApp() {
+  const w = useWallet()
+  const [activity, setActivityList] = useState(loadActivity)
+  const [active, setActive] = useState('Dashboard')
+  const sendRef = useRef(null)
+  const recvRef = useRef(null)
+  const swapRef = useRef(null)
+  const actRef  = useRef(null)
+
+  const pushActivity = (entry) => {
+    setActivityList((cur) => {
+      const without = entry.hash ? cur.filter((x) => x.hash !== entry.hash) : cur
+      const next = [entry, ...without]
+      saveActivity(next)
+      return next
+    })
+  }
+
+  const pick = (key) => {
+    setActive(key)
+    const target = {
+      Send: sendRef, Receive: recvRef, Swap: swapRef, Activity: actRef,
+    }[key]
+    if (target?.current) target.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  return (
+    <div style={{
+      width: '100%', minHeight: '100vh',
+      background:
+        'radial-gradient(60% 40% at 18% 0%, rgba(0,224,184,0.06), transparent 60%),' + D.bg,
+      color: D.white, fontFamily: FONT_UI,
+      display: 'flex',
+    }}>
+      <DesktopSidebar active={active} onPick={pick}/>
+
+      <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+        <DesktopTopBar w={w} onRefresh={w.refresh}/>
+        <PortfolioHero w={w}/>
+        <BalanceRow w={w}/>
+
+        <div style={{
+          display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14,
+          margin: '14px 28px 28px',
+        }}>
+          <div ref={sendRef}><SendCard w={w} pushActivity={pushActivity}/></div>
+          <div ref={swapRef}><SwapCard w={w}/></div>
+        </div>
+
+        {w.err && (
+          <div style={{
+            margin: '0 28px 24px', padding: '10px 14px', borderRadius: 12,
+            background: 'rgba(255,122,138,0.10)', border: '1px solid rgba(255,122,138,0.28)',
+            color: D.red, fontSize: 12,
+          }}>{w.err}</div>
+        )}
+      </main>
+
+      <aside style={{
+        width: 360, flexShrink: 0,
+        background: D.bgSoft, borderLeft: '1px solid ' + D.line,
+        padding: '24px 20px',
+        display: 'flex', flexDirection: 'column', gap: 16,
+      }}>
+        <div ref={recvRef}><ReceiveCard w={w}/></div>
+        <div ref={actRef}><ActivityCard activity={activity}/></div>
+      </aside>
+    </div>
+  )
+}
+
 /* ────────────────────────────────────────────────────────────────────────── */
 export default function ChainPay() {
   // Inside the installed Android app: skip all marketing chrome and boot
   // straight into the native self-custodial wallet (in-app keys via ethers,
   // no MetaMask dependency).
   if (Capacitor.isNativePlatform()) return <NativeWalletApp/>
+
+  const route = useHashRoute()
+  if (route.startsWith('#/pay/desktop')) return <DesktopWalletApp/>
 
   const onDownload = () => {
     const el = document.getElementById('download')
