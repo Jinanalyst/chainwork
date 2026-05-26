@@ -693,15 +693,21 @@ const CTA = () => {
 
 const Footer = () => (
   <footer className="border-t border-white/5 py-12">
-    <div className="mx-auto max-w-7xl px-6 flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-white/50">
-      <div className="flex items-center gap-2">
-        <LogoMark className="h-6 w-6" />
-        <span>© {new Date().getFullYear()} <Wordmark className="text-sm" /></span>
+    <div className="mx-auto max-w-7xl px-6 flex flex-col gap-6 text-sm text-white/50">
+      <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <LogoMark className="h-6 w-6" />
+          <span>© {new Date().getFullYear()} <Wordmark className="text-sm" /></span>
+        </div>
+        <div className="flex items-center gap-6">
+          <a href="#/privacy" className="hover:text-white">Privacy</a>
+          <a href="#/privacy" className="hover:text-white">Terms</a>
+          <a href="mailto:hello@chainwork.kr" className="hover:text-white">Contact</a>
+        </div>
       </div>
-      <div className="flex items-center gap-6">
-        <a href="#/privacy" className="hover:text-white">Privacy</a>
-        <a href="#/privacy" className="hover:text-white">Terms</a>
-        <a href="mailto:hello@chainwork.kr" className="hover:text-white">Contact</a>
+      <div className="border-t border-white/5 pt-4 flex flex-col gap-1 text-xs text-white/40">
+        <p>체인 랩스 (Chain Labs) · 대표 장진우 · 사업자등록번호 382-25-02223</p>
+        <p>경기도 성남시 중원구 여수울로 50, 406동 403호</p>
       </div>
     </div>
   </footer>
