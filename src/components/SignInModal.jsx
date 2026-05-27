@@ -45,6 +45,44 @@ async function signInEthereum() {
   }
 }
 
+// Google OAuth — configured via Supabase Dashboard, NOT in this repo.
+//
+// One-time setup required before this button works in prod:
+//   1. Google Cloud Console → APIs & Services → Credentials → OAuth client ID
+//      Authorized redirect URI:
+//        https://<SUPABASE_PROJECT_REF>.supabase.co/auth/v1/callback
+//   2. Supabase Dashboard → Authentication → Providers → Google
+//      - Enable Google
+//      - Paste the Google Client ID and Client Secret
+//        (secrets live in Supabase, never in this repo)
+//   3. Supabase Dashboard → Authentication → URL Configuration
+//      Site URL:     https://chainwork.chainbrief.kr
+//      Redirect URLs:
+//        https://chainwork.chainbrief.kr/**
+//        http://localhost:5173/**     (Vite dev — adjust if you use a different port)
+async function signInGoogle() {
+  if (typeof window === 'undefined') throw new Error('Browser only')
+  // Same redirect strategy as LinkedIn: send the user back to root (no hash
+  // fragment) so detectSessionInUrl can pick up the ?code=... cleanly, then
+  // onAuthStateChange routes them on.
+  const redirectTo = window.location.origin + window.location.pathname
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo,
+      // Standard Google OIDC scopes — gives us email + name + avatar in
+      // user_metadata, which useProfile.js seeds into the profiles row.
+      scopes: 'openid profile email',
+      queryParams: { prompt: 'select_account' },
+    },
+  })
+  if (error) {
+    console.error('[ChainWork] Google sign-in failed:', error)
+    throw new Error(error.message || 'Google sign-in failed. Please try again.')
+  }
+  return data
+}
+
 async function signInLinkedIn() {
   if (typeof window === 'undefined') throw new Error('Browser only')
   // IMPORTANT: do NOT include a hash fragment in redirectTo. Supabase
@@ -106,6 +144,14 @@ const LINKEDIN_ICON = (
     <path d="M8 10v7M8 7v.01M12 17v-4a2 2 0 0 1 4 0v4M12 17v-7" />
   </>
 )
+// Stylized "G" mark — single-stroke so it sits inside our Icon component
+// alongside the other provider glyphs without pulling in a brand SVG.
+const GOOGLE_ICON = (
+  <>
+    <path d="M12 11h8.5a8 8 0 1 1-2.34-5.66" />
+    <path d="M12 11v3.5h5" />
+  </>
+)
 
 const SignInButton = ({ name, hint, accent, icon = WALLET_ICON, onClick, busy, disabled }) => (
   <button
@@ -137,7 +183,7 @@ const SignInButton = ({ name, hint, accent, icon = WALLET_ICON, onClick, busy, d
 )
 
 export default function SignInModal({ open, onClose, onSignedIn }) {
-  const [busy, setBusy] = useState(null) // 'eth' | 'sol' | 'linkedin' | null
+  const [busy, setBusy] = useState(null) // 'eth' | 'sol' | 'google' | 'linkedin' | null
   const [error, setError] = useState(null)
 
   useEffect(() => {
@@ -177,7 +223,7 @@ export default function SignInModal({ open, onClose, onSignedIn }) {
         </button>
 
         <h2 className="text-xl font-bold">Sign in to ChainWork</h2>
-        <p className="mt-1 text-sm text-white/65">Use a wallet or your LinkedIn account to post tasks, send offers, and get paid.</p>
+        <p className="mt-1 text-sm text-white/65">프로젝트, 계약, 인재 매칭을 관리하려면 로그인하세요. Sign in with a wallet, Google, or LinkedIn to post tasks, send offers, and get paid.</p>
 
         {!isSupabaseConfigured && (
           <div className="mt-5 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
@@ -209,6 +255,15 @@ export default function SignInModal({ open, onClose, onSignedIn }) {
             <div className="flex-1 h-px bg-white/10" />
           </div>
 
+          <SignInButton
+            name="Continue with Google"
+            hint="Google로 계속하기 — 가장 빠른 로그인"
+            accent="from-[#ea4335] via-[#fbbc05] to-[#34a853]"
+            icon={GOOGLE_ICON}
+            busy={busy === 'google'}
+            disabled={!!busy || !isSupabaseConfigured}
+            onClick={() => handle('google', signInGoogle)}
+          />
           <SignInButton
             name="Continue with LinkedIn"
             hint="No wallet needed — uses your LinkedIn name + email"
