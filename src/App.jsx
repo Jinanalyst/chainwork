@@ -15,6 +15,14 @@ import Talents from './pages/Talents.jsx'
 import HirerDashboard from './pages/HirerDashboard.jsx'
 import AdminPayments from './pages/AdminPayments.jsx'
 import Privacy from './pages/Privacy.jsx'
+import Terms from './pages/Terms.jsx'
+import RefundPolicy from './pages/RefundPolicy.jsx'
+import PaymentPolicy from './pages/PaymentPolicy.jsx'
+import ServicePolicy from './pages/ServicePolicy.jsx'
+import DisputePolicy from './pages/DisputePolicy.jsx'
+import SellerPolicy from './pages/SellerPolicy.jsx'
+import ProhibitedServices from './pages/ProhibitedServices.jsx'
+import Contact from './pages/Contact.jsx'
 import ChainPay from './pages/ChainPay.jsx'
 import EscrowAddressCard from './components/EscrowAddressCard.jsx'
 import PaymentProofForm from './components/PaymentProofForm.jsx'
@@ -694,20 +702,40 @@ const CTA = () => {
 const Footer = () => (
   <footer className="border-t border-white/5 py-12">
     <div className="mx-auto max-w-7xl px-6 flex flex-col gap-6 text-sm text-white/50">
-      <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="flex items-center gap-2">
           <LogoMark className="h-6 w-6" />
           <span>© {new Date().getFullYear()} <Wordmark className="text-sm" /></span>
         </div>
-        <div className="flex items-center gap-6">
-          <a href="#/privacy" className="hover:text-white">Privacy</a>
-          <a href="#/privacy" className="hover:text-white">Terms</a>
-          <a href="mailto:hello@chainwork.kr" className="hover:text-white">Contact</a>
-        </div>
+        <nav className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs md:text-sm">
+          <a href="#/terms" className="hover:text-white">이용약관</a>
+          <a href="#/privacy" className="hover:text-white">개인정보처리방침</a>
+          <a href="#/refund-policy" className="hover:text-white">환불정책</a>
+          <a href="#/payment-policy" className="hover:text-white">결제정책</a>
+          <a href="#/service-policy" className="hover:text-white">서비스정책</a>
+          <a href="#/dispute-policy" className="hover:text-white">분쟁처리</a>
+          <a href="#/seller-policy" className="hover:text-white">판매자정책</a>
+          <a href="#/prohibited-services" className="hover:text-white">금지서비스</a>
+          <a href="#/contact" className="hover:text-white">고객지원</a>
+        </nav>
       </div>
-      <div className="border-t border-white/5 pt-4 flex flex-col gap-1 text-xs text-white/40">
-        <p>체인 랩스 (Chain Labs) · 대표 장진우 · 사업자등록번호 382-25-02223</p>
-        <p>경기도 성남시 중원구 여수울로 50, 406동 403호</p>
+      <div className="border-t border-white/5 pt-4 grid gap-1 text-xs text-white/40 leading-relaxed">
+        <p>
+          <span className="text-white/60">상호</span> 체인 랩스 (Chain Labs) ·
+          <span className="text-white/60"> 대표</span> 장진우 ·
+          <span className="text-white/60"> 사업자등록번호</span> 382-25-02223
+        </p>
+        <p>
+          <span className="text-white/60">통신판매업 신고번호</span> 신고 진행 중 (등록 후 업데이트 예정)
+        </p>
+        <p>
+          <span className="text-white/60">주소</span> 경기도 성남시 중원구 여수울로 50, 406동 403호
+        </p>
+        <p>
+          <span className="text-white/60">고객센터</span>{' '}
+          <a href="mailto:support@chainwork.kr" className="hover:text-white">support@chainwork.kr</a>{' '}
+          · <span className="text-white/60">전화</span> 070-0000-0000 (평일 10:00~18:00)
+        </p>
       </div>
     </div>
   </footer>
@@ -799,6 +827,22 @@ export default function App() {
   let page
   if (route.startsWith('#/privacy')) {
     page = <Privacy />
+  } else if (route.startsWith('#/terms')) {
+    page = <Terms />
+  } else if (route.startsWith('#/refund-policy')) {
+    page = <RefundPolicy />
+  } else if (route.startsWith('#/payment-policy')) {
+    page = <PaymentPolicy />
+  } else if (route.startsWith('#/service-policy')) {
+    page = <ServicePolicy />
+  } else if (route.startsWith('#/dispute-policy')) {
+    page = <DisputePolicy />
+  } else if (route.startsWith('#/seller-policy')) {
+    page = <SellerPolicy />
+  } else if (route.startsWith('#/prohibited-services')) {
+    page = <ProhibitedServices />
+  } else if (route.startsWith('#/contact')) {
+    page = <Contact />
   } else if (route.startsWith('#/pay')) {
     page = <ChainPay />
   } else if (route.startsWith('#/talents')) {

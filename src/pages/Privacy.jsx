@@ -1,116 +1,83 @@
 import React from 'react'
-import { Icon, navigate } from '../components/ui.jsx'
+import LegalLayout, { LegalSection } from '../components/LegalLayout.jsx'
 
-const Section = ({ title, children }) => (
-  <section className="mt-10">
-    <h2 className="text-xl md:text-2xl font-semibold text-white">{title}</h2>
-    <div className="mt-3 space-y-3 text-white/70 leading-relaxed">{children}</div>
-  </section>
-)
-
-const EFFECTIVE_DATE = 'May 23, 2026'
+const EFFECTIVE = '2026년 5월 27일'
 
 export default function Privacy() {
   return (
-    <div className="mx-auto max-w-3xl px-6 py-14">
-      <button
-        onClick={() => navigate('#/')}
-        className="text-sm text-white/55 hover:text-white inline-flex items-center gap-1.5 mb-6"
-      >
-        <Icon path={<path d="M15 18l-6-6 6-6" />} className="h-4 w-4" />
-        Back to home
-      </button>
-
-      <div className="text-[11px] uppercase tracking-[0.2em] text-accent-300 font-mono">Legal</div>
-      <h1 className="mt-2 text-3xl md:text-5xl font-bold leading-tight">Privacy Policy</h1>
-      <p className="mt-3 text-white/55 text-sm">Effective {EFFECTIVE_DATE}</p>
-
+    <LegalLayout eyebrow="개인정보 처리방침" title="개인정보 처리방침" effective={EFFECTIVE}>
       <p className="mt-8 text-white/75 leading-relaxed">
-        ChainWork (&quot;ChainWork&quot;, &quot;we&quot;, &quot;us&quot;) connects independent workers with hirers and
-        settles payments on public blockchains. This policy explains what data we
-        collect, how we use it, and the choices you have. Plain-English version:
-        we collect as little as possible, never sell personal data, and most of
-        the &quot;account&quot; is a wallet you control.
+        체인 랩스(Chain Labs, 이하 &quot;회사&quot;)는 ChainWork 서비스를 운영함에 있어 회원의 개인정보를
+        중요하게 생각하며, 「개인정보 보호법」 및 관련 법령을 준수합니다. 본 처리방침은 회사가 수집하는
+        개인정보의 항목, 이용 목적, 보유 기간, 회원의 권리 등을 안내합니다.
       </p>
 
-      <Section title="1. Information we collect">
-        <p><strong className="text-white">Wallet identity.</strong> When you sign in with a Web3 wallet (Ethereum, Solana) or with LinkedIn / another OAuth provider, we store the resulting account identifier (wallet address or OAuth subject id) and any minimal claims the provider returns — typically name, email, and avatar URL when you authorize them.</p>
-        <p><strong className="text-white">Profile data you provide.</strong> Display name, company, role, location, bio, contact email, portfolio links, and social handles you fill in. These are visible to other authenticated users.</p>
-        <p><strong className="text-white">Work content.</strong> Tasks you post or accept, attachments, chat messages, reviews, portfolio images / videos, experience entries.</p>
-        <p><strong className="text-white">Payment proofs.</strong> Transaction hashes, sending wallet addresses (optional), token, chain, and amount you submit to verify ChainWork Pro or task funding payments.</p>
-        <p><strong className="text-white">Operational data.</strong> IP address, user-agent, and basic request metadata via our hosting provider, used only for security, abuse prevention, and debugging.</p>
-        <p><strong className="text-white">Cookies / local storage.</strong> A session token (so you stay signed in) and small UI preferences (e.g. last opened tab, optimistic payment-proof cache). We do not use third-party advertising trackers.</p>
-      </Section>
+      <LegalSection title="1. 수집하는 개인정보 항목">
+        <p><strong className="text-white">필수 항목</strong>: 이메일, 비밀번호(또는 OAuth/지갑 식별자), 닉네임/실명, 휴대전화번호.</p>
+        <p><strong className="text-white">선택 항목</strong>: 프로필 이미지, 자기소개, 포트폴리오 링크, 소셜 핸들, 회사명, 주소.</p>
+        <p><strong className="text-white">결제·정산 항목</strong>: PG사를 통한 결제 시 카드사명/카드번호 일부, 거래 식별번호, 정산용 예금주명·계좌번호·은행명, 거래내역.</p>
+        <p><strong className="text-white">서비스 이용 과정에서 자동 수집</strong>: IP 주소, 접속 일시, 브라우저/OS 정보, 쿠키, 서비스 이용 기록.</p>
+      </LegalSection>
 
-      <Section title="2. LinkedIn and other OAuth sign-in">
-        <p>If you choose &quot;Continue with LinkedIn&quot; (or another OAuth provider) we request a minimal scope — typically your name, email, and profile picture URL. We use this only to create or sign you into your ChainWork account and to pre-fill the profile editor. We do not post on your behalf and do not pull connections, messages, or any other LinkedIn data.</p>
-        <p>You can disconnect LinkedIn at any time by signing out and signing back in with a different method, or by emailing us to delete your account.</p>
-      </Section>
-
-      <Section title="3. How we use your information">
+      <LegalSection title="2. 개인정보의 수집 및 이용 목적">
         <ul className="list-disc list-inside space-y-1">
-          <li>To run the service: show your profile to hirers, match tasks to workers, deliver chat messages, surface payment proofs to admins for verification.</li>
-          <li>To prevent abuse and comply with applicable law.</li>
-          <li>To improve product quality based on aggregate, non-identifying usage signals.</li>
+          <li>회원 가입 및 본인 확인, 부정 이용 방지</li>
+          <li>의뢰자-전문가 매칭, 작업 의뢰·수행·정산</li>
+          <li>결제, 환불, 작업보호금 보관 및 정산</li>
+          <li>고객 문의 대응, 공지 및 안내사항 전달</li>
+          <li>분쟁 처리 및 법령상 의무 이행</li>
         </ul>
-        <p>We do not sell personal data. We do not use your data to train third-party AI models.</p>
-      </Section>
+      </LegalSection>
 
-      <Section title="4. Public-blockchain disclosure">
-        <p>Stablecoin payments to ChainWork wallets and any payouts to your wallet are recorded on public blockchains (Ethereum, Base, Solana, Polygon, Tron). Transaction hashes, sending and receiving addresses, and amounts on those chains are public and outside our control once broadcast. Treat any address you publish (here or elsewhere) as permanently linked to those transactions.</p>
-      </Section>
-
-      <Section title="5. Sharing">
-        <p>We share data only with the service providers required to run ChainWork:</p>
+      <LegalSection title="3. 개인정보의 보유 및 이용기간">
+        <p>회원 탈퇴 시 지체 없이 파기합니다. 다만 관련 법령에 의해 보존이 필요한 경우 아래와 같이 보관합니다.</p>
         <ul className="list-disc list-inside space-y-1">
-          <li><strong className="text-white">Supabase</strong> — authentication, database, storage, realtime.</li>
-          <li><strong className="text-white">Vercel</strong> — frontend hosting and CDN.</li>
-          <li><strong className="text-white">LinkedIn / wallet providers</strong> — only for the sign-in handshake you initiate.</li>
+          <li>계약 또는 청약철회 등에 관한 기록: 5년 (전자상거래법)</li>
+          <li>대금결제 및 재화 등의 공급에 관한 기록: 5년 (전자상거래법)</li>
+          <li>소비자의 불만 또는 분쟁처리에 관한 기록: 3년 (전자상거래법)</li>
+          <li>표시·광고에 관한 기록: 6개월 (전자상거래법)</li>
+          <li>접속 로그 등: 3개월 (통신비밀보호법)</li>
         </ul>
-        <p>We may disclose data when required by law or to protect the rights and safety of users.</p>
-      </Section>
+      </LegalSection>
 
-      <Section title="6. Data retention">
-        <p>Profile and work data persists for as long as your account exists. Payment proofs are retained for accounting and dispute resolution. You can request deletion of your account at any time (see &quot;Your rights&quot; below). On-chain transactions cannot be deleted by anyone — including us.</p>
-      </Section>
-
-      <Section title="7. Security">
-        <p>We use TLS in transit, row-level security on the database, and authenticated storage policies for uploads. We never see your wallet's private key. No system is perfectly secure — choose a reputable wallet, keep your seed phrase offline, and use a hardware wallet for high-value flows.</p>
-      </Section>
-
-      <Section title="8. Your rights">
-        <p>Depending on where you live (GDPR / UK GDPR / CCPA / similar), you may have the right to:</p>
+      <LegalSection title="4. 개인정보의 제3자 제공">
+        <p>회사는 회원의 개인정보를 본 처리방침에서 명시한 범위 내에서 처리하며, 회원의 사전 동의 없이는
+        제3자에게 제공하지 않습니다. 단, 다음의 경우 예외로 합니다.</p>
         <ul className="list-disc list-inside space-y-1">
-          <li>Access the personal data we hold about you.</li>
-          <li>Correct or update inaccurate data (you can edit most of it in your profile directly).</li>
-          <li>Delete your account and associated personal data.</li>
-          <li>Object to or restrict certain processing.</li>
-          <li>Port your data to another service.</li>
+          <li>회원이 사전에 동의한 경우</li>
+          <li>법령에 근거하거나 수사기관의 적법한 요청이 있는 경우</li>
+          <li>거래의 이행을 위해 필요한 경우(예: PG사·정산은행에 결제·정산 정보 제공)</li>
         </ul>
-        <p>To exercise any of these, email us at <a className="text-brand-300 hover:text-white" href="mailto:privacy@chainwork.kr">privacy@chainwork.kr</a>. We respond within 30 days.</p>
-      </Section>
+      </LegalSection>
 
-      <Section title="9. Children">
-        <p>ChainWork is not directed to children under 16. We do not knowingly collect data from anyone under 16. If you believe a child has signed up, email us and we will delete the account.</p>
-      </Section>
+      <LegalSection title="5. 개인정보 처리업무의 위탁">
+        <ul className="list-disc list-inside space-y-1">
+          <li><strong className="text-white">PG사(결제대행)</strong>: 결제 처리 및 환불</li>
+          <li><strong className="text-white">Supabase</strong>: 인증, 데이터베이스, 파일 저장</li>
+          <li><strong className="text-white">Vercel</strong>: 웹 호스팅 및 CDN</li>
+          <li><strong className="text-white">이메일/SMS 발송 대행사</strong>: 안내·인증 메시지 발송</li>
+        </ul>
+      </LegalSection>
 
-      <Section title="10. International transfers">
-        <p>Our service providers may process data in regions outside your country (typically the United States and the European Union). We rely on standard contractual clauses and equivalent safeguards where required.</p>
-      </Section>
+      <LegalSection title="6. 회원의 권리와 행사 방법">
+        <p>회원은 언제든지 자신의 개인정보를 조회·수정·삭제하거나 처리정지를 요청할 수 있습니다.
+        요청은 서비스 내 프로필 화면 또는 <a className="text-brand-300 hover:text-white" href="mailto:privacy@chainwork.kr">privacy@chainwork.kr</a> 로
+        가능하며, 회사는 지체 없이 조치합니다.</p>
+      </LegalSection>
 
-      <Section title="11. Changes to this policy">
-        <p>We may update this policy as the product evolves. Material changes will be announced on the home page or by email. The &quot;Effective&quot; date above always reflects the current version.</p>
-      </Section>
+      <LegalSection title="7. 개인정보의 안전성 확보 조치">
+        <p>회사는 개인정보 암호화 전송(TLS), 접근 통제, 권한 분리, 데이터베이스 RLS(행 단위 보안), 접속
+        기록 보관 등 기술적·관리적 보호조치를 시행합니다.</p>
+      </LegalSection>
 
-      <Section title="12. Contact">
-        <p>Privacy questions: <a className="text-brand-300 hover:text-white" href="mailto:privacy@chainwork.kr">privacy@chainwork.kr</a></p>
-        <p>General: <a className="text-brand-300 hover:text-white" href="mailto:hello@chainwork.kr">hello@chainwork.kr</a></p>
-      </Section>
+      <LegalSection title="8. 개인정보 보호책임자">
+        <p>성명: 장진우<br/>이메일: <a className="text-brand-300 hover:text-white" href="mailto:privacy@chainwork.kr">privacy@chainwork.kr</a></p>
+      </LegalSection>
 
-      <div className="mt-16 pt-8 border-t border-white/5 text-xs text-white/40">
-        <p>This page is the canonical privacy policy referenced from third-party app registrations (LinkedIn, GitHub, etc.).</p>
-        <p className="mt-1">Canonical URL: <code className="font-mono text-white/70">/#/privacy</code></p>
-      </div>
-    </div>
+      <LegalSection title="9. 처리방침의 변경">
+        <p>본 처리방침은 법령·서비스의 변경에 따라 개정될 수 있으며, 개정 시 서비스 내 공지를 통해
+        안내합니다.</p>
+      </LegalSection>
+    </LegalLayout>
   )
 }
