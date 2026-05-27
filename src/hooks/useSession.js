@@ -119,3 +119,36 @@ export function handleFor(userOrSeed) {
   if (typeof userOrSeed === 'string') return handleFromSeed(stripWeb3Prefix(userOrSeed))
   return handleFromSeed(getWalletAddress(userOrSeed))
 }
+
+// URL-safe slug — lowercase, ASCII letters/digits, dashed. Preserves dashes
+// so the dashed-words fallback (e.g. "swift-falcon-1a2b") survives untouched.
+export function slugify(input) {
+  return String(input || '')
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-+|-+$)/g, '')
+    .slice(0, 60)
+}
+
+/**
+ * Public profile slug for a user / profile row.
+ * Order of preference:
+ *  1. an explicitly stored `public_slug` (if you add that column later)
+ *  2. slugified display_name / LinkedIn name (so "Jin Woo Jang" → "jin-woo-jang")
+ *  3. deterministic dashed-words handle from wallet address / id
+ */
+export function slugFor(profile, user) {
+  if (!profile && !user) return ''
+  const stored = profile?.public_slug && slugify(profile.public_slug)
+  if (stored) return stored
+  const name = profile?.display_name
+    || user?.user_metadata?.name
+    || user?.user_metadata?.full_name
+    || ''
+  const named = slugify(name)
+  if (named) return named
+  const seed = profile?.wallet_address || profile?.id || user?.id || ''
+  return handleFromSeed(stripWeb3Prefix(String(seed)))
+}

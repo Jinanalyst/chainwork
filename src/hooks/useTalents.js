@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { isSupabaseConfigured, supabase } from '../lib/supabase.js'
-import { handleFor } from './useSession.js'
+import { handleFor, slugFor } from './useSession.js'
 
 const ACCENTS = [
   'from-brand-400 to-accent-400',
@@ -63,13 +63,15 @@ const normalizeTalent = (row, index) => {
   // last resort). Used as the display name when the worker hasn't set one.
   const dashedHandle = handleFor(row.wallet_address || row.id)
   const name = row.display_name || dashedHandle || 'ChainWork worker'
+  // Public URL slug — name-based when available, dashed-words otherwise.
+  const publicSlug = slugFor(row) || dashedHandle
   const role = row.title || row.company || 'Verified ChainWork worker'
   const categories = inferCategories(text)
 
   return {
     id: row.id,
     name,
-    handle: dashedHandle || (name || row.id).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+    handle: publicSlug || dashedHandle || (name || row.id).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
     role,
     location: row.location || 'Remote',
     accent: ACCENTS[index % ACCENTS.length],
@@ -96,6 +98,7 @@ export function useTalents() {
     loading: isSupabaseConfigured,
     source: 'profiles',
     error: null,
+    legacyFallback: false,
   })
 
   useEffect(() => {
@@ -105,17 +108,40 @@ export function useTalents() {
       return
     }
 
+    // Two-tier select so the directory still loads on databases that
+    // haven't applied the latest migrations yet. Newest columns first;
+    // if Postgres reports a missing column we retry with the legacy set.
+    const FULL_COLS   = 'id, display_name, public_slug, title, company, location, bio, skills, availability, portfolio_url, avatar_url, wallet_address, updated_at'
+    const LEGACY_COLS = 'id, display_name, company, bio, avatar_url, wallet_address, updated_at'
+
+    const fetchDirectory = async () => {
+      let usedLegacy = false
+      let res = await supabase
+        .from('worker_directory')
+        .select(FULL_COLS)
+        .order('updated_at', { ascending: false })
+        .limit(60)
+      // PostgREST 42703 = undefined_column. Fall back gracefully so a
+      // half-migrated DB still produces a usable Talents page.
+      if (res.error && /column .* does not exist|42703/i.test(res.error.message)) {
+        console.warn('[useTalents] worker_directory missing newer columns — retrying with legacy schema. Apply migrations 0012 + 0013 to fix.')
+        usedLegacy = true
+        res = await supabase
+          .from('worker_directory')
+          .select(LEGACY_COLS)
+          .order('updated_at', { ascending: false })
+          .limit(60)
+      }
+      return { ...res, usedLegacy }
+    }
+
     const load = async () => {
       setState((s) => ({ ...s, loading: true, error: null }))
       try {
-        const { data, error } = await supabase
-          .from('worker_directory')
-          .select('id, display_name, title, company, location, bio, skills, availability, portfolio_url, avatar_url, wallet_address, updated_at')
-          .order('updated_at', { ascending: false })
-          .limit(60)
+        const { data, error, usedLegacy } = await fetchDirectory()
         if (cancelled) return
         if (error) {
-          setState({ talents: [], loading: false, source: 'profiles', error: error.message })
+          setState({ talents: [], loading: false, source: 'profiles', error: error.message, legacyFallback: usedLegacy })
           return
         }
         setState({
@@ -123,10 +149,11 @@ export function useTalents() {
           loading: false,
           source: 'profiles',
           error: null,
+          legacyFallback: usedLegacy,
         })
       } catch (e) {
         if (cancelled) return
-        setState({ talents: [], loading: false, source: 'profiles', error: e?.message || String(e) })
+        setState({ talents: [], loading: false, source: 'profiles', error: e?.message || String(e), legacyFallback: false })
       }
     }
 

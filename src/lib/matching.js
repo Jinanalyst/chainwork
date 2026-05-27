@@ -68,6 +68,29 @@ export function scoreTalent(talent, answers = {}) {
   return score
 }
 
+// Pick worker profile rows whose skills overlap with the categories
+// inferred from a posted task's free-text. Used to fan out offers.
+// If no category match found, falls back to all workers (so a task
+// is never silently dropped on the floor).
+export function pickTargetedWorkers(answers, workers) {
+  if (!Array.isArray(workers) || !workers.length) return []
+  const cats = inferCategories(answers?.workType)
+  const hintSet = new Set(
+    cats.flatMap((c) => CATEGORY_HINTS[c] || []).map((h) => h.toLowerCase()),
+  )
+  const queryToks = tokens(answers?.workType)
+  for (const t of queryToks) hintSet.add(t)
+
+  const matched = workers.filter((w) => {
+    const skills = (w.skills || []).map((s) => String(s).toLowerCase())
+    if (!skills.length) return false
+    return skills.some((s) =>
+      [...hintSet].some((h) => h && (s.includes(h) || h.includes(s))),
+    )
+  })
+  return matched.length ? matched : workers
+}
+
 export function matchTalents(answers, talents, { limit = 4 } = {}) {
   if (!Array.isArray(talents) || !talents.length) return []
   return talents
