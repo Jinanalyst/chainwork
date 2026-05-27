@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { Icon } from './ui.jsx'
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
+import { useT } from '../i18n/index.jsx'
 
 const ETH_INSTALL_URL = 'https://metamask.io/download/'
 const SOL_INSTALL_URL = 'https://phantom.app/download'
@@ -19,16 +20,16 @@ function detectSolanaProvider() {
 
 const STATEMENT = 'I accept the ChainWork Terms of Service'
 
-async function signInEthereum() {
+async function signInEthereum(t) {
   const provider = detectEthProvider()
   if (!provider) {
     window.open(ETH_INSTALL_URL, '_blank', 'noopener,noreferrer')
-    throw new Error('No Ethereum wallet detected. Install MetaMask to continue.')
+    throw new Error(t('auth.signInModal.errors.ethMissing'))
   }
   try {
     await provider.request({ method: 'eth_requestAccounts' })
   } catch (e) {
-    if (e?.code === 4001) throw new Error('You rejected the connection request.')
+    if (e?.code === 4001) throw new Error(t('auth.signInModal.errors.ethRejected'))
     throw e
   }
   try {
@@ -41,55 +42,30 @@ async function signInEthereum() {
     return data
   } catch (e) {
     console.error('[ChainWork] Ethereum sign-in failed:', e)
-    throw new Error(e?.message || 'Ethereum sign-in failed. Please try again.')
+    throw new Error(e?.message || t('auth.signInModal.errors.ethGeneric'))
   }
 }
 
-// Google OAuth — configured via Supabase Dashboard, NOT in this repo.
-//
-// One-time setup required before this button works in prod:
-//   1. Google Cloud Console → APIs & Services → Credentials → OAuth client ID
-//      Authorized redirect URI:
-//        https://<SUPABASE_PROJECT_REF>.supabase.co/auth/v1/callback
-//   2. Supabase Dashboard → Authentication → Providers → Google
-//      - Enable Google
-//      - Paste the Google Client ID and Client Secret
-//        (secrets live in Supabase, never in this repo)
-//   3. Supabase Dashboard → Authentication → URL Configuration
-//      Site URL:     https://chainwork.chainbrief.kr
-//      Redirect URLs:
-//        https://chainwork.chainbrief.kr/**
-//        http://localhost:5173/**     (Vite dev — adjust if you use a different port)
-async function signInGoogle() {
-  if (typeof window === 'undefined') throw new Error('Browser only')
-  // Same redirect strategy as LinkedIn: send the user back to root (no hash
-  // fragment) so detectSessionInUrl can pick up the ?code=... cleanly, then
-  // onAuthStateChange routes them on.
+async function signInGoogle(t) {
+  if (typeof window === 'undefined') throw new Error(t('auth.signInModal.errors.browserOnly'))
   const redirectTo = window.location.origin + window.location.pathname
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
       redirectTo,
-      // Standard Google OIDC scopes — gives us email + name + avatar in
-      // user_metadata, which useProfile.js seeds into the profiles row.
       scopes: 'openid profile email',
       queryParams: { prompt: 'select_account' },
     },
   })
   if (error) {
     console.error('[ChainWork] Google sign-in failed:', error)
-    throw new Error(error.message || 'Google sign-in failed. Please try again.')
+    throw new Error(error.message || t('auth.signInModal.errors.googleGeneric'))
   }
   return data
 }
 
-async function signInLinkedIn() {
-  if (typeof window === 'undefined') throw new Error('Browser only')
-  // IMPORTANT: do NOT include a hash fragment in redirectTo. Supabase
-  // appends ?code=...&state=... and the URL spec puts the query before the
-  // fragment, which can shuffle the order in a way detectSessionInUrl
-  // misses. Send the user back to root; the home page mounts immediately
-  // and onAuthStateChange routes them on from there.
+async function signInLinkedIn(t) {
+  if (typeof window === 'undefined') throw new Error(t('auth.signInModal.errors.browserOnly'))
   const redirectTo = window.location.origin + window.location.pathname
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'linkedin_oidc',
@@ -100,21 +76,18 @@ async function signInLinkedIn() {
   })
   if (error) {
     console.error('[ChainWork] LinkedIn sign-in failed:', error)
-    throw new Error(error.message || 'LinkedIn sign-in failed. Please try again.')
+    throw new Error(error.message || t('auth.signInModal.errors.linkedinGeneric'))
   }
   return data
 }
 
-async function signInSolana() {
+async function signInSolana(t) {
   const provider = detectSolanaProvider()
   if (!provider) {
     window.open(SOL_INSTALL_URL, '_blank', 'noopener,noreferrer')
-    throw new Error('No Solana wallet detected. Install Phantom to continue.')
+    throw new Error(t('auth.signInModal.errors.solMissing'))
   }
   try {
-    // Pass the explicit provider — when multiple Solana wallets are installed,
-    // window.solana may point at a different one than the popup that actually
-    // signs, and supabase-js then hangs waiting on a signature it can't see.
     const { data, error } = await supabase.auth.signInWithWeb3({
       chain: 'solana',
       statement: STATEMENT,
@@ -126,14 +99,12 @@ async function signInSolana() {
     console.error('[ChainWork] Solana sign-in failed:', e)
     const msg = e?.message || ''
     if (/User rejected|User declined|cancelled/i.test(msg)) {
-      throw new Error('You cancelled the signature request.')
+      throw new Error(t('auth.signInModal.errors.solCancelled'))
     }
     if (/invalid formatting/i.test(msg)) {
-      throw new Error(
-        "Your wallet couldn't read the sign-in request. Make sure Phantom is up to date and that 'Sign In With Solana' is enabled in Phantom settings."
-      )
+      throw new Error(t('auth.signInModal.errors.solBadFormat'))
     }
-    throw new Error(msg || 'Solana sign-in failed. Please try again.')
+    throw new Error(msg || t('auth.signInModal.errors.solGeneric'))
   }
 }
 
@@ -144,8 +115,6 @@ const LINKEDIN_ICON = (
     <path d="M8 10v7M8 7v.01M12 17v-4a2 2 0 0 1 4 0v4M12 17v-7" />
   </>
 )
-// Stylized "G" mark — single-stroke so it sits inside our Icon component
-// alongside the other provider glyphs without pulling in a brand SVG.
 const GOOGLE_ICON = (
   <>
     <path d="M12 11h8.5a8 8 0 1 1-2.34-5.66" />
@@ -153,7 +122,7 @@ const GOOGLE_ICON = (
   </>
 )
 
-const SignInButton = ({ name, hint, accent, icon = WALLET_ICON, onClick, busy, disabled }) => (
+const SignInButton = ({ name, hint, accent, icon = WALLET_ICON, onClick, busy, disabled, signingLabel }) => (
   <button
     type="button"
     onClick={onClick}
@@ -175,7 +144,7 @@ const SignInButton = ({ name, hint, accent, icon = WALLET_ICON, onClick, busy, d
       </div>
     </div>
     {busy ? (
-      <span className="text-xs text-white/65">Signing…</span>
+      <span className="text-xs text-white/65">{signingLabel}</span>
     ) : (
       <Icon path={<path d="M9 6l6 6-6 6" />} className="h-5 w-5 text-white/40" />
     )}
@@ -183,7 +152,8 @@ const SignInButton = ({ name, hint, accent, icon = WALLET_ICON, onClick, busy, d
 )
 
 export default function SignInModal({ open, onClose, onSignedIn }) {
-  const [busy, setBusy] = useState(null) // 'eth' | 'sol' | 'google' | 'linkedin' | null
+  const { t } = useT()
+  const [busy, setBusy] = useState(null)
   const [error, setError] = useState(null)
 
   useEffect(() => {
@@ -204,15 +174,24 @@ export default function SignInModal({ open, onClose, onSignedIn }) {
   const handle = async (kind, fn) => {
     setError(null); setBusy(kind)
     try {
-      const data = await fn()
+      const data = await fn(t)
       onSignedIn?.(data)
       onClose()
     } catch (e) {
-      setError(e?.message || 'Sign-in failed. Please try again.')
+      setError(e?.message || t('auth.signInModal.errors.generic'))
     } finally {
       setBusy(null)
     }
   }
+
+  const signingLabel = t('auth.signInModal.signing')
+  const privacyLink = (
+    <a href="#/privacy" className="underline text-white/70 hover:text-white">{t('auth.signInModal.privacyLabel')}</a>
+  )
+  const legalRaw = t('auth.signInModal.legalNote')
+  const [legalBefore, legalAfter] = legalRaw.includes('{{privacy}}')
+    ? legalRaw.split('{{privacy}}')
+    : [legalRaw, '']
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" role="dialog" aria-modal="true">
@@ -222,55 +201,59 @@ export default function SignInModal({ open, onClose, onSignedIn }) {
           <Icon path={<path d="M6 6l12 12M18 6l-12 12" />} className="h-4 w-4" />
         </button>
 
-        <h2 className="text-xl font-bold">Sign in to ChainWork</h2>
-        <p className="mt-1 text-sm text-white/65">프로젝트, 계약, 인재 매칭을 관리하려면 로그인하세요. Sign in with a wallet, Google, or LinkedIn to post tasks, send offers, and get paid.</p>
+        <h2 className="text-xl font-bold">{t('auth.signInModal.title')}</h2>
+        <p className="mt-1 text-sm text-white/65">{t('auth.signInModal.sub')}</p>
 
         {!isSupabaseConfigured && (
           <div className="mt-5 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-            Supabase isn't configured yet. Add <code className="bg-amber-500/20 px-1 rounded">VITE_SUPABASE_ANON_KEY</code> to <code className="bg-amber-500/20 px-1 rounded">.env.local</code> and restart <code className="bg-amber-500/20 px-1 rounded">npm run dev</code>.
+            {t('auth.signInModal.supabaseMissing')}
           </div>
         )}
 
         <div className="mt-6 space-y-3">
           <SignInButton
-            name="Continue with Ethereum"
-            hint={ethAvailable ? 'MetaMask, Coinbase Wallet, Rabby…' : 'No wallet detected — install MetaMask'}
+            name={t('auth.signInModal.withEthereum')}
+            hint={ethAvailable ? t('auth.signInModal.withEthereumHint') : t('auth.signInModal.withEthereumMissing')}
             accent="from-brand-400 to-brand-700"
             busy={busy === 'eth'}
             disabled={!!busy || !isSupabaseConfigured}
+            signingLabel={signingLabel}
             onClick={() => handle('eth', signInEthereum)}
           />
           <SignInButton
-            name="Continue with Solana"
-            hint={solAvailable ? 'Phantom, Solflare…' : 'No wallet detected — install Phantom'}
+            name={t('auth.signInModal.withSolana')}
+            hint={solAvailable ? t('auth.signInModal.withSolanaHint') : t('auth.signInModal.withSolanaMissing')}
             accent="from-violet-500 to-accent-500"
             busy={busy === 'sol'}
             disabled={!!busy || !isSupabaseConfigured}
+            signingLabel={signingLabel}
             onClick={() => handle('sol', signInSolana)}
           />
 
           <div className="flex items-center gap-3 py-1">
             <div className="flex-1 h-px bg-white/10" />
-            <span className="text-[10px] uppercase tracking-[0.2em] text-white/35">or</span>
+            <span className="text-[10px] uppercase tracking-[0.2em] text-white/35">{t('auth.signInModal.orDivider')}</span>
             <div className="flex-1 h-px bg-white/10" />
           </div>
 
           <SignInButton
-            name="Continue with Google"
-            hint="Google로 계속하기 — 가장 빠른 로그인"
+            name={t('auth.signInModal.withGoogle')}
+            hint={t('auth.signInModal.withGoogleHint')}
             accent="from-[#ea4335] via-[#fbbc05] to-[#34a853]"
             icon={GOOGLE_ICON}
             busy={busy === 'google'}
             disabled={!!busy || !isSupabaseConfigured}
+            signingLabel={signingLabel}
             onClick={() => handle('google', signInGoogle)}
           />
           <SignInButton
-            name="Continue with LinkedIn"
-            hint="No wallet needed — uses your LinkedIn name + email"
+            name={t('auth.signInModal.withLinkedin')}
+            hint={t('auth.signInModal.withLinkedinHint')}
             accent="from-[#0a66c2] to-[#0a4a8c]"
             icon={LINKEDIN_ICON}
             busy={busy === 'linkedin'}
             disabled={!!busy || !isSupabaseConfigured}
+            signingLabel={signingLabel}
             onClick={() => handle('linkedin', signInLinkedIn)}
           />
         </div>
@@ -282,9 +265,7 @@ export default function SignInModal({ open, onClose, onSignedIn }) {
         )}
 
         <p className="mt-6 text-[11px] text-white/45 text-center">
-          By continuing you agree to ChainWork's Terms and{' '}
-          <a href="#/privacy" className="underline text-white/70 hover:text-white">Privacy Policy</a>.
-          We never see your private key.
+          {legalBefore}{privacyLink}{legalAfter}
         </p>
       </div>
     </div>
