@@ -28,7 +28,7 @@ export default function LegalLayout({ eyebrow = '약관 및 정책', title, effe
       <div className="mt-16 pt-8 border-t border-white/5 text-xs text-white/40 space-y-1">
         <p>체인 랩스 (Chain Labs) · 대표 장진우 · 사업자등록번호 382-25-02223</p>
         <p>경기도 성남시 중원구 여수울로 50, 406동 403호</p>
-        <p>고객센터 <a className="hover:text-white" href="mailto:support@chainwork.kr">support@chainwork.kr</a></p>
+        <p>고객센터 <a className="hover:text-white" href="mailto:jangj6091@gmail.com">jangj6091@gmail.com</a></p>
       </div>
     </div>
   )

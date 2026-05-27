@@ -91,7 +91,7 @@ export default function Terms() {
       </LegalSection>
 
       <LegalSection title="제12조 (문의)">
-        <p>약관 및 운영 관련 문의는 <a className="text-brand-300 hover:text-white" href="mailto:support@chainwork.kr">support@chainwork.kr</a> 로 연락 주시기 바랍니다.</p>
+        <p>약관 및 운영 관련 문의는 <a className="text-brand-300 hover:text-white" href="mailto:jangj6091@gmail.com">jangj6091@gmail.com</a> 로 연락 주시기 바랍니다.</p>
       </LegalSection>
     </LegalLayout>
   )

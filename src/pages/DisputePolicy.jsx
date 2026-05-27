@@ -24,7 +24,7 @@ export default function DisputePolicy() {
 
       <LegalSection title="2. 분쟁 접수">
         <p>회원은 서비스 내 주문 상세 화면의 [분쟁 신청] 또는 고객센터
-        (<a className="text-brand-300 hover:text-white" href="mailto:support@chainwork.kr">support@chainwork.kr</a>)
+        (<a className="text-brand-300 hover:text-white" href="mailto:jangj6091@gmail.com">jangj6091@gmail.com</a>)
         를 통해 분쟁을 접수할 수 있습니다. 접수 시 다음 자료를 함께 제출해 주시기 바랍니다.</p>
         <ul className="list-disc list-inside space-y-1">
           <li>주문번호 및 거래 상대방 식별 정보</li>

@@ -61,7 +61,7 @@ export default function Privacy() {
 
       <LegalSection title="6. 회원의 권리와 행사 방법">
         <p>회원은 언제든지 자신의 개인정보를 조회·수정·삭제하거나 처리정지를 요청할 수 있습니다.
-        요청은 서비스 내 프로필 화면 또는 <a className="text-brand-300 hover:text-white" href="mailto:privacy@chainwork.kr">privacy@chainwork.kr</a> 로
+        요청은 서비스 내 프로필 화면 또는 <a className="text-brand-300 hover:text-white" href="mailto:jangj6091@gmail.com">jangj6091@gmail.com</a> 로
         가능하며, 회사는 지체 없이 조치합니다.</p>
       </LegalSection>
 
@@ -71,7 +71,7 @@ export default function Privacy() {
       </LegalSection>
 
       <LegalSection title="8. 개인정보 보호책임자">
-        <p>성명: 장진우<br/>이메일: <a className="text-brand-300 hover:text-white" href="mailto:privacy@chainwork.kr">privacy@chainwork.kr</a></p>
+        <p>성명: 장진우<br/>이메일: <a className="text-brand-300 hover:text-white" href="mailto:jangj6091@gmail.com">jangj6091@gmail.com</a></p>
       </LegalSection>
 
       <LegalSection title="9. 처리방침의 변경">

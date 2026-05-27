@@ -59,7 +59,7 @@ export default function RefundPolicy() {
 
       <LegalSection title="7. 환불 신청 방법">
         <p>서비스 내 주문 상세 화면의 [환불 요청] 버튼 또는 고객센터
-        (<a className="text-brand-300 hover:text-white" href="mailto:support@chainwork.kr">support@chainwork.kr</a>)
+        (<a className="text-brand-300 hover:text-white" href="mailto:jangj6091@gmail.com">jangj6091@gmail.com</a>)
         를 통해 신청할 수 있습니다. 신청 시 주문번호, 사유, 첨부자료를 함께 제출해 주시기 바랍니다.</p>
       </LegalSection>
     </LegalLayout>

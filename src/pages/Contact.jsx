@@ -10,16 +10,16 @@ export default function Contact() {
       </p>
 
       <LegalSection title="고객센터">
-        <p>이메일: <a className="text-brand-300 hover:text-white" href="mailto:support@chainwork.kr">support@chainwork.kr</a></p>
-        <p>전화: 070-0000-0000 (평일 10:00 ~ 18:00, 점심시간 12:30 ~ 13:30 제외)</p>
+        <p>이메일: <a className="text-brand-300 hover:text-white" href="mailto:jangj6091@gmail.com">jangj6091@gmail.com</a></p>
+        <p>전화: 010-8932-8539 (평일 10:00 ~ 18:00, 점심시간 12:30 ~ 13:30 제외)</p>
       </LegalSection>
 
       <LegalSection title="문의 유형별 안내">
         <ul className="list-disc list-inside space-y-1">
-          <li>결제·환불: <a className="text-brand-300 hover:text-white" href="mailto:billing@chainwork.kr">billing@chainwork.kr</a></li>
-          <li>개인정보: <a className="text-brand-300 hover:text-white" href="mailto:privacy@chainwork.kr">privacy@chainwork.kr</a></li>
-          <li>분쟁·신고: <a className="text-brand-300 hover:text-white" href="mailto:support@chainwork.kr">support@chainwork.kr</a></li>
-          <li>제휴·미디어: <a className="text-brand-300 hover:text-white" href="mailto:hello@chainwork.kr">hello@chainwork.kr</a></li>
+          <li>결제·환불: <a className="text-brand-300 hover:text-white" href="mailto:jangj6091@gmail.com">jangj6091@gmail.com</a></li>
+          <li>개인정보: <a className="text-brand-300 hover:text-white" href="mailto:jangj6091@gmail.com">jangj6091@gmail.com</a></li>
+          <li>분쟁·신고: <a className="text-brand-300 hover:text-white" href="mailto:jangj6091@gmail.com">jangj6091@gmail.com</a></li>
+          <li>제휴·미디어: <a className="text-brand-300 hover:text-white" href="mailto:jangj6091@gmail.com">jangj6091@gmail.com</a></li>
         </ul>
       </LegalSection>
 
@@ -30,8 +30,8 @@ export default function Contact() {
           <li>사업자등록번호: 382-25-02223</li>
           <li>통신판매업 신고번호: 신고 진행 중 (등록 후 업데이트 예정)</li>
           <li>주소: 경기도 성남시 중원구 여수울로 50, 406동 403호</li>
-          <li>이메일: <a className="text-brand-300 hover:text-white" href="mailto:support@chainwork.kr">support@chainwork.kr</a></li>
-          <li>전화: 070-0000-0000</li>
+          <li>이메일: <a className="text-brand-300 hover:text-white" href="mailto:jangj6091@gmail.com">jangj6091@gmail.com</a></li>
+          <li>전화: 010-8932-8539</li>
         </ul>
       </LegalSection>
 

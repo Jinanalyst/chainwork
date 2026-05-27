@@ -733,8 +733,8 @@ const Footer = () => (
         </p>
         <p>
           <span className="text-white/60">고객센터</span>{' '}
-          <a href="mailto:support@chainwork.kr" className="hover:text-white">support@chainwork.kr</a>{' '}
-          · <span className="text-white/60">전화</span> 070-0000-0000 (평일 10:00~18:00)
+          <a href="mailto:jangj6091@gmail.com" className="hover:text-white">jangj6091@gmail.com</a>{' '}
+          · <span className="text-white/60">전화</span> 010-8932-8539 (평일 10:00~18:00)
         </p>
       </div>
     </div>

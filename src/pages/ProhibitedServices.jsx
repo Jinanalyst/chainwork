@@ -89,7 +89,7 @@ export default function ProhibitedServices() {
 
       <LegalSection title="9. 신고 및 조치">
         <p>금지서비스를 발견한 경우 고객센터
-        (<a className="text-brand-300 hover:text-white" href="mailto:support@chainwork.kr">support@chainwork.kr</a>)
+        (<a className="text-brand-300 hover:text-white" href="mailto:jangj6091@gmail.com">jangj6091@gmail.com</a>)
         로 신고해 주시기 바랍니다. 회사는 위반 사항 확인 시 서비스 삭제, 계정 정지, 정산 보류, 수사기관
         통보 등 필요한 조치를 취합니다.</p>
       </LegalSection>
