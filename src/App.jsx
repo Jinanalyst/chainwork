@@ -24,10 +24,12 @@ import SellerPolicy from './pages/SellerPolicy.jsx'
 import ProhibitedServices from './pages/ProhibitedServices.jsx'
 import Contact from './pages/Contact.jsx'
 import ChainPay from './pages/ChainPay.jsx'
-import EscrowAddressCard from './components/EscrowAddressCard.jsx'
-import PaymentProofForm from './components/PaymentProofForm.jsx'
 import ProMembershipBadge from './components/ProMembershipBadge.jsx'
-import { PLATFORM_WALLETS, proReference, isCurrentUserAdmin } from './lib/platform.js'
+import { isCurrentUserAdmin } from './lib/platform.js'
+import About from './pages/About.jsx'
+import Pricing from './pages/Pricing.jsx'
+import Verification from './pages/Verification.jsx'
+import BusinessInfo from './pages/BusinessInfo.jsx'
 
 const UserChip = ({ user, onSignOut }) => {
   const [open, setOpen] = useState(false)
@@ -103,19 +105,20 @@ const Nav = ({ route, user, onSignIn, onSignOut }) => (
         <Wordmark className="text-xl" />
       </a>
       <nav className="hidden md:flex items-center gap-8 text-sm text-white/70">
-        <a href="#/"        className={'hover:text-white ' + (route === '#/' ? 'text-white' : '')}>Home</a>
-        <a href="#/talents" className={'hover:text-white ' + (route.startsWith('#/talents') ? 'text-white' : '')}>Talents</a>
-        <a href="#/hirer"   className={'hover:text-white ' + ((route.startsWith('#/hirer') || route.startsWith('#/post-task')) ? 'text-white' : '')}>For hirers</a>
-        <a href="#/worker"  className={'hover:text-white ' + (route.startsWith('#/worker') ? 'text-white' : '')}>For workers</a>
-        <a href="#/pay"     className={'hover:text-white ' + (route.startsWith('#/pay') ? 'text-white' : '')}>Pay</a>
+        <a href="#/"          className={'hover:text-white ' + (route === '#/' ? 'text-white' : '')}>홈</a>
+        <a href="#/talents"   className={'hover:text-white ' + (route.startsWith('#/talents') ? 'text-white' : '')}>전문가 찾기</a>
+        <a href="#/hirer"     className={'hover:text-white ' + ((route.startsWith('#/hirer') || route.startsWith('#/post-task')) ? 'text-white' : '')}>기업 회원</a>
+        <a href="#/worker"    className={'hover:text-white ' + (route.startsWith('#/worker') ? 'text-white' : '')}>전문가 회원</a>
+        <a href="#/pricing"   className={'hover:text-white ' + (route.startsWith('#/pricing') ? 'text-white' : '')}>요금 안내</a>
+        <a href="#/about"     className={'hover:text-white ' + (route.startsWith('#/about') ? 'text-white' : '')}>소개</a>
       </nav>
       <div className="flex items-center gap-3">
         {user ? (
           <UserChip user={user} onSignOut={onSignOut} />
         ) : (
           <>
-            <button onClick={onSignIn} className="hidden sm:inline text-sm text-white/80 hover:text-white">Sign in</button>
-            <button onClick={onSignIn} className="btn-primary !py-2 !px-4 text-sm">Connect wallet</button>
+            <button onClick={onSignIn} className="hidden sm:inline text-sm text-white/80 hover:text-white">로그인</button>
+            <button onClick={onSignIn} className="btn-primary !py-2 !px-4 text-sm">시작하기</button>
           </>
         )}
       </div>
@@ -131,8 +134,8 @@ const AuthGate = ({ title, sub, onSignIn }) => (
       </div>
       <h1 className="text-2xl md:text-3xl font-bold">{title}</h1>
       <p className="mt-2 text-white/65">{sub}</p>
-      <button onClick={onSignIn} className="btn-primary mt-8 mx-auto">Connect wallet</button>
-      <p className="mt-4 text-xs text-white/45">Ethereum &amp; Solana supported · no email needed</p>
+      <button onClick={onSignIn} className="btn-primary mt-8 mx-auto">로그인</button>
+      <p className="mt-4 text-xs text-white/45">이메일·LinkedIn 등 다양한 방식으로 로그인할 수 있습니다.</p>
     </div>
   </section>
 )
@@ -143,28 +146,28 @@ const Hero = () => (
     <div className="relative mx-auto max-w-7xl px-6 pt-20 pb-28 md:pt-28 md:pb-36 text-center">
       <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs text-white/80 mb-6">
         <span className="h-1.5 w-1.5 rounded-full bg-accent-400 animate-pulse" />
-        Now in early access · Post a task in under 60 seconds
+        업무 매칭 플랫폼 · 원화(KRW) 결제 지원 예정
       </div>
       <h1 className="text-4xl md:text-6xl lg:text-7xl font-extrabold leading-[1.05] tracking-tight">
         <Wordmark className="text-4xl md:text-6xl lg:text-7xl" />
       </h1>
       <p className="mt-6 text-2xl md:text-3xl font-semibold text-white/90 max-w-3xl mx-auto leading-snug">
-        Small tasks. <span className="gradient-text">Trusted workers.</span> Flexible payments.
+        검증된 프리랜서와 <span className="gradient-text">비즈니스 파트너</span>를 연결하세요.
       </p>
       <p className="mt-5 text-base md:text-lg text-white/70 max-w-2xl mx-auto">
-        Web builds, bug fixes, AI automation, Web3 projects, and launch support —
-        matched with trusted workers. Post a task, compare offers, and get it done safely.
+        건별 프로젝트, 월간 파트너 계약, 업무 대금 결제를 하나의 플랫폼에서 관리할 수 있습니다.
+        디자인, 개발, 마케팅, 콘텐츠, 운영 업무를 안전하게 외주해 보세요.
       </p>
       <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
         <a href="#/post-task" className="btn-primary">
-          Post a task
+          프로젝트 등록
           <Icon path={<path d="M5 12h14M13 5l7 7-7 7" />} className="h-4 w-4" />
         </a>
-        <a href="#categories" className="btn-ghost">Browse categories</a>
+        <a href="#categories" className="btn-ghost">카테고리 살펴보기</a>
       </div>
       <div className="mt-12 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-xs text-white/50">
-        <span className="uppercase tracking-[0.2em]">Popular today</span>
-        {['Landing page', 'Vercel deploy fix', 'AI chatbot', 'Wallet connect UI', 'PWA setup', 'Domain + email setup'].map((t) => (
+        <span className="uppercase tracking-[0.2em]">인기 업무</span>
+        {['랜딩 페이지 제작', 'SaaS MVP 개발', 'AI 챗봇 구축', '브랜드 디자인', '퍼포먼스 광고 운영', '월간 콘텐츠 운영'].map((t) => (
           <a key={t} href="#categories" className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 hover:border-white/25 hover:text-white transition">
             {t}
           </a>
@@ -176,34 +179,24 @@ const Hero = () => (
 
 const HowItWorks = () => {
   const steps = [
-    {
-      title: 'Post a task',
-      body: 'Describe what you need in plain English — a landing page, a bug fix, an AI chatbot, a wallet UI. Set your budget and timeline.',
-      icon: <><path d="M4 6h16M4 12h10M4 18h7" /></>,
-    },
-    {
-      title: 'Compare offers',
-      body: 'Trusted workers send focused offers with price, turnaround, and reputation. Pick the one that fits — no bidding wars, no spam.',
-      icon: <><path d="M3 6h7v12H3zM14 6h7v8h-7zM14 18h7" /></>,
-    },
-    {
-      title: 'Get it done safely',
-      body: 'Your payment is held in escrow until the work is approved. The worker ships, you confirm, the payment releases — disputes handled fairly.',
-      icon: <><path d="M12 2l8 4v6c0 5-3.5 9-8 10-4.5-1-8-5-8-10V6z" /><path d="M9 12l2 2 4-4" /></>,
-    },
+    { title: '프로젝트 등록', body: '필요한 업무 내용, 일정, 예산을 입력해 프로젝트를 등록합니다.', icon: <><path d="M4 6h16M4 12h10M4 18h7" /></> },
+    { title: '전문가/파트너 지원', body: '검증된 프리랜서와 파트너가 제안서를 보내옵니다.', icon: <><path d="M3 6h7v12H3zM14 6h7v8h-7zM14 18h7" /></> },
+    { title: '프로필 검토 및 합의', body: '경력, 포트폴리오, 평점을 확인하고 업무 범위를 합의합니다.', icon: <><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></> },
+    { title: '원화(KRW) 결제', body: 'PG사를 통해 신용카드·계좌이체·간편결제로 결제합니다. 금액은 작업보호금으로 보관됩니다.', icon: <><rect x="2" y="6" width="20" height="12" rx="2" /><path d="M2 10h20" /></> },
+    { title: '업무 진행 및 검수', body: '전문가가 업무를 수행하고 산출물을 제출하면 의뢰자가 검수합니다.', icon: <><path d="M5 12l5 5L20 7" /></> },
+    { title: '최종 확인 및 정산', body: '검수 승인 또는 자동 승인 후 서비스 정책에 따라 정산이 처리됩니다.', icon: <><path d="M12 2l8 4v6c0 5-3.5 9-8 10-4.5-1-8-5-8-10V6z" /><path d="M9 12l2 2 4-4" /></> },
   ]
   return (
     <section id="how" className="relative py-24">
       <div className="mx-auto max-w-7xl px-6">
         <div className="text-center mb-14">
-          <div className="text-xs uppercase tracking-[0.2em] text-accent-400 mb-3">How it works</div>
-          <h2 className="text-3xl md:text-5xl font-bold">Post. Compare. Done safely.</h2>
+          <div className="text-xs uppercase tracking-[0.2em] text-accent-400 mb-3">How ChainWork Works</div>
+          <h2 className="text-3xl md:text-5xl font-bold">등록 → 매칭 → 검수 → 정산</h2>
           <p className="mt-4 text-white/70 max-w-2xl mx-auto">
-            From the brief to the payout, ChainWork handles the middle so you can focus on the work itself.
+            업무 의뢰부터 정산까지 ChainWork가 중간 단계를 안전하게 관리합니다.
           </p>
         </div>
-        <div className="grid md:grid-cols-3 gap-6 relative">
-          <div className="hidden md:block absolute top-12 left-[16%] right-[16%] h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {steps.map((s, i) => (
             <div key={s.title} className="card relative">
               <div className="flex items-center gap-3 mb-4">
@@ -379,12 +372,20 @@ const Categories = () => {
 const Trust = () => (
   <section className="py-20">
     <div className="mx-auto max-w-7xl px-6">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+      <div className="text-center mb-10">
+        <div className="text-xs uppercase tracking-[0.2em] text-accent-400 mb-3">신뢰 요소</div>
+        <h2 className="text-2xl md:text-4xl font-bold">안심하고 외주할 수 있는 이유</h2>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          ['Escrow-protected', 'Your payment is held safely until the work is approved'],
-          ['Trusted workers', 'Verified profiles with a reputation history you can check'],
-          ['Stablecoin payments', 'Settle in USDC or USDT — instant, borderless, predictable'],
-          ['Fair disputes', 'Neutral resolution with a clear, documented record'],
+          ['검증된 프로필', '본인 인증, 사업자 인증, 포트폴리오 검토를 통과한 회원'],
+          ['명확한 업무 범위', '합의된 산출물·일정·금액을 시스템에 기록'],
+          ['투명한 요금', '모든 수수료는 사전 공지 — 숨겨진 비용 없음'],
+          ['환불·분쟁 정책', '단계별 환불 기준과 객관적 자료 기반의 분쟁 처리'],
+          ['고객 지원', '평일 10:00 ~ 18:00 운영 · 이메일 · 전화'],
+          ['사업자 정보 공개', '상호, 대표자, 사업자등록번호, 주소를 상시 공개'],
+          ['안전한 KRW 결제', '결제대행사(PG)를 통한 신용카드·계좌이체·간편결제'],
+          ['작업보호금 보관', '검수 승인 또는 분쟁 해결 시까지 대금을 별도 보관'],
         ].map(([k, v]) => (
           <div key={k} className="card">
             <div className="text-sm font-semibold text-white">{k}</div>
@@ -402,14 +403,14 @@ const TwoSides = () => (
       <div id="talent" className="card p-8 md:p-10 relative overflow-hidden">
         <div className="absolute -top-20 -right-20 h-64 w-64 rounded-full bg-brand-500/20 blur-3xl" />
         <div className="relative">
-          <div className="text-xs uppercase tracking-[0.2em] text-brand-300 mb-3">For business owners</div>
-          <h3 className="text-3xl font-bold">Post a task. Get offers in minutes.</h3>
+          <div className="text-xs uppercase tracking-[0.2em] text-brand-300 mb-3">기업 회원</div>
+          <h3 className="text-3xl font-bold">프로젝트 등록 후 몇 분 안에 제안서를 받아보세요.</h3>
           <ul className="mt-6 space-y-3 text-white/80">
             {[
-              'Describe the task in plain English — we match you with trusted workers',
-              'Compare price, turnaround, and reputation side-by-side',
-              'Escrow protects your budget until the work is approved',
-              'Pay in USDC or USDT — escrow-held until you approve',
+              '필요한 업무를 설명하면 검증된 전문가를 매칭',
+              '가격·일정·평점을 한눈에 비교',
+              '월간 파트너 계약으로 장기 협업도 안정적으로 관리',
+              '원화(KRW) 결제 · 작업보호금으로 안전 보관',
             ].map((t) => (
               <li key={t} className="flex gap-3">
                 <Icon path={<path d="M5 12l5 5L20 7" />} className="h-5 w-5 text-accent-400 shrink-0 mt-0.5" />
@@ -418,22 +419,22 @@ const TwoSides = () => (
             ))}
           </ul>
           <div className="mt-8 flex flex-wrap gap-3">
-            <a href="#/post-task" className="btn-primary">Post a task</a>
-            <a href="#/hirer" className="btn-ghost">Open hirer dashboard</a>
+            <a href="#/post-task" className="btn-primary">프로젝트 등록</a>
+            <a href="#/hirer" className="btn-ghost">기업 대시보드</a>
           </div>
         </div>
       </div>
       <div id="work" className="card p-8 md:p-10 relative overflow-hidden">
         <div className="absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-accent-500/20 blur-3xl" />
         <div className="relative">
-          <div className="text-xs uppercase tracking-[0.2em] text-accent-400 mb-3">For workers</div>
-          <h3 className="text-3xl font-bold">Pick tasks. Ship work. Get paid your way.</h3>
+          <div className="text-xs uppercase tracking-[0.2em] text-accent-400 mb-3">전문가 회원</div>
+          <h3 className="text-3xl font-bold">자신 있는 분야의 업무를 골라 안정적으로 수익을 만드세요.</h3>
           <ul className="mt-6 space-y-3 text-white/80">
             {[
-              'Browse tasks that match your skills — builds, fixes, AI, Web3, launch',
-              'Send focused offers, no bidding wars',
-              'Build a reputation that follows you across projects',
-              'Withdraw the moment a task is approved — no long holds',
+              '디자인·개발·AI·마케팅·콘텐츠·운영 등 다양한 카테고리',
+              '경쟁 입찰 없이 핵심 제안서만 전달',
+              '평판이 누적되어 다음 프로젝트로 이어짐',
+              '검수 승인 후 원화로 빠르게 정산',
             ].map((t) => (
               <li key={t} className="flex gap-3">
                 <Icon path={<path d="M5 12l5 5L20 7" />} className="h-5 w-5 text-accent-400 shrink-0 mt-0.5" />
@@ -441,70 +442,51 @@ const TwoSides = () => (
               </li>
             ))}
           </ul>
-          <a href="#/join-as-worker" className="btn-ghost mt-8">Join as a worker</a>
+          <a href="#/join-as-worker" className="btn-ghost mt-8">전문가로 가입</a>
         </div>
       </div>
     </div>
   </section>
 )
 
-const TokenBadge = ({ sym, name, tint }) => (
-  <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-    <div className={`h-10 w-10 rounded-full grid place-items-center text-sm font-bold text-white shadow-inner ${tint}`}>
-      {sym === 'USDC' ? '$' : '₮'}
-    </div>
-    <div className="min-w-0">
-      <div className="font-semibold">{sym}</div>
-      <div className="text-xs text-white/55">{name}</div>
-    </div>
-  </div>
-)
-
-const ReleaseFlow = ({ left, right, rightEmphasis = true }) => (
-  <div className="mt-5 flex items-center gap-2">
-    <div className="flex-1 rounded-full bg-white/[0.04] border border-white/10 px-3 py-2 text-center text-xs text-white/75">
-      {left}
-    </div>
-    <Icon path={<path d="M5 12h14M13 5l7 7-7 7" />} className="h-4 w-4 text-white/45 shrink-0" />
-    <div className={
-      'flex-1 rounded-full px-3 py-2 text-center text-xs border ' +
-      (rightEmphasis
-        ? 'bg-brand-500/15 border-brand-400/30 text-brand-200'
-        : 'bg-accent-500/15 border-accent-500/30 text-accent-200')
-    }>
-      {right}
-    </div>
-  </div>
-)
-
 const Payments = () => {
   const structures = [
     {
       key: 'completion',
-      pill: 'Most popular',
-      title: 'Pay on completion',
-      blurb: '100% of the budget sits in escrow when the task starts, then releases the moment you approve the work.',
-      flow: { left: 'Escrow funded', right: '100% on approval', emphasis: true },
+      pill: '가장 많이 선택',
+      title: '완료기반 정산',
+      blurb: '결제 금액 전액을 작업보호금으로 보관한 뒤, 의뢰자가 검수 승인하면 정산됩니다.',
       bullets: [
-        'Lowest risk for hirers — pay only for what ships',
-        'Best for short, well-defined tasks',
-        'Workers know the full budget is already locked in',
+        '의뢰자는 산출물 확인 후 지급 — 위험 최소화',
+        '명확한 업무 범위의 단건 프로젝트에 적합',
+        '전문가는 결제 완료 상태를 사전에 확인 가능',
       ],
       accent: 'from-brand-400/30 to-brand-500/10',
       icon: <><path d="M5 12l5 5L20 7" /></>,
     },
     {
-      key: 'split',
-      title: 'Split 50 / 50',
-      blurb: '50% releases to the worker at kickoff, the remaining 50% on final approval.',
-      flow: { left: '50% at kickoff', right: '50% on approval', emphasis: false },
+      key: 'milestone',
+      title: '마일스톤 정산',
+      blurb: '작업을 단계별로 나누어 각 단계 완료 시 결제·정산합니다. 장기 프로젝트에 권장.',
       bullets: [
-        'Shares risk evenly between both sides',
-        'Signals commitment for longer builds',
-        'Common for first-time client / worker pairings',
+        '단계별 검수 — 양측의 부담 분산',
+        '대규모 프로젝트의 진행 가시성 확보',
+        '단계별 변경 사항을 합의로 관리',
       ],
       accent: 'from-accent-400/30 to-accent-500/10',
       icon: <><path d="M3 12h18M12 3v18" /></>,
+    },
+    {
+      key: 'retainer',
+      title: '월간 파트너 계약',
+      blurb: '매월 동일 금액으로 지속적인 업무를 의뢰하는 리테이너 계약. 갱신 전 언제든 해지 가능.',
+      bullets: [
+        '장기 협업 파트너십 관리',
+        '월별 업무 보고 및 정산 자동화',
+        '월 단위 일할 환불 정책 적용',
+      ],
+      accent: 'from-emerald-400/30 to-brand-500/10',
+      icon: <><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></>,
     },
   ]
 
@@ -512,18 +494,19 @@ const Payments = () => {
     <section id="payments" className="py-24">
       <div className="mx-auto max-w-7xl px-6">
         <div className="text-center mb-12">
-          <div className="text-xs uppercase tracking-[0.2em] text-accent-400 mb-3">Stablecoin payments</div>
-          <h2 className="text-3xl md:text-5xl font-bold">Held in escrow. Released on approval.</h2>
+          <div className="text-xs uppercase tracking-[0.2em] text-accent-400 mb-3">결제 구조</div>
+          <h2 className="text-3xl md:text-5xl font-bold">원화(KRW) 결제 · 작업보호금 보관</h2>
           <p className="mt-4 text-white/70 max-w-2xl mx-auto">
-            Settle in <span className="text-white font-semibold">USDC</span> or <span className="text-white font-semibold">USDT</span> — predictable, borderless, and instant. Pick the release structure that fits the work.
+            결제대행사(PG)를 통한 신용카드, 계좌이체, 간편결제를 지원하며, 결제 금액은 검수 승인 또는
+            분쟁 해결 시까지 작업보호금으로 안전하게 보관됩니다.
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-5">
+        <div className="grid md:grid-cols-3 gap-5">
           {structures.map((s) => (
             <div key={s.key} className="card relative overflow-hidden">
               {s.pill && (
-                <span className="absolute top-5 right-5 inline-flex items-center rounded-full bg-accent-500/20 border border-accent-500/40 text-accent-200 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5">
+                <span className="absolute top-5 right-5 inline-flex items-center rounded-full bg-accent-500/20 border border-accent-500/40 text-accent-200 text-[10px] font-semibold tracking-wider px-2 py-0.5">
                   {s.pill}
                 </span>
               )}
@@ -532,7 +515,6 @@ const Payments = () => {
               </div>
               <h3 className="text-xl font-semibold">{s.title}</h3>
               <p className="mt-2 text-sm text-white/70 leading-relaxed">{s.blurb}</p>
-              <ReleaseFlow left={s.flow.left} right={s.flow.right} rightEmphasis={s.flow.emphasis} />
               <ul className="mt-5 space-y-2">
                 {s.bullets.map((b) => (
                   <li key={b} className="flex gap-2 text-sm text-white/80">
@@ -545,15 +527,9 @@ const Payments = () => {
           ))}
         </div>
 
-        <div className="mt-14">
-          <div className="text-center text-xs uppercase tracking-[0.2em] text-white/45 mb-5">Supported stablecoins</div>
-          <div className="grid sm:grid-cols-2 gap-4 max-w-xl mx-auto">
-            <TokenBadge sym="USDC" name="USD Coin" tint="bg-gradient-to-br from-brand-400 to-brand-700" />
-            <TokenBadge sym="USDT" name="Tether"   tint="bg-gradient-to-br from-accent-400 to-accent-700" />
-          </div>
-          <div className="text-center text-xs text-white/45 mt-5">
-            Available on Ethereum, Solana, Base &amp; Polygon · gas covered by the platform on first withdrawal
-          </div>
+        <div className="mt-10 text-center text-xs text-white/45">
+          ※ 결제대행사(PG) 연동을 준비 중입니다. 정식 승인 이후 KRW 결제가 활성화됩니다. 자세한 요금은{' '}
+          <a href="#/pricing" className="text-brand-300 hover:text-white">요금 안내</a>를 참고해 주세요.
         </div>
       </div>
     </section>
@@ -561,17 +537,14 @@ const Payments = () => {
 }
 
 const CTA = () => {
-  const PRICE_PER_HIRE = 300
+  const PRICE_PER_HIRE_KRW = 400000
   const MIN_HIRES = 1
   const MAX_HIRES = 100
   const [hires, setHires] = useState(5)
-  const [showPay, setShowPay] = useState(false)
   const { user } = useSession()
-  const total = hires * PRICE_PER_HIRE
+  const total = hires * PRICE_PER_HIRE_KRW
   const percent = ((hires - MIN_HIRES) / (MAX_HIRES - MIN_HIRES)) * 100
-  const estimatedStandardFees = hires * 2500 * 0.10
-  const savings = Math.max(0, estimatedStandardFees - total)
-  const proRef = proReference(user, hires)
+  const fmt = (n) => '₩' + n.toLocaleString('ko-KR')
 
   return (
     <section id="pro" className="py-24">
@@ -582,19 +555,20 @@ const CTA = () => {
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-accent-400/40 bg-accent-400/10 px-3 py-1 text-xs uppercase tracking-[0.18em] text-accent-200">
                 <span className="h-1.5 w-1.5 rounded-full bg-accent-300" />
-                ChainWork Pro
+                기업 Pro 멤버십
               </div>
               <h2 className="mt-4 text-3xl md:text-5xl font-bold leading-tight">
-                Hire more, <span className="bg-gradient-to-r from-brand-300 to-accent-300 bg-clip-text text-transparent">pay less</span>.
+                더 많이 채용, <span className="bg-gradient-to-r from-brand-300 to-accent-300 bg-clip-text text-transparent">더 합리적으로</span>.
               </h2>
               <p className="mt-4 text-white/75 max-w-lg">
-                ChainWork Pro is a yearly membership built for teams that hire at scale. Replace per‑contract platform fees with a flat annual rate — just <span className="text-white font-semibold">$300 per hire</span>, billed once a year.
+                ChainWork Pro는 연간 채용이 많은 팀을 위한 멤버십입니다. 건별 플랫폼 수수료 대신, 채용
+                1건당 <span className="text-white font-semibold">₩400,000</span>의 정액 요금으로 연간 결제합니다.
               </p>
               <ul className="mt-6 space-y-2 text-sm text-white/75">
                 {[
-                  'Flat $300 / hire / year — no per‑task platform fees',
-                  'Priority access to vetted talent & faster escrow release',
-                  'Dedicated account manager and dispute fast‑track',
+                  '채용 1건당 정액 — 건별 플랫폼 수수료 부담 해소',
+                  '검증된 전문가 우선 매칭 및 빠른 정산',
+                  '전담 매니저의 분쟁 패스트트랙 지원',
                 ].map((b) => (
                   <li key={b} className="flex items-start gap-2">
                     <Icon path={<path d="M5 12l5 5L20 7" />} className="h-4 w-4 text-accent-300 shrink-0 mt-0.5" />
@@ -612,7 +586,7 @@ const CTA = () => {
 
             <div className="rounded-2xl border border-white/10 bg-ink-900/70 backdrop-blur p-6 md:p-8">
               <div className="flex items-baseline justify-between">
-                <div className="text-xs uppercase tracking-[0.2em] text-white/50">Freelancers to hire</div>
+                <div className="text-xs uppercase tracking-[0.2em] text-white/50">연간 채용 예상 인원</div>
                 <div className="font-mono text-2xl font-bold tabular-nums">{hires}</div>
               </div>
 
@@ -626,7 +600,7 @@ const CTA = () => {
                   onChange={(e) => setHires(Number(e.target.value))}
                   className="cw-range w-full"
                   style={{ '--cw-range-fill': `${percent}%` }}
-                  aria-label="Number of freelancers to hire per year"
+                  aria-label="연간 채용 인원"
                 />
                 <div className="mt-2 flex justify-between text-[11px] text-white/40 font-mono">
                   <span>{MIN_HIRES}</span>
@@ -639,60 +613,26 @@ const CTA = () => {
 
               <div className="mt-6 rounded-xl border border-white/10 bg-white/[0.03] p-5">
                 <div className="flex items-center justify-between text-sm text-white/70">
-                  <span>{hires} × $300 / year</span>
-                  <span className="font-mono tabular-nums">${total.toLocaleString()}</span>
+                  <span>{hires} × ₩400,000 / 년</span>
+                  <span className="font-mono tabular-nums">{fmt(total)}</span>
                 </div>
                 <div className="mt-3 flex items-baseline justify-between">
-                  <span className="text-xs uppercase tracking-[0.2em] text-white/50">Yearly membership</span>
-                  <span className="font-mono text-4xl font-bold tabular-nums bg-gradient-to-r from-brand-300 to-accent-300 bg-clip-text text-transparent">
-                    ${total.toLocaleString()}
+                  <span className="text-xs uppercase tracking-[0.2em] text-white/50">연간 멤버십</span>
+                  <span className="font-mono text-3xl md:text-4xl font-bold tabular-nums bg-gradient-to-r from-brand-300 to-accent-300 bg-clip-text text-transparent">
+                    {fmt(total)}
                   </span>
                 </div>
-                {savings > 0 && (
-                  <div className="mt-3 text-xs text-accent-200">
-                    Est. savings vs. standard fees: <span className="font-mono">${savings.toLocaleString()}</span> / year
-                  </div>
-                )}
+                <div className="mt-3 text-[11px] text-white/45">부가세(VAT) 별도</div>
               </div>
 
-              <button
-                onClick={() => setShowPay((v) => !v)}
-                className="btn-primary mt-6 w-full justify-center"
-              >
-                {showPay ? 'Hide payment details' : 'Get ChainWork Pro'}
-              </button>
-              <p className="mt-3 text-center text-xs text-white/45">Billed yearly · cancel before renewal anytime</p>
+              <a href="#/pricing" className="btn-primary mt-6 w-full justify-center">
+                요금 안내 보기
+              </a>
+              <p className="mt-3 text-center text-xs text-white/45">
+                결제대행사(PG) 연동 준비 중 · 정식 승인 이후 KRW 결제 활성화
+              </p>
             </div>
           </div>
-
-          {showPay && (
-            <div className="relative mt-10 grid md:grid-cols-2 gap-6">
-              <div className="rounded-2xl border border-white/10 bg-ink-900/70 backdrop-blur p-6">
-                <div className="flex items-center justify-between gap-3 mb-3">
-                  <div>
-                    <div className="text-[11px] uppercase tracking-[0.2em] text-white/50">Membership reference</div>
-                    <code className="block mt-1 text-lg font-mono font-semibold text-accent-200">{proRef}</code>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-[11px] uppercase tracking-[0.2em] text-white/50">To pay</div>
-                    <div className="font-mono text-xl font-bold tabular-nums">${total.toLocaleString()}</div>
-                  </div>
-                </div>
-                <p className="text-xs text-white/55 leading-relaxed mb-4">
-                  This reference encodes your account and the <span className="text-white">{hires}-hire</span> plan. Include it as the transaction memo so we activate the right membership.
-                </p>
-                <div className="grid sm:grid-cols-1 gap-3">
-                  {PLATFORM_WALLETS.map((w) => (
-                    <EscrowAddressCard key={w.id} wallet={w} reference={proRef} />
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <PaymentProofForm reference={proRef} kind="pro-membership" amount={`$${total.toLocaleString()}`} />
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </section>
@@ -708,14 +648,18 @@ const Footer = () => (
           <span>© {new Date().getFullYear()} <Wordmark className="text-sm" /></span>
         </div>
         <nav className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs md:text-sm">
+          <a href="#/about" className="hover:text-white">소개</a>
+          <a href="#/pricing" className="hover:text-white">요금 안내</a>
+          <a href="#/verification" className="hover:text-white">전문가 검증</a>
           <a href="#/terms" className="hover:text-white">이용약관</a>
           <a href="#/privacy" className="hover:text-white">개인정보처리방침</a>
-          <a href="#/refund-policy" className="hover:text-white">환불정책</a>
           <a href="#/payment-policy" className="hover:text-white">결제정책</a>
-          <a href="#/service-policy" className="hover:text-white">서비스정책</a>
+          <a href="#/refund-policy" className="hover:text-white">환불정책</a>
           <a href="#/dispute-policy" className="hover:text-white">분쟁처리</a>
+          <a href="#/service-policy" className="hover:text-white">서비스정책</a>
           <a href="#/seller-policy" className="hover:text-white">판매자정책</a>
           <a href="#/prohibited-services" className="hover:text-white">금지서비스</a>
+          <a href="#/business-info" className="hover:text-white">사업자정보</a>
           <a href="#/contact" className="hover:text-white">고객지원</a>
         </nav>
       </div>
@@ -735,6 +679,10 @@ const Footer = () => (
           <span className="text-white/60">고객센터</span>{' '}
           <a href="mailto:jangj6091@gmail.com" className="hover:text-white">jangj6091@gmail.com</a>{' '}
           · <span className="text-white/60">전화</span> 010-8932-8539 (평일 10:00~18:00)
+        </p>
+        <p className="text-white/35 mt-2">
+          ChainWork는 기업과 프리랜서·파트너를 연결하는 업무 매칭 플랫폼이며, 통신판매중개자로서 거래의
+          당사자가 아닙니다. 결제대행사(PG) 연동을 준비 중이며, 정식 승인 이후 KRW 결제가 활성화됩니다.
         </p>
       </div>
     </div>
@@ -825,7 +773,15 @@ export default function App() {
   const needsAuth = isOnboarding || route.startsWith('#/worker') || route.startsWith('#/hirer') || route.startsWith('#/admin')
 
   let page
-  if (route.startsWith('#/privacy')) {
+  if (route.startsWith('#/about')) {
+    page = <About />
+  } else if (route.startsWith('#/pricing')) {
+    page = <Pricing />
+  } else if (route.startsWith('#/verification')) {
+    page = <Verification />
+  } else if (route.startsWith('#/business-info')) {
+    page = <BusinessInfo />
+  } else if (route.startsWith('#/privacy')) {
     page = <Privacy />
   } else if (route.startsWith('#/terms')) {
     page = <Terms />
