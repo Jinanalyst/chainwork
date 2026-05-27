@@ -251,7 +251,7 @@ export default function Talents() {
   return (
     <section className="py-20">
       <div className="mx-auto max-w-7xl px-6">
-        {import.meta.env.DEV && legacyFallback && (
+        {legacyFallback && (
           <div className="mb-6 rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100 flex items-start gap-3">
             <Icon
               path={<><path d="M12 9v4" /><path d="M12 17h.01" /><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /></>}
@@ -267,7 +267,6 @@ export default function Talents() {
                 {' '}+ <code className="bg-amber-500/20 rounded px-1">0013_public_slug.sql</code> in
                 the Supabase SQL editor.
               </p>
-              <p className="mt-1 text-[11px] text-amber-200/70">Visible in dev only.</p>
             </div>
           </div>
         )}

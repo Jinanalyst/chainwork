@@ -89,15 +89,24 @@ export default function JoinAsWorker() {
         const slugBase = slugify(displayName) || handleFor(user)
         const slug = profile?.public_slug || await reserveUniqueSlug(slugBase, profile?.id)
 
+        // Build a partial patch — only include fields the user actually
+        // filled in. Without this, blank answers would overwrite existing
+        // profile data (e.g. clear skills the user set elsewhere).
         const patch = {
-          role:          'worker',
-          title:         answers.role?.trim()         || null,
-          skills:        parseSkills(answers.skills),
-          portfolio_url: answers.portfolio?.trim()    || null,
-          experience:    answers.experience?.trim()   || null,
-          bio:           answers.experience?.trim()   || null,
-          availability:  answers.availability?.trim() || null,
+          role:           'worker',
+          role_chosen_at: profile?.role_chosen_at || new Date().toISOString(),
         }
+        if (displayName && !profile?.display_name) patch.display_name = displayName
+        const title = answers.role?.trim()
+        if (title) patch.title = title
+        const skills = parseSkills(answers.skills)
+        if (skills.length) patch.skills = skills
+        const portfolio = answers.portfolio?.trim()
+        if (portfolio) patch.portfolio_url = portfolio
+        const experience = answers.experience?.trim()
+        if (experience) { patch.experience = experience; patch.bio = experience }
+        const availability = answers.availability?.trim()
+        if (availability) patch.availability = availability
         // Only include public_slug if the column exists (reserve returns
         // null when migration 0013 hasn't been applied).
         if (slug) patch.public_slug = slug
