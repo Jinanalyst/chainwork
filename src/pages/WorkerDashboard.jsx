@@ -9,9 +9,11 @@ import ShareProfileModal from '../components/ShareProfileModal.jsx'
 import ReviewsModal from '../components/ReviewsModal.jsx'
 import StarRating from '../components/StarRating.jsx'
 import { useTasks } from '../hooks/useTasks.js'
+import { useOffers } from '../hooks/useOffers.js'
 import { useTaskStore } from '../hooks/useTaskStore.js'
 import { taskStore } from '../lib/taskStore.js'
-import { useSession, getWalletAddress, shortAddress, handleFor } from '../hooks/useSession.js'
+import { useSession, getWalletAddress, shortAddress, handleFor, slugFor, slugify } from '../hooks/useSession.js'
+import { supabase } from '../lib/supabase.js'
 import { useProfile } from '../hooks/useProfile.js'
 import { isLiveChatReady } from '../lib/liveChat.js'
 import LiveChatPanel from '../components/LiveChatPanel.jsx'
@@ -31,6 +33,38 @@ const STATS = [
 
 const ME = { name: '' }
 
+// Probe public_slug uniqueness against Supabase and return a free variant.
+// Tries the base first, then base-1, base-2, … up to 6 attempts before
+// giving up and tacking on a 4-char id-tag (effectively always free).
+async function reserveUniqueSlug(base, ownerId) {
+  if (!base || !supabase) return base || null
+  const seen = new Set()
+  const candidates = [base, ...Array.from({ length: 5 }, (_, i) => `${base}-${i + 2}`)]
+  for (const candidate of candidates) {
+    if (seen.has(candidate)) continue
+    seen.add(candidate)
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('public_slug', candidate)
+      .limit(1)
+    if (error) {
+      // Column not migrated yet — skip slug reservation entirely so the
+      // surrounding profile save still succeeds.
+      if (/column .* does not exist|42703/i.test(error.message)) {
+        console.warn('[slug] public_slug column missing — skipping. Apply migration 0013 to enable shareable URLs.')
+        return null
+      }
+      console.warn('[slug] uniqueness probe failed:', error.message)
+      return candidate
+    }
+    if (!data?.length || data[0].id === ownerId) return candidate
+  }
+  // Extreme fallback — id-tag suffix.
+  const tag = (ownerId || crypto.randomUUID()).toString().replace(/-/g, '').slice(0, 4)
+  return `${base}-${tag}`
+}
+
 const ensureProtocol = (u) => {
   if (!u) return ''
   return /^https?:\/\//i.test(u) || /^mailto:/i.test(u) ? u : `https://${u}`
@@ -44,6 +78,8 @@ const DEFAULT_PROFILE = {
   role:         '',
   location:     '',
   email:        '',
+  skills:       '',
+  availability: '',
   bio:          '',
   portfolioUrl: '',
   socials: {
@@ -288,6 +324,7 @@ export default function WorkerDashboard() {
   const [shareOpen, setShareOpen] = useState(false)
   const [reviewsOpen, setReviewsOpen] = useState(false)
   const { tasks: liveTasks, loading: tasksLoading, addNote } = useTasks()
+  const { offers: liveOffers, accept: acceptLiveOffer, decline: declineLiveOffer } = useOffers()
   const store = useTaskStore()
 
   // Hydrate display name + bio from the signed-in user's profile row.
@@ -302,6 +339,8 @@ export default function WorkerDashboard() {
       location:     profileRow?.location      || p.location,
       bio:          profileRow?.bio           || p.bio,
       email:        profileRow?.contact_email || p.email,
+      skills:       Array.isArray(profileRow?.skills) ? profileRow.skills.join(', ') : (p.skills || ''),
+      availability: profileRow?.availability || p.availability,
       portfolioUrl: profileRow?.portfolio_url || p.portfolioUrl,
       socials: {
         github:   profileRow?.socials?.github   || p.socials.github,
@@ -312,18 +351,74 @@ export default function WorkerDashboard() {
     }))
   }, [profileRow, defaultName])
 
+  // Reflect the user's public slug in the URL — #/worker/jin-woo-jang or
+  // #/worker/swift-falcon-1a2b — so the address bar is shareable and stays
+  // consistent with their /talents/<slug> public profile.
+  useEffect(() => {
+    if (!user) return
+    const slug = slugFor(profileRow, user)
+    if (!slug) return
+    const hash = window.location.hash || ''
+    const [base] = hash.split('?')
+    if (base === `#/worker/${slug}`) return
+    if (!base.startsWith('#/worker')) return
+    const search = hash.includes('?') ? hash.slice(hash.indexOf('?')) : ''
+    window.history.replaceState(null, '', `#/worker/${slug}${search}`)
+  }, [user?.id, profileRow?.display_name, profileRow?.id])
+
+  // Auto-enroll into the talent directory the first time a signed-in user
+  // lands on the worker dashboard. worker_directory filters role IN
+  // ('worker','both'), so a null role would keep them invisible on /talents
+  // even though they're clearly setting up a worker profile here. Hirers
+  // (role='hirer') get promoted to 'both' so they can take work too.
+  useEffect(() => {
+    if (!profileRow) return
+    if (profileRow.role === 'worker' || profileRow.role === 'both') return
+    const nextRole = profileRow.role === 'hirer' ? 'both' : 'worker'
+    updateProfileRow({
+      role:           nextRole,
+      role_chosen_at: profileRow.role_chosen_at || new Date().toISOString(),
+    })
+  }, [profileRow?.id, profileRow?.role])
+
   // ProfileEditor → Supabase upsert. Optimistic local update first; if the
   // row write fails we surface an alert and reload from the source of truth.
   const saveProfile = async (next) => {
     setProfile(next)
+    const parsedSkills = String(next.skills || '')
+      .split(/[,\n]/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 24)
     const patch = {
       display_name:  next.name?.trim()         || null,
       title:         next.role?.trim()         || null,
       location:      next.location?.trim()     || null,
       bio:           next.bio?.trim()          || null,
       contact_email: next.email?.trim()        || null,
+      skills:        parsedSkills,
+      availability:  next.availability?.trim() || null,
       portfolio_url: next.portfolioUrl?.trim() || null,
       socials:       next.socials || {},
+    }
+    // Ensure the row is visible in worker_directory (which filters role IN
+    // ('worker','both')). Users who land on /#/worker without going through
+    // the role picker have role=null and would otherwise be invisible on
+    // /talents even after saving a full profile.
+    if (!profileRow?.role) {
+      patch.role           = 'worker'
+      patch.role_chosen_at = new Date().toISOString()
+    }
+    // Reserve a unique public_slug — preferred from display_name, with a
+    // short id-tag suffix when there's a collision.
+    const currentSlug = profileRow?.public_slug || null
+    const desired = slugify(patch.display_name || '') || handleFor(user)
+    if (desired && desired !== currentSlug) {
+      const reserved = await reserveUniqueSlug(desired, profileRow?.id)
+      // reserveUniqueSlug returns null if the column doesn't exist yet
+      // (migration 0013 not applied) — skip in that case so the upsert
+      // doesn't fail.
+      if (reserved) patch.public_slug = reserved
     }
     const res = await updateProfileRow(patch)
     if (!res.ok) {
@@ -348,12 +443,16 @@ export default function WorkerDashboard() {
     () => store.tasks.filter((t) => t.talent?.name === selfName),
     [store.tasks, selfName],
   )
-  const offers = useMemo(
+  // Prefer real Supabase offers; fall back to the in-memory mock store for
+  // unsigned-in / dev mode so the UI still demos.
+  const usingLiveOffers = liveOffers.length > 0
+  const mockOffers = useMemo(
     () => store.tasks.filter(
       (t) => t.status === 'Open' && !t.talent && !(t.declinedBy || []).includes(selfName),
     ),
     [store.tasks, selfName],
   )
+  const offers = usingLiveOffers ? liveOffers : mockOffers
 
   // Show real (Supabase) tasks if available, otherwise the shared mock store.
   const usingReal   = liveTasks.length > 0
@@ -361,10 +460,20 @@ export default function WorkerDashboard() {
   const taskAddNote = usingReal ? addNote   : (id, body) => taskStore.addNote(id, body, selfName)
 
   const acceptOffer = async (offer) => {
-    taskStore.acceptOffer(offer.id, { name: selfName })
+    if (usingLiveOffers) {
+      await acceptLiveOffer(offer.id)
+    } else {
+      taskStore.acceptOffer(offer.id, { name: selfName })
+    }
     setTab('tasks')
   }
-  const declineOffer = (offer) => taskStore.declineOffer(offer.id, selfName)
+  const declineOffer = async (offer) => {
+    if (usingLiveOffers) {
+      await declineLiveOffer(offer.id)
+    } else {
+      taskStore.declineOffer(offer.id, selfName)
+    }
+  }
 
   return (
     <section className="py-12">
@@ -602,11 +711,11 @@ export default function WorkerDashboard() {
               </div>
             </Section>
 
-            <Section title="Payout wallet">
+            <Section title="Payout destination">
               <PayoutWalletCard />
             </Section>
 
-            <Section title="Other stablecoin wallets" action={<button className="text-sm text-brand-300 hover:text-white">+ Add wallet</button>}>
+            <Section title="Other stablecoin wallets (optional)" action={<button className="text-sm text-brand-300 hover:text-white">+ Add wallet</button>}>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {PAYMENT_METHODS.map((m) => (
                   <div key={m.id} className="card">
