@@ -1,6 +1,8 @@
 import React from 'react'
 import ConversationalForm from '../components/ConversationalForm.jsx'
 import { useProfile } from '../hooks/useProfile.js'
+import { useSession, slugify, handleFor } from '../hooks/useSession.js'
+import { supabase } from '../lib/supabase.js'
 
 const QUESTIONS = [
   {
@@ -45,8 +47,32 @@ const parseSkills = (raw) =>
     .filter(Boolean)
     .slice(0, 24)
 
+async function reserveUniqueSlug(base, ownerId) {
+  if (!base || !supabase) return base || null
+  const candidates = [base, ...Array.from({ length: 5 }, (_, i) => `${base}-${i + 2}`)]
+  for (const candidate of candidates) {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('public_slug', candidate)
+      .limit(1)
+    if (error) {
+      if (/column .* does not exist|42703/i.test(error.message)) {
+        console.warn('[slug] public_slug column missing — skipping reservation. Apply migration 0013.')
+        return null
+      }
+      console.warn('[slug] uniqueness probe failed:', error.message)
+      return candidate
+    }
+    if (!data?.length || data[0].id === ownerId) return candidate
+  }
+  const tag = (ownerId || crypto.randomUUID()).toString().replace(/-/g, '').slice(0, 4)
+  return `${base}-${tag}`
+}
+
 export default function JoinAsWorker() {
-  const { update } = useProfile()
+  const { profile, update } = useProfile()
+  const { user } = useSession()
 
   return (
     <ConversationalForm
@@ -56,6 +82,13 @@ export default function JoinAsWorker() {
       successTitle="Welcome to ChainWork."
       successBody="Your profile is live. Hirers browsing /talents can find and message you right now."
       onSubmit={async (answers) => {
+        const displayName = profile?.display_name
+          || user?.user_metadata?.name
+          || user?.user_metadata?.full_name
+          || ''
+        const slugBase = slugify(displayName) || handleFor(user)
+        const slug = profile?.public_slug || await reserveUniqueSlug(slugBase, profile?.id)
+
         const patch = {
           role:          'worker',
           title:         answers.role?.trim()         || null,
@@ -65,10 +98,18 @@ export default function JoinAsWorker() {
           bio:           answers.experience?.trim()   || null,
           availability:  answers.availability?.trim() || null,
         }
+        // Only include public_slug if the column exists (reserve returns
+        // null when migration 0013 hasn't been applied).
+        if (slug) patch.public_slug = slug
         const res = await update(patch)
         if (!res.ok) {
-          alert('Could not save your profile: ' + (res.error || 'unknown error'))
-          throw new Error(res.error || 'Save failed')
+          const msg = res.error || 'unknown error'
+          console.error('[JoinAsWorker] save failed:', msg)
+          alert(
+            'Could not save your profile: ' + msg +
+            '\n\nIf this mentions a missing column, the Supabase migrations 0012 + 0013 still need to be run in the SQL editor.'
+          )
+          throw new Error(msg)
         }
       }}
     />
