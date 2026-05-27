@@ -25,6 +25,7 @@ import ProhibitedServices from './pages/ProhibitedServices.jsx'
 import Contact from './pages/Contact.jsx'
 import ChainPay from './pages/ChainPay.jsx'
 import ProMembershipBadge from './components/ProMembershipBadge.jsx'
+import PayPalCheckoutButton from './components/PayPalCheckoutButton.jsx'
 import { isCurrentUserAdmin } from './lib/platform.js'
 import About from './pages/About.jsx'
 import Pricing from './pages/Pricing.jsx'
@@ -539,13 +540,27 @@ const Payments = () => {
 
 const CTA = () => {
   const PRICE_PER_HIRE_KRW = 400000
+  // PayPal sandbox testing is easiest in USD — KRW requires a Korea-domiciled
+  // PayPal account on both sides. We charge a USD-denominated test amount per
+  // hire so you can drive the full create-order → capture-order flow with the
+  // standard sandbox personal buyer account.
+  const PRICE_PER_HIRE_USD = 9.99
   const MIN_HIRES = 1
   const MAX_HIRES = 100
   const [hires, setHires] = useState(5)
+  const [showCheckout, setShowCheckout] = useState(false)
   const { user } = useSession()
   const total = hires * PRICE_PER_HIRE_KRW
+  const totalUsd = +(hires * PRICE_PER_HIRE_USD).toFixed(2)
   const percent = ((hires - MIN_HIRES) / (MAX_HIRES - MIN_HIRES)) * 100
   const fmt = (n) => '₩' + n.toLocaleString('ko-KR')
+
+  const checkoutItem = {
+    key:         'employer_pro_membership',
+    amount:      totalUsd,
+    currency:    'USD',
+    description: `ChainWork Employer Pro Membership — ${hires} hires / year`,
+  }
 
   return (
     <section id="pro" className="py-24">
@@ -626,11 +641,26 @@ const CTA = () => {
                 <div className="mt-3 text-[11px] text-white/45">부가세(VAT) 별도</div>
               </div>
 
-              <a href="#/pricing" className="btn-primary mt-6 w-full justify-center">
-                요금 안내 보기
-              </a>
+              <button
+                onClick={() => setShowCheckout((v) => !v)}
+                className="btn-primary mt-6 w-full justify-center"
+              >
+                {showCheckout ? 'Hide checkout' : 'Buy Pro · Checkout'}
+              </button>
+              {showCheckout && (
+                <div className="mt-4 rounded-xl border border-white/10 bg-ink-900/60 p-4">
+                  <div className="flex items-baseline justify-between text-xs text-white/55 mb-3">
+                    <span>Sandbox checkout (USD)</span>
+                    <span className="font-mono text-white/90">USD {totalUsd.toFixed(2)}</span>
+                  </div>
+                  <PayPalCheckoutButton item={checkoutItem} userId={user?.id} />
+                  <p className="mt-3 text-[10px] text-white/40 leading-relaxed">
+                    테스트는 PayPal Sandbox에서 USD로 처리됩니다. KRW 결제는 PG 정식 연동 후 활성화됩니다.
+                  </p>
+                </div>
+              )}
               <p className="mt-3 text-center text-xs text-white/45">
-                결제대행사(PG) 연동 준비 중 · 정식 승인 이후 KRW 결제 활성화
+                <a href="#/pricing" className="hover:text-white">요금 안내 보기</a> · 결제대행사(PG) 연동 준비 중
               </p>
             </div>
           </div>
