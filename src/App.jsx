@@ -30,6 +30,7 @@ import About from './pages/About.jsx'
 import Pricing from './pages/Pricing.jsx'
 import Verification from './pages/Verification.jsx'
 import BusinessInfo from './pages/BusinessInfo.jsx'
+import PayPalTest from './pages/PayPalTest.jsx'
 
 const UserChip = ({ user, onSignOut }) => {
   const [open, setOpen] = useState(false)
@@ -781,6 +782,8 @@ export default function App() {
     page = <Verification />
   } else if (route.startsWith('#/business-info')) {
     page = <BusinessInfo />
+  } else if (route.startsWith('#/paypal-test')) {
+    page = <PayPalTest />
   } else if (route.startsWith('#/privacy')) {
     page = <Privacy />
   } else if (route.startsWith('#/terms')) {
