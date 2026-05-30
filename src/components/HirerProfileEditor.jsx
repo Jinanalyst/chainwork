@@ -19,6 +19,8 @@ const QUESTIONS = [
     hint: 'Optional — gives workers context before they accept.' },
   { id: '__socials',  prompt: 'Add your social links.',              hint: 'Optional — leave blank to skip.', shortLabel: 'Socials',
     kind: 'socials' },
+  { id: '__subscribe', prompt: 'Become a Verified Employer.',         hint: 'Unlock job posting and employer features — 990,000 KRW / year.', shortLabel: 'Subscribe',
+    kind: 'subscribe' },
 ]
 
 const SOCIAL_FIELDS = [
@@ -27,13 +29,14 @@ const SOCIAL_FIELDS = [
   { key: 'website',  label: 'Other',       placeholder: 'a second site or link' },
 ]
 
-export default function HirerProfileEditor({ open, initial, onClose, onSave }) {
+export default function HirerProfileEditor({ open, initial, onClose, onSave, userId }) {
   return (
     <ProfileEditor
       open={open}
       initial={initial}
       onClose={onClose}
       onSave={onSave}
+      userId={userId}
       questions={QUESTIONS}
       socialFields={SOCIAL_FIELDS}
       eyebrow="Edit hirer profile"

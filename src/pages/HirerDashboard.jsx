@@ -665,6 +665,7 @@ export default function HirerDashboard() {
         initial={profile}
         onClose={() => setEditOpen(false)}
         onSave={saveProfile}
+        userId={user?.id || null}
       />
     </section>
   )

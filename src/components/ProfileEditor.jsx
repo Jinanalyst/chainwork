@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Icon } from './ui.jsx'
+import NowPaymentsCheckoutButton from './NowPaymentsCheckoutButton.jsx'
+import { getEmployerSubscription } from '../lib/platform.js'
 
 /**
  * Full-screen conversational profile editor. Same one-question-at-a-time
@@ -55,6 +57,7 @@ export default function ProfileEditor({
   initial,
   onClose,
   onSave,
+  userId,
   questions     = WORKER_QUESTIONS,
   socialFields  = DEFAULT_SOCIAL_FIELDS,
   eyebrow       = 'Edit profile',
@@ -84,7 +87,7 @@ export default function ProfileEditor({
   const total = QUESTIONS.length
   const q = QUESTIONS[idx]
   const value = q.kind === 'socials' ? profile.socials : profile[q.id]
-  const canContinue = q.kind === 'socials'
+  const canContinue = q.kind === 'socials' || q.kind === 'subscribe'
     ? true
     : (q.required ? String(value || '').trim().length > 0 : true)
 
@@ -95,10 +98,19 @@ export default function ProfileEditor({
 
   const goNext = async () => {
     if (!canContinue) return
+    // The subscribe step is terminal and the profile was already persisted on
+    // entry — finishing here just closes the editor.
+    if (q.kind === 'subscribe') { onClose(); return }
     if (idx >= total - 1) {
       setSaving(true)
       try { await onSave?.(profile) } finally { setSaving(false); onClose() }
       return
+    }
+    // Persist the profile before showing the subscribe step so it isn't lost
+    // if the user hands off to the hosted checkout.
+    if (QUESTIONS[idx + 1]?.kind === 'subscribe') {
+      setSaving(true)
+      try { await onSave?.(profile) } finally { setSaving(false) }
     }
     setIdx((i) => i + 1)
   }
@@ -153,7 +165,7 @@ export default function ProfileEditor({
           <div key={idx} className="animate-[fadein_.35s_ease]">
             <h2 className="text-2xl md:text-4xl font-medium leading-snug tracking-tight">
               {q.prompt}
-              {!q.required && q.kind !== 'socials' && (
+              {!q.required && q.kind !== 'socials' && q.kind !== 'subscribe' && (
                 <span className="ml-3 align-middle inline-block text-[11px] uppercase tracking-wider text-white/40 border border-white/15 rounded-full px-2 py-0.5">
                   Optional
                 </span>
@@ -162,7 +174,9 @@ export default function ProfileEditor({
             {q.hint && <p className="mt-3 text-white/55 text-sm md:text-base">{q.hint}</p>}
 
             <div className="mt-10">
-              {q.kind === 'socials' ? (
+              {q.kind === 'subscribe' ? (
+                <SubscribeStep userId={userId} onFinish={onClose} />
+              ) : q.kind === 'socials' ? (
                 <div className="space-y-4">
                   {SOCIAL_FIELDS.map((f, i) => (
                     <div key={f.key} className="flex items-baseline gap-3 border-b border-white/15 focus-within:border-white/40 transition-colors pb-2">
@@ -210,18 +224,94 @@ export default function ProfileEditor({
             {q.kind === 'socials' && (
               <div className="mt-8 flex items-center justify-between">
                 <span className="text-xs text-white/40">All fields optional — leave blank to skip.</span>
-                <NextButton canContinue={canContinue} onClick={goNext} loading={saving} done inline />
+                <NextButton canContinue={canContinue} onClick={goNext} loading={saving} done={idx >= total - 1} inline />
               </div>
             )}
 
-            <div className="mt-5 flex items-center gap-3 text-xs text-white/40">
-              <span>Press</span>
-              <kbd className="px-2 py-0.5 rounded-md border border-white/15 bg-white/[0.04] font-mono">Enter</kbd>
-              <span>to continue</span>
-              {q.long && <span className="opacity-70">· Shift + Enter for a new line</span>}
-            </div>
+            {q.kind !== 'subscribe' && (
+              <div className="mt-5 flex items-center gap-3 text-xs text-white/40">
+                <span>Press</span>
+                <kbd className="px-2 py-0.5 rounded-md border border-white/15 bg-white/[0.04] font-mono">Enter</kbd>
+                <span>to continue</span>
+                {q.long && <span className="opacity-70">· Shift + Enter for a new line</span>}
+              </div>
+            )}
           </div>
         </div>
+      </div>
+    </div>
+  )
+}
+
+const SUBSCRIBE_BENEFITS = [
+  'Post unlimited job listings',
+  'Manage applicants, offers, and contracts',
+  'Verified Employer badge on your profile',
+  'Featured placement in employer search',
+]
+
+// Final step of the hirer flow: purchase the 990,000 KRW / year Verified
+// Employer plan via the existing NOWPayments hosted checkout. Optional —
+// the hirer can skip and subscribe later from the dashboard.
+const SubscribeStep = ({ userId, onFinish }) => {
+  const [sub, setSub] = useState(undefined)
+
+  useEffect(() => {
+    let cancelled = false
+    getEmployerSubscription()
+      .then((s) => { if (!cancelled) setSub(s) })
+      .catch(() => { if (!cancelled) setSub(null) })
+    return () => { cancelled = true }
+  }, [])
+
+  const active = !!(sub && sub.active)
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-2xl border border-white/10 bg-ink-900/70 backdrop-blur p-6">
+        <div className="text-xs uppercase tracking-[0.2em] text-white/50">Verified Employer · Annual</div>
+
+        <div className="mt-3 flex items-baseline gap-2">
+          <span className="font-mono text-4xl md:text-5xl font-bold tabular-nums bg-gradient-to-r from-brand-300 to-accent-300 bg-clip-text text-transparent">
+            990,000
+          </span>
+          <span className="text-lg text-white/70">KRW</span>
+          <span className="text-sm text-white/50">/ year</span>
+        </div>
+
+        <ul className="mt-5 space-y-2 text-sm text-white/75">
+          {SUBSCRIBE_BENEFITS.map((b, i) => (
+            <li key={i} className="flex items-start gap-2">
+              <Icon path={<path d="M5 12l5 5L20 7" />} className="h-4 w-4 text-accent-300 shrink-0 mt-0.5" />
+              <span>{b}</span>
+            </li>
+          ))}
+        </ul>
+
+        <div className="mt-6">
+          {active ? (
+            <div className="rounded-lg border border-accent-400/30 bg-accent-400/10 px-3 py-2 text-sm text-accent-100">
+              Your Verified Employer subscription is already active.
+            </div>
+          ) : (
+            <NowPaymentsCheckoutButton
+              userId={userId}
+              description="Paid in USDT (BEP20) via NOWPayments. On-chain confirmation activates your subscription automatically."
+            />
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-white/40">You can subscribe anytime from your dashboard.</span>
+        <button
+          type="button"
+          onClick={onFinish}
+          className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white/80 border border-white/15 hover:border-white/30 hover:bg-white/5 transition"
+        >
+          {active ? 'Finish' : 'Maybe later'}
+          <Icon path={<path d="M5 12l5 5L20 7" />} className="h-4 w-4" />
+        </button>
       </div>
     </div>
   )
