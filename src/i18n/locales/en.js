@@ -189,13 +189,9 @@ const en = {
     title: 'Find the right talent for your work.',
     body: 'From landing pages and bug fixes to AI automation and Web3 projects, ChainWork helps you get small digital work done faster.',
     all: 'All',
-    labels: { category: 'Category', budget: 'Budget', difficulty: 'Difficulty', delivery: 'Delivery' },
+    labels: { category: 'Category' },
     postTask: 'Post a task',
-    filters: {
-      budget: { any: 'Any budget', lt100: 'Under $100', '100-500': '$100 – $500', '500-2k': '$500 – $2k', gt2k: '$2k+' },
-      difficulty: { any: 'Any level', easy: 'Easy', medium: 'Medium', hard: 'Hard' },
-      delivery: { any: 'Any time', '24h': 'Within 24h', '3d': 'Within 3 days', '1w': 'Within 1 week', flex: 'Flexible' },
-    },
+    findTalent: 'Find talent',
   },
 
   trust: {
@@ -251,14 +247,9 @@ const en = {
         bullets: ['Hirer pays after reviewing — minimal risk', 'Best for one-off projects with clear scope', 'Talent can confirm funds are secured up front'],
       },
       {
-        title: 'Milestone-based',
-        blurb: 'Split the work into stages, paying and releasing per milestone. Recommended for longer projects.',
-        bullets: ['Stage-by-stage review — risk shared', 'Visibility into large projects', 'Manage scope changes per milestone'],
-      },
-      {
-        title: 'Monthly retainer',
-        blurb: 'A fixed monthly fee for ongoing work. Cancel any time before renewal.',
-        bullets: ['Long-term partnership management', 'Automated monthly reporting and settlement', 'Pro-rated refunds per month'],
+        title: 'Yearly retainer',
+        blurb: 'A fixed yearly fee for ongoing work. Cancel any time before renewal.',
+        bullets: ['Long-term partnership management', 'Automated reporting and settlement', 'Pro-rated refunds'],
       },
     ],
     footnote: '※ Payments currently run through NowPayments crypto (USDT/USDC). KRW payments are delayed due to domestic regulations. See {{link}} for details.',

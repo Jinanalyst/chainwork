@@ -189,7 +189,12 @@ const InvitePanel = ({ talent, onClose }) => (
 export default function Talents() {
   const { talents, loading, source, legacyFallback } = useTalents()
   const store = useTaskStore()
-  const [category, setCategory] = useState('all')
+  const initialCategory = useMemo(() => {
+    const q = (window.location.hash || '').split('?')[1]
+    const requested = q && new URLSearchParams(q).get('category')
+    return TALENT_CATEGORIES.some((c) => c.id === requested) ? requested : 'all'
+  }, [])
+  const [category, setCategory] = useState(initialCategory)
   const [rate, setRate] = useState('any')
   const [rating, setRating] = useState('any')
   const [avail, setAvail] = useState('any')

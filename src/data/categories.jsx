@@ -63,6 +63,42 @@ export const CATEGORIES = [
     accent: 'from-brand-300/30 to-accent-400/10',
     icon: <><path d="M4 6h16M4 12h10M4 18h7" /></>,
   },
+  {
+    id: 'writing',
+    tag: '글쓰기',
+    title: '글쓰기 · 번역',
+    blurb: '세일즈 카피, 블로그·뉴스레터, 기술 문서, 다국어 번역과 교정까지.',
+    examples: ['세일즈 카피', '블로그 글', '제품 설명', '기술 문서', '한영 번역', '맞춤법 교정'],
+    accent: 'from-sky-400/30 to-brand-400/10',
+    icon: <><path d="M12 19l7-7 3 3-7 7-3-3z" /><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" /><path d="M2 2l7.586 7.586" /><circle cx="11" cy="11" r="2" /></>,
+  },
+  {
+    id: 'design-graphics',
+    tag: '디자인',
+    title: '그래픽 · 일러스트',
+    blurb: '로고, SNS·광고 배너, 상세페이지, 인포그래픽, 일러스트레이션.',
+    examples: ['로고 디자인', '상세페이지', 'SNS 배너', '인포그래픽', '일러스트', '썸네일'],
+    accent: 'from-pink-400/30 to-violet-500/10',
+    icon: <><circle cx="13.5" cy="6.5" r=".8" /><circle cx="17.5" cy="11.5" r=".8" /><circle cx="8.5" cy="7.5" r=".8" /><circle cx="6.5" cy="12.5" r=".8" /><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c3.31 0 6-2.69 6-6 0-4.42-4.48-8-10-8z" /></>,
+  },
+  {
+    id: 'video-motion',
+    tag: '영상',
+    title: '영상 · 모션그래픽',
+    blurb: '숏폼·유튜브 편집, 모션그래픽, 광고 영상, 자막·더빙 작업.',
+    examples: ['유튜브 편집', '숏폼/릴스', '모션그래픽', '광고 영상', '자막 작업', '인트로 제작'],
+    accent: 'from-rose-400/30 to-amber-500/10',
+    icon: <><rect x="2" y="4" width="20" height="16" rx="2" /><path d="M10 9l5 3-5 3V9z" /></>,
+  },
+  {
+    id: 'data-analytics',
+    tag: '데이터',
+    title: '데이터 · 분석',
+    blurb: '데이터 정제, 대시보드, 스프레드시트 자동화, 리포팅, 크롤링.',
+    examples: ['데이터 정제', '대시보드', '엑셀 자동화', '리포팅', '웹 크롤링', 'SQL 쿼리'],
+    accent: 'from-emerald-400/30 to-brand-500/10',
+    icon: <><path d="M3 3v18h18" /><rect x="7" y="11" width="3" height="6" /><rect x="12" y="7" width="3" height="10" /><rect x="17" y="13" width="3" height="4" /></>,
+  },
 ]
 
 // Used by filter rows that need an explicit "All" option

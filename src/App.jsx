@@ -237,59 +237,9 @@ const HowItWorks = () => {
 
 const CATEGORIES = WEB_CATEGORIES
 
-const FilterRow = ({ label, options, value, onChange }) => (
-  <div className="flex items-center gap-2 min-w-max">
-    <span className="text-[11px] uppercase tracking-[0.15em] text-white/40 mr-1">{label}</span>
-    {options.map((o) => {
-      const active = value === o.id
-      return (
-        <button
-          key={o.id}
-          type="button"
-          onClick={() => onChange(o.id)}
-          className={
-            'rounded-full px-3 py-1.5 text-xs whitespace-nowrap border transition ' +
-            (active
-              ? 'bg-white text-ink-950 border-white'
-              : 'bg-white/[0.03] text-white/75 border-white/10 hover:border-white/25 hover:text-white')
-          }
-        >
-          {o.label}
-        </button>
-      )
-    })}
-  </div>
-)
-
 const Categories = () => {
   const { t } = useT()
   const [category, setCategory] = useState('all')
-  const [budget, setBudget] = useState('any')
-  const [difficulty, setDifficulty] = useState('any')
-  const [delivery, setDelivery] = useState('any')
-
-  const FILTERS = useMemo(() => ({
-    budget: [
-      { id: 'any',  label: t('categories.filters.budget.any') },
-      { id: 'lt100', label: t('categories.filters.budget.lt100') },
-      { id: '100-500', label: t('categories.filters.budget.100-500') },
-      { id: '500-2k', label: t('categories.filters.budget.500-2k') },
-      { id: 'gt2k', label: t('categories.filters.budget.gt2k') },
-    ],
-    difficulty: [
-      { id: 'any',  label: t('categories.filters.difficulty.any') },
-      { id: 'easy', label: t('categories.filters.difficulty.easy') },
-      { id: 'medium', label: t('categories.filters.difficulty.medium') },
-      { id: 'hard', label: t('categories.filters.difficulty.hard') },
-    ],
-    delivery: [
-      { id: 'any',  label: t('categories.filters.delivery.any') },
-      { id: '24h',  label: t('categories.filters.delivery.24h') },
-      { id: '3d',   label: t('categories.filters.delivery.3d') },
-      { id: '1w',   label: t('categories.filters.delivery.1w') },
-      { id: 'flex', label: t('categories.filters.delivery.flex') },
-    ],
-  }), [t])
 
   const visible = useMemo(
     () => (category === 'all' ? CATEGORIES : CATEGORIES.filter((c) => c.id === category)),
@@ -345,15 +295,6 @@ const Categories = () => {
                 })}
               </div>
             </div>
-            <div className="overflow-x-auto -mx-1 px-1 pb-1">
-              <FilterRow label={t('categories.labels.budget')} options={FILTERS.budget} value={budget} onChange={setBudget} />
-            </div>
-            <div className="overflow-x-auto -mx-1 px-1 pb-1">
-              <FilterRow label={t('categories.labels.difficulty')} options={FILTERS.difficulty} value={difficulty} onChange={setDifficulty} />
-            </div>
-            <div className="overflow-x-auto -mx-1 px-1 pb-1">
-              <FilterRow label={t('categories.labels.delivery')} options={FILTERS.delivery} value={delivery} onChange={setDelivery} />
-            </div>
           </div>
         </div>
 
@@ -378,8 +319,8 @@ const Categories = () => {
                   </li>
                 ))}
               </ul>
-              <a href="#/post-task" className="btn-primary mt-6 !py-2.5 !px-5 text-sm self-start">
-                {t('categories.postTask')}
+              <a href={`#/talents?category=${c.id}`} className="btn-primary mt-6 !py-2.5 !px-5 text-sm self-start">
+                {t('categories.findTalent')}
                 <Icon path={<path d="M5 12h14M13 5l7 7-7 7" />} className="h-4 w-4" />
               </a>
             </div>
