@@ -281,7 +281,7 @@ const ko = {
     sandboxLabel: '암호화폐 결제 (USD)',
     sandboxNote: 'USD 기준으로 청구되며 NOWPayments를 통해 USDT/USDC 등 암호화폐로 결제됩니다. 온체인 결제가 확인되면 Pro 멤버십이 자동으로 활성화됩니다.',
     seePricing: '요금 안내 보기',
-    pgPreparing: '결제대행사(PG) 연동 준비 중',
+    pgPreparing: '원화(KRW) 결제 준비 중',
     rangeAria: '연간 채용 인원',
   },
 

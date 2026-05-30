@@ -281,7 +281,7 @@ const en = {
     sandboxLabel: 'Crypto checkout (USD)',
     sandboxNote: 'Billed in USD and paid in crypto (USDT/USDC and more) via NOWPayments. Your Pro membership activates automatically once the payment is confirmed on-chain.',
     seePricing: 'See pricing',
-    pgPreparing: 'PG integration in progress',
+    pgPreparing: 'KRW checkout pending approval',
     rangeAria: 'Hires per year',
   },
 

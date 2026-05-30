@@ -15,18 +15,13 @@ export async function fetchTaskWorkerPayout(taskId) {
   const row = Array.isArray(data) ? data[0] : data
   if (!row) return null
   return {
-    workerId:            row.worker_id,
-    displayName:         row.display_name,
-    // 'wallet' | 'bank' | null (null = legacy rows from before 0016 — treat
-    // as wallet if an address is present, otherwise unset).
-    payoutMethod:        row.payout_method
-                          || (row.payout_address ? 'wallet' : null),
-    payoutAddress:       row.payout_address,
-    payoutChain:         row.payout_chain,
-    payoutToken:         row.payout_token,
-    payoutBankName:      row.payout_bank_name      || null,
-    payoutAccountHolder: row.payout_account_holder || null,
-    // Account number is NOT returned by the RPC by design — KRW settles
-    // via the ChainWork PG, the hirer never sees the worker's bank PII.
+    workerId:     row.worker_id,
+    displayName:  row.display_name,
+    // Crypto-only now (KRW bank settlement retired). Legacy rows without an
+    // explicit method are treated as wallet when an address is present.
+    payoutMethod: row.payout_method || (row.payout_address ? 'wallet' : null),
+    payoutAddress: row.payout_address,
+    payoutChain:   row.payout_chain,
+    payoutToken:   row.payout_token,
   }
 }

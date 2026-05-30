@@ -40,29 +40,11 @@ export default function WorkerPayoutPanel({ taskId, workerName }) {
     )
   }
 
-  // Worker chose KRW bank settlement. ChainWork's PG handles the payout, so
-  // the hirer never needs the account number — we just confirm it's ready.
-  if (payout && payout.payoutMethod === 'bank' && payout.payoutBankName) {
-    return (
-      <div className="rounded-xl border border-brand-400/30 bg-brand-500/10 px-4 py-3">
-        <div className="flex items-center gap-2">
-          <Icon path={<><rect x="3" y="7" width="18" height="13" rx="2" /><path d="M3 11h18" /></>} className="h-4 w-4 text-brand-200" />
-          <div className="text-sm font-semibold text-brand-100">KRW bank payout · 자동 정산</div>
-        </div>
-        <div className="mt-2 text-xs text-white/75 leading-relaxed">
-          <strong>{workerName || 'The worker'}</strong> has set up KRW settlement
-          ({payout.payoutBankName}{payout.payoutAccountHolder ? ` · 예금주 ${payout.payoutAccountHolder}` : ''}).
-          ChainWork's PG settles automatically once you approve — no manual transfer needed.
-        </div>
-      </div>
-    )
-  }
-
   if (!payout || !payout.payoutAddress) {
     return (
       <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-100 leading-relaxed">
-        <strong>{workerName || 'The worker'} hasn't set a payout destination yet.</strong> Ask them to add one in
-        their Worker dashboard → Payments → Payout destination (KRW bank or crypto wallet) before you release funds.
+        <strong>{workerName || 'The worker'} hasn't set a payout wallet yet.</strong> Ask them to add one in
+        their Worker dashboard → Payments → Payout wallet (USDC / USDT) before you release funds.
       </div>
     )
   }
