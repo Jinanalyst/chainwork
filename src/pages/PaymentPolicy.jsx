@@ -7,17 +7,20 @@ export default function PaymentPolicy() {
   return (
     <LegalLayout eyebrow="결제정책" title="결제정책" effective={EFFECTIVE}>
       <p className="mt-8 text-white/75 leading-relaxed">
-        ChainWork는 회사가 지정한 결제대행사(PG)를 통하여 원화(KRW) 결제를 제공합니다. 본 정책은
-        결제 수단, 결제 구조, 작업보호금 보관, 정산 절차에 관한 사항을 안내합니다.
+        ChainWork는 현재 암호화폐 결제 게이트웨이 NowPayments를 통하여 USDT·USDC 스테이블코인 결제를
+        제공합니다. 원화(KRW) 결제는 국내 규제 및 결제대행사(PG) 승인 절차로 인해 지연되고 있으며,
+        정식 승인 이후 도입될 예정입니다. 본 정책은 결제 수단, 결제 구조, 작업보호금 보관, 정산 절차에
+        관한 사항을 안내합니다.
       </p>
 
       <LegalSection title="1. 결제 수단">
+        <p>결제는 암호화폐 결제 게이트웨이 NowPayments를 통해 처리됩니다.</p>
         <ul className="list-disc list-inside space-y-1">
-          <li>신용·체크카드 (국내 카드사)</li>
-          <li>실시간 계좌이체 / 가상계좌</li>
-          <li>간편결제 (네이버페이, 카카오페이 등)</li>
+          <li>USDT · USDC 스테이블코인 (USD 표시 금액 그대로 결제)</li>
+          <li>BTC · ETH 등 NowPayments가 지원하는 암호화폐 (결제 시점 시세로 환산)</li>
         </ul>
-        <p>해외 카드 및 일부 결제수단은 PG사 정책에 따라 제한될 수 있습니다.</p>
+        <p>※ 원화(KRW) 신용카드·계좌이체·간편결제는 국내 규제 및 PG 승인 절차로 인해 현재 지연되고
+        있으며, 정식 승인 이후 활성화될 예정입니다.</p>
       </LegalSection>
 
       <LegalSection title="2. 결제 구조">
@@ -51,13 +54,13 @@ export default function PaymentPolicy() {
       </LegalSection>
 
       <LegalSection title="6. 영수증 및 세금계산서">
-        <p>결제 영수증은 PG사를 통해 발급되며, 사업자 회원은 정산 내역에 대한 세금계산서 발행을 요청할
-        수 있습니다.</p>
+        <p>결제 영수증은 NowPayments를 통해 발급되며, 온체인 트랜잭션 해시로 결제 내역을 확인할 수
+        있습니다. 사업자 회원은 정산 내역에 대한 세금계산서 발행을 요청할 수 있습니다.</p>
       </LegalSection>
 
       <LegalSection title="7. 결제 취소·오류">
-        <p>결제 직후 오류·중복 결제가 발생한 경우 즉시 고객센터로 연락 주시기 바랍니다. 회사는 PG사와
-        협조하여 신속하게 조치합니다.</p>
+        <p>결제 직후 오류·중복 결제 또는 금액 불일치가 발생한 경우 트랜잭션 해시와 함께 즉시 고객센터로
+        연락 주시기 바랍니다. 회사는 NowPayments와 협조하여 신속하게 조치합니다.</p>
       </LegalSection>
 
       <LegalSection title="8. 거래 금지 품목">

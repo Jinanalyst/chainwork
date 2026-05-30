@@ -160,7 +160,7 @@ const en = {
   },
 
   hero: {
-    pill: 'Work-matching platform · KRW payments coming soon',
+    pill: 'Work-matching platform · USDT/USDC crypto payments (NowPayments)',
     leadConnect: 'Connect with verified freelancers and',
     leadPartners: 'business partners',
     leadEnd: '.',
@@ -179,7 +179,7 @@ const en = {
       { title: 'Post a project', body: 'Describe the work, timeline, and budget to publish your project.' },
       { title: 'Talent applies', body: 'Verified freelancers and partners send tailored proposals.' },
       { title: 'Review profiles & agree', body: 'Check experience, portfolio, and ratings, then agree on scope.' },
-      { title: 'Pay in KRW', body: 'Pay by card, bank transfer, or easy-pay through a PG. Funds are held as work escrow.' },
+      { title: 'Pay in crypto', body: 'Pay in USDT/USDC stablecoins via NowPayments. Funds are held as work escrow.' },
       { title: 'Work and review', body: 'Talent delivers, you review the output.' },
       { title: 'Approve & settle', body: 'On approval (or auto-approval), funds are released per policy.' },
     ],
@@ -209,7 +209,7 @@ const en = {
       ['Refund & dispute policy', 'Tiered refunds and evidence-based dispute resolution'],
       ['Customer support', 'Weekdays 10:00–18:00 · email · phone'],
       ['Business info disclosed', 'Company name, CEO, registration number, and address public'],
-      ['Safe KRW payments', 'Card, bank transfer, and easy-pay via a licensed PG'],
+      ['Safe crypto payments', 'USDT/USDC stablecoin payments via NowPayments'],
       ['Work-escrow holding', 'Funds held separately until approval or dispute resolution'],
     ],
   },
@@ -222,7 +222,7 @@ const en = {
         'Describe the work and we match verified talent',
         'Compare price, schedule, and ratings at a glance',
         'Run long-term collaborations as monthly partner retainers',
-        'Pay in KRW · funds held safely as work escrow',
+        'Pay in USDT/USDC · funds held safely as work escrow',
       ],
       ctaPost: 'Post a project',
       ctaDashboard: 'Hirer dashboard',
@@ -234,7 +234,7 @@ const en = {
         'Categories across design, dev, AI, marketing, content, and ops',
         'No race-to-the-bottom bidding — only meaningful proposals',
         'Build a reputation that compounds into new projects',
-        'Get paid in KRW shortly after approval',
+        'Get paid in stablecoins shortly after approval',
       ],
       cta: 'Join as talent',
     },
@@ -242,8 +242,8 @@ const en = {
 
   payments: {
     eyebrow: 'Payment structure',
-    title: 'KRW payments · held in work escrow',
-    body: 'Card, bank transfer, and easy-pay via a licensed PG. Funds are held safely as work escrow until approval or dispute resolution.',
+    title: 'Crypto payments · held in work escrow',
+    body: 'USDT/USDC stablecoin payments via NowPayments. Funds are held safely as work escrow until approval or dispute resolution.',
     structures: [
       {
         pill: 'Most popular',
@@ -262,7 +262,7 @@ const en = {
         bullets: ['Long-term partnership management', 'Automated monthly reporting and settlement', 'Pro-rated refunds per month'],
       },
     ],
-    footnote: '※ PG integration is in progress. KRW payments will activate after full approval. See {{link}} for details.',
+    footnote: '※ Payments currently run through NowPayments crypto (USDT/USDC). KRW payments are delayed due to domestic regulations. See {{link}} for details.',
     footnoteLink: 'Pricing',
   },
 
@@ -273,7 +273,7 @@ const en = {
     body: 'ChainWork Pro is a membership for teams that hire a lot annually. Pay a flat {{price}} per hire per year, instead of per-project platform fees.',
     bullets: ['Flat per-hire fee — no per-project platform cut', 'Priority matching with verified talent and fast payouts', 'Dedicated manager with dispute fast-track'],
     estimateLabel: 'Estimated hires per year',
-    perUnit: '{{count}} × ₩400,000 / yr',
+    perUnit: '{{count}} × 100 USDT / yr',
     annualMembership: 'Annual membership',
     vatNotice: 'VAT not included',
     hideCheckout: 'Hide checkout',
@@ -312,7 +312,7 @@ const en = {
     customerCenter: 'Customer center',
     phone: 'Phone',
     phoneValue: '+82-10-8932-8539 (Weekdays 10:00–18:00)',
-    disclaimer: 'ChainWork is a work-matching platform that connects companies with freelancers and partners. As a mail-order intermediary, ChainWork is not a party to the transaction. PG integration is in progress; KRW payments will activate after full approval.',
+    disclaimer: 'ChainWork is a work-matching platform that connects companies with freelancers and partners. As a mail-order intermediary, ChainWork is not a party to the transaction. Payments currently run through NowPayments crypto (USDT/USDC); KRW payments are delayed due to domestic regulations.',
   },
 
   postTask: {

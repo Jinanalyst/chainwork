@@ -240,12 +240,13 @@ const ProGate = ({ answers, reference }) => {
 }
 
 const PaymentMethodTabs = ({ method, onChange }) => {
+  // KRW bank transfer is paused while domestic regulation + PG approval are
+  // pending, so escrow is funded with USDC/USDT (NowPayments-compatible) only.
   const tabs = [
-    { id: 'crypto', title: 'Crypto', sub: 'USDC / USDT' },
-    { id: 'bank',   title: '한국 계좌', sub: 'KRW · 토스뱅크' },
+    { id: 'crypto', title: 'Crypto', sub: 'USDC / USDT · NowPayments' },
   ]
   return (
-    <div className="grid grid-cols-2 gap-2 rounded-2xl border border-warm-ink/10 bg-white/60 p-1">
+    <div className="grid grid-cols-1 gap-2 rounded-2xl border border-warm-ink/10 bg-white/60 p-1">
       {tabs.map((t) => {
         const active = method === t.id
         return (

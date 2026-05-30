@@ -525,20 +525,20 @@ const Payments = () => {
 
 const CTA = () => {
   const { t } = useT()
-  const PRICE_PER_HIRE_KRW = 400000
-  // Pro is billed in USD via NOWPayments (crypto checkout). The buyer pays the
-  // USD-denominated total in their chosen coin; the IPN webhook activates Pro
-  // and grants `hires` once the payment is finished.
+  // Pro is billed in USDT/USDC via NowPayments (crypto checkout). The buyer
+  // pays the USD-denominated total in their chosen coin; the IPN webhook
+  // activates Pro and grants `hires` once the payment is finished. KRW is
+  // delayed pending domestic regulation + PG approval.
   const PRICE_PER_HIRE_USD = 100
   const MIN_HIRES = 1
   const MAX_HIRES = 100
   const [hires, setHires] = useState(5)
   const [showCheckout, setShowCheckout] = useState(false)
   const { user } = useSession()
-  const total = hires * PRICE_PER_HIRE_KRW
+  const total = hires * PRICE_PER_HIRE_USD
   const totalUsd = +(hires * PRICE_PER_HIRE_USD).toFixed(2)
   const percent = ((hires - MIN_HIRES) / (MAX_HIRES - MIN_HIRES)) * 100
-  const fmt = (n) => '₩' + n.toLocaleString('ko-KR')
+  const fmt = (n) => n.toLocaleString('en-US') + ' USDT'
   const bullets = t('cta.bullets')
 
   return (
@@ -556,7 +556,7 @@ const CTA = () => {
                 {t('cta.titleA')} <span className="bg-gradient-to-r from-brand-300 to-accent-300 bg-clip-text text-transparent">{t('cta.titleB')}</span>.
               </h2>
               <p className="mt-4 text-white/75 max-w-lg">
-                {t('cta.body', { price: '₩400,000' })}
+                {t('cta.body', { price: '100 USDT' })}
               </p>
               <ul className="mt-6 space-y-2 text-sm text-white/75">
                 {(Array.isArray(bullets) ? bullets : []).map((b, i) => (
