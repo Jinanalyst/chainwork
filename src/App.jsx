@@ -260,7 +260,7 @@ const Categories = () => {
         {/* Filters */}
         <div className="mb-10 rounded-2xl border border-white/10 bg-white/[0.02] p-4 md:p-5">
           <div className="flex flex-col gap-3">
-            <div className="overflow-x-auto -mx-1 px-1 pb-1">
+            <div className="cw-scroll overflow-x-auto -mx-1 px-1 pb-1">
               <div className="flex items-center gap-2 min-w-max">
                 <span className="text-[11px] uppercase tracking-[0.15em] text-white/40 mr-1">{t('categories.labels.category')}</span>
                 <button

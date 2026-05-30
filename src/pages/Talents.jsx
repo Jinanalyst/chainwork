@@ -314,20 +314,20 @@ export default function Talents() {
 
         <div className="mb-10 rounded-2xl border border-white/10 bg-white/[0.02] p-4 md:p-5">
           <div className="flex flex-col gap-3">
-            <div className="overflow-x-auto -mx-1 px-1 pb-1">
+            <div className="cw-scroll overflow-x-auto -mx-1 px-1 pb-1">
               <FilterChips label="Category" options={TALENT_CATEGORIES} value={category} onChange={setCategory} />
             </div>
-            <div className="overflow-x-auto -mx-1 px-1 pb-1">
+            <div className="cw-scroll overflow-x-auto -mx-1 px-1 pb-1">
               <FilterChips label="Rate" options={RATE_RANGES} value={rate} onChange={setRate} />
             </div>
-            <div className="overflow-x-auto -mx-1 px-1 pb-1">
+            <div className="cw-scroll overflow-x-auto -mx-1 px-1 pb-1">
               <FilterChips label="Rating" options={RATING_RANGES} value={rating} onChange={setRating} />
             </div>
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-              <div className="overflow-x-auto -mx-1 px-1 pb-1 flex-1">
+              <div className="cw-scroll overflow-x-auto -mx-1 px-1 pb-1 flex-1">
                 <FilterChips label="Availability" options={AVAILS} value={avail} onChange={setAvail} />
               </div>
-              <div className="overflow-x-auto -mx-1 px-1 pb-1">
+              <div className="cw-scroll overflow-x-auto -mx-1 px-1 pb-1">
                 <FilterChips label="Sort" options={SORTS} value={sort} onChange={setSort} />
               </div>
             </div>

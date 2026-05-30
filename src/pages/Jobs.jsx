@@ -183,13 +183,13 @@ export default function Jobs() {
 
         <div className="mb-10 rounded-2xl border border-white/10 bg-white/[0.02] p-4 md:p-5">
           <div className="flex flex-col gap-3">
-            <div className="overflow-x-auto -mx-1 px-1 pb-1">
+            <div className="cw-scroll overflow-x-auto -mx-1 px-1 pb-1">
               <FilterChips label={t('jobs.labels.category')} options={categoryOptions} value={category} onChange={setCategory} />
             </div>
-            <div className="overflow-x-auto -mx-1 px-1 pb-1">
+            <div className="cw-scroll overflow-x-auto -mx-1 px-1 pb-1">
               <FilterChips label={t('jobs.labels.rating')} options={ratingOptions} value={rating} onChange={setRating} />
             </div>
-            <div className="overflow-x-auto -mx-1 px-1 pb-1">
+            <div className="cw-scroll overflow-x-auto -mx-1 px-1 pb-1">
               <FilterChips label={t('jobs.labels.sort')} options={sortOptions} value={sort} onChange={setSort} />
             </div>
           </div>
