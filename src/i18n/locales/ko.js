@@ -499,9 +499,16 @@ const ko = {
     clear: '지우기',
     filters: {
       category: '카테고리',
+      level: '레벨',
       rating: '평점',
       availability: '가용성',
       sort: '정렬',
+    },
+    level: {
+      any: '전체 레벨',
+      rookie: '루키',
+      verified: '인증',
+      expert: '엑스퍼트',
     },
     rating: {
       any: '전체 평점',

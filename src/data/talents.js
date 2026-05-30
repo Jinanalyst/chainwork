@@ -9,6 +9,68 @@
  * matching and browsing useful when a deployment has not published profiles.
  */
 
+/**
+ * Talent tiers, lowest → highest:
+ *   rookie   — newcomer; everyone starts here when they join ChainWork
+ *   verified — established worker with a proven track record
+ *   expert   — top tier, the highest level
+ *
+ * The tier is auto-derived from a worker's review count (see levelFromReviews
+ * / levelOf below), so newcomers start at Rookie and climb as reviews land.
+ * An explicit `level` on a row overrides the derivation (manual promotion).
+ * LEVEL_META drives the badge styling/icon shared by the card and profile.
+ */
+export const TALENT_LEVELS = ['rookie', 'verified', 'expert']
+export const DEFAULT_TALENT_LEVEL = 'rookie'
+
+/**
+ * Automatic promotion thresholds, by completed-review count:
+ *   0–14   reviews → rookie   (everyone starts here on signup)
+ *   15–39  reviews → verified
+ *   40+    reviews → expert
+ */
+export const LEVEL_THRESHOLDS = { verified: 15, expert: 40 }
+
+export const levelFromReviews = (reviews) => {
+  const n = Number(reviews) || 0
+  if (n >= LEVEL_THRESHOLDS.expert) return 'expert'
+  if (n >= LEVEL_THRESHOLDS.verified) return 'verified'
+  return 'rookie'
+}
+
+export const LEVEL_META = {
+  rookie: {
+    order: 1,
+    label: 'Rookie',
+    badge: 'bg-sky-500/15 border-sky-400/30 text-sky-200',
+    icon: 'sprout',
+  },
+  verified: {
+    order: 2,
+    label: 'Verified',
+    badge: 'bg-brand-500/15 border-brand-400/30 text-brand-200',
+    icon: 'check',
+  },
+  expert: {
+    order: 3,
+    label: 'Expert',
+    badge: 'bg-amber-500/15 border-amber-400/30 text-amber-200',
+    icon: 'medal',
+  },
+}
+
+/**
+ * Resolve a talent's tier. A valid explicit `level` (e.g. a manual promotion
+ * persisted on the row) always wins; otherwise the tier is derived from the
+ * review count — `reviewCount` lets callers pass an effective/merged count
+ * (e.g. store reviews) instead of the static `talent.reviews`.
+ */
+export const levelOf = (talent, reviewCount) => {
+  if (talent && TALENT_LEVELS.includes(talent.level)) return talent.level
+  const reviews = reviewCount != null ? reviewCount : talent?.reviews
+  return levelFromReviews(reviews)
+}
+
 export const TALENTS = [
   {
     id: 't1',
@@ -329,5 +391,125 @@ export const TALENTS = [
     skills: ['Data cleaning', 'Dashboards', 'SQL', 'Excel automation', 'Web scraping', 'Looker Studio'],
     about: 'Turn messy spreadsheets into clean dashboards and automated reports you can trust.',
     portfolio: ['from-emerald-400 to-brand-500'],
+  },
+  {
+    id: 't17',
+    name: 'Leo Fischer',
+    handle: 'leofischer',
+    role: 'Junior web developer',
+    location: 'Vienna, AT',
+    accent: 'from-brand-300 to-accent-400',
+    rating: 4.6,
+    reviews: 4,
+    hourlyRate: 30,
+    startingPrice: 90,
+    responseTime: '2h',
+    verified: true,
+    topRated: false,
+    availability: 'Available now',
+    categories: ['web-dev', 'no-code'],
+    skills: ['React', 'Tailwind', 'Webflow', 'HTML/CSS', 'Git'],
+    about: 'New to ChainWork and eager to ship. Landing pages, small fixes, and no-code builds at a starter rate.',
+    portfolio: ['from-brand-300 to-accent-400'],
+  },
+  {
+    id: 't18',
+    name: 'Aisha Rahman',
+    handle: 'aisharahman',
+    role: 'Aspiring Web3 developer',
+    location: 'Dubai, AE',
+    accent: 'from-brand-500 to-accent-400',
+    rating: 4.7,
+    reviews: 6,
+    hourlyRate: 35,
+    startingPrice: 140,
+    responseTime: '3h',
+    verified: true,
+    topRated: false,
+    availability: 'Available now',
+    categories: ['web3', 'web-dev'],
+    skills: ['Solidity', 'Wagmi', 'Ethers.js', 'React', 'Hardhat'],
+    about: 'Bootcamp grad building wallet-connect UIs and small contracts. Hungry to learn on real briefs.',
+    portfolio: ['from-brand-500 to-accent-400'],
+  },
+  {
+    id: 't19',
+    name: 'Tomás Silva',
+    handle: 'tomassilva',
+    role: 'Junior copywriter',
+    location: 'São Paulo, BR',
+    accent: 'from-sky-400 to-brand-400',
+    rating: 4.6,
+    reviews: 5,
+    hourlyRate: 25,
+    startingPrice: 50,
+    responseTime: '1h',
+    verified: true,
+    topRated: false,
+    availability: 'Available now',
+    categories: ['writing', 'content'],
+    skills: ['Blog posts', 'Product descriptions', 'PT↔EN translation', 'Proofreading'],
+    about: 'Fresh writer offering fast, friendly copy and translation while building a track record.',
+    portfolio: ['from-sky-400 to-brand-500'],
+  },
+  {
+    id: 't20',
+    name: 'Mina Park',
+    handle: 'minapark',
+    role: 'Junior graphic & video editor',
+    location: 'Busan, KR',
+    accent: 'from-pink-400 to-violet-500',
+    rating: 4.7,
+    reviews: 7,
+    hourlyRate: 28,
+    startingPrice: 60,
+    responseTime: '2h',
+    verified: true,
+    topRated: false,
+    availability: 'Available now',
+    categories: ['design-graphics', 'video-motion'],
+    skills: ['Thumbnails', 'Social banners', 'Short-form edits', 'Subtitles', 'Canva'],
+    about: 'Starting out in design and short-form video. Quick turnarounds on thumbnails, banners, and reels.',
+    portfolio: ['from-pink-400 to-violet-500'],
+  },
+  {
+    id: 't21',
+    name: 'Daniel Okoro',
+    handle: 'danielokoro',
+    role: 'Junior data analyst',
+    location: 'Lagos, NG',
+    accent: 'from-emerald-400 to-brand-500',
+    rating: 4.6,
+    reviews: 3,
+    hourlyRate: 26,
+    startingPrice: 70,
+    responseTime: '3h',
+    verified: true,
+    topRated: false,
+    availability: 'Available now',
+    categories: ['data-analytics', 'ai-automation'],
+    skills: ['Excel', 'SQL', 'Data cleaning', 'Charts', 'Google Sheets'],
+    about: 'New analyst offering spreadsheet clean-ups, basic dashboards, and report automation at a starter rate.',
+    portfolio: ['from-emerald-400 to-brand-500'],
+  },
+  {
+    id: 't22',
+    name: 'Clara Rossi',
+    handle: 'clararossi',
+    role: 'Junior growth marketer',
+    location: 'Milan, IT',
+    accent: 'from-accent-400 to-brand-400',
+    rating: 4.7,
+    reviews: 5,
+    hourlyRate: 27,
+    startingPrice: 65,
+    responseTime: '2h',
+    verified: true,
+    topRated: false,
+    availability: 'Available now',
+    categories: ['marketing', 'content'],
+    skills: ['Social media', 'Email campaigns', 'Ad copy', 'Analytics', 'SEO basics'],
+    about: 'Early-career marketer running social, email, and ad experiments for small launches.',
+    portfolio: ['from-accent-400 to-brand-400'],
   },
 ]

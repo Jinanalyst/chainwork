@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Icon, navigate } from '../components/ui.jsx'
-import TalentCard from '../components/TalentCard.jsx'
+import TalentCard, { LevelBadge } from '../components/TalentCard.jsx'
 import ReviewsModal from '../components/ReviewsModal.jsx'
 import { CATEGORY_IDS, useCategoriesWithAll } from '../data/categories.jsx'
+import { levelOf } from '../data/talents.js'
 import { useTalents } from '../hooks/useTalents.js'
 import { useTaskStore } from '../hooks/useTaskStore.js'
 import { useT } from '../i18n/index.jsx'
@@ -13,6 +14,14 @@ const RATING_RANGES = [
   { id: 'gte3', label: '3.0+', test: (t) => t.rating != null && t.rating >= 3 },
   { id: 'gte2', label: '2.0+', test: (t) => t.rating != null && t.rating >= 2 },
   { id: 'gte1', label: '1.0+', test: (t) => t.rating != null && t.rating >= 1 },
+]
+
+// Tiers, highest → lowest, so Expert leads the filter row.
+const LEVELS = [
+  { id: 'any', label: 'Any level' },
+  { id: 'expert', label: 'Expert' },
+  { id: 'verified', label: 'Verified' },
+  { id: 'rookie', label: 'Rookie' },
 ]
 
 const AVAILS = [
@@ -95,7 +104,7 @@ const TalentProfile = ({ talent, reviewCount, onInvite, onViewReviews, onClose }
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-2xl font-bold">{talent.name}</h2>
-            {talent.verified && <span className="rounded-full border border-accent-400/30 bg-accent-500/15 px-2 py-0.5 text-xs text-accent-300">{t('talents.profile.verified')}</span>}
+            <LevelBadge level={levelOf(talent, reviewCount)} label={t(`talents.level.${levelOf(talent, reviewCount)}`)} className="!text-xs !px-2" />
             {talent.topRated && <span className="rounded-full border border-brand-400/30 bg-brand-500/15 px-2 py-0.5 text-xs text-brand-200">{t('talents.profile.topRated')}</span>}
           </div>
           <div className="mt-1 text-white/70">{talent.role} - {talent.location}</div>
@@ -191,6 +200,7 @@ export default function Talents() {
   const store = useTaskStore()
   const categoryOptions = useCategoriesWithAll()
   const ratingOptions = RATING_RANGES.map((r) => ({ id: r.id, label: t(`talents.rating.${r.id}`, r.label) }))
+  const levelOptions = LEVELS.map((l) => ({ id: l.id, label: t(`talents.level.${l.id}`, l.label) }))
   const availOptions = AVAILS.map((a) => ({ id: a.id, label: t(`talents.avail.${a.id}`, a.label) }))
   const sortOptions = SORTS.map((s) => ({ id: s.id, label: t(`talents.sort.${s.id}`, s.label) }))
   const initialCategory = useMemo(() => {
@@ -199,6 +209,7 @@ export default function Talents() {
     return CATEGORY_IDS.includes(requested) ? requested : 'all'
   }, [])
   const [category, setCategory] = useState(initialCategory)
+  const [level, setLevel] = useState('any')
   const [rating, setRating] = useState('any')
   const [avail, setAvail] = useState('any')
   const [sort, setSort] = useState('top')
@@ -234,6 +245,7 @@ export default function Talents() {
     const q = query.trim().toLowerCase()
     const out = talents.filter((t) => {
       if (category !== 'all' && !t.categories.includes(category)) return false
+      if (level !== 'any' && levelOf(t) !== level) return false
       if (!ratingTest(t)) return false
       if (avail === 'now' && t.availability !== 'Available now') return false
       if (avail === 'soon' && t.availability !== 'Available next week') return false
@@ -248,7 +260,7 @@ export default function Talents() {
     else if (sort === 'fast') out.sort((a, b) => responseMinutes(a.responseTime) - responseMinutes(b.responseTime))
     else out.sort((a, b) => (Number(b.topRated) - Number(a.topRated)) || (b.rating - a.rating))
     return out
-  }, [talents, category, rating, avail, sort, query])
+  }, [talents, category, level, rating, avail, sort, query])
 
   const openProfile = (talent) => {
     setProfileTalent(talent)
@@ -319,6 +331,9 @@ export default function Talents() {
               <FilterChips label={t('talents.filters.category')} options={categoryOptions} value={category} onChange={setCategory} />
             </div>
             <div className="cw-scroll overflow-x-auto -mx-1 px-1 pb-1">
+              <FilterChips label={t('talents.filters.level')} options={levelOptions} value={level} onChange={setLevel} />
+            </div>
+            <div className="cw-scroll overflow-x-auto -mx-1 px-1 pb-1">
               <FilterChips label={t('talents.filters.rating')} options={ratingOptions} value={rating} onChange={setRating} />
             </div>
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
@@ -349,7 +364,7 @@ export default function Talents() {
           <div className="card text-center py-16">
             <div className="text-white/70">{t('talents.emptyState.noMatch')}</div>
             <button
-              onClick={() => { setCategory('all'); setRating('any'); setAvail('any'); setQuery('') }}
+              onClick={() => { setCategory('all'); setLevel('any'); setRating('any'); setAvail('any'); setQuery('') }}
               className="btn-ghost mt-4"
             >
               {t('talents.emptyState.reset')}

@@ -1,8 +1,30 @@
 import React from 'react'
 import { Icon } from './ui.jsx'
+import { LEVEL_META, levelOf } from '../data/talents.js'
 
 const initials = (name) =>
   (name || '?').split(/\s+/).map((p) => p[0] || '').slice(0, 2).join('').toUpperCase()
+
+const LEVEL_ICONS = {
+  sprout: <><path d="M12 22v-9" /><path d="M12 13c0-3.5-2.5-6-7-6 0 4.5 3 7 7 7z" /><path d="M12 13c0-4 3-7 7-7 0 4-3 7-7 7z" /></>,
+  check: <path d="M5 12l4 4 10-10" />,
+  medal: <><circle cx="12" cy="9" r="6" /><path d="M9 14.5 7 22l5-3 5 3-2-7.5" /></>,
+}
+
+/**
+ * Tier badge: Rookie · Verified · Expert. The level is the headline trust
+ * signal on every talent (see src/data/talents.js).
+ */
+export const LevelBadge = ({ level, label, className = '' }) => {
+  const key = LEVEL_META[level] ? level : 'rookie'
+  const meta = LEVEL_META[key]
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium ${meta.badge} ${className}`}>
+      <Icon path={LEVEL_ICONS[meta.icon]} className="h-3 w-3" />
+      {label || meta.label}
+    </span>
+  )
+}
 
 const Pill = ({ tone = 'default', children }) => {
   const tones = {
@@ -32,9 +54,7 @@ export default function TalentCard({ talent, compact = false, onInvite, onView, 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <h3 className="font-semibold leading-tight truncate">{talent.name}</h3>
-            {talent.verified && (
-              <Pill tone="ok"><Icon path={<path d="M5 12l4 4 10-10" />} className="h-3 w-3" /> Verified</Pill>
-            )}
+            <LevelBadge level={levelOf(talent)} />
             {talent.topRated && <Pill tone="info">Top-rated</Pill>}
           </div>
           <div className="text-sm text-white/70 mt-0.5 truncate">{talent.role}</div>

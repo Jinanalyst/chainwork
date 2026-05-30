@@ -499,9 +499,16 @@ const en = {
     clear: 'Clear',
     filters: {
       category: 'Category',
+      level: 'Level',
       rating: 'Rating',
       availability: 'Availability',
       sort: 'Sort',
+    },
+    level: {
+      any: 'Any level',
+      rookie: 'Rookie',
+      verified: 'Verified',
+      expert: 'Expert',
     },
     rating: {
       any: 'Any rating',

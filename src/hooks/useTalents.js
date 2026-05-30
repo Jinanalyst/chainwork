@@ -68,8 +68,14 @@ const normalizeTalent = (row, index) => {
   const role = row.title || row.company || 'Verified ChainWork worker'
   const categories = inferCategories(text)
 
+  // Tier is auto-derived from review count by levelOf() — new signups have 0
+  // reviews and so start at Rookie. We only pin an explicit `level` when the
+  // row carries a manual promotion override.
+  const explicitLevel = ['rookie', 'verified', 'expert'].includes(row.level) ? row.level : null
+
   return {
     id: row.id,
+    ...(explicitLevel ? { level: explicitLevel } : {}),
     name,
     handle: publicSlug || dashedHandle || (name || row.id).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
     role,
