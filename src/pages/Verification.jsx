@@ -1,9 +1,11 @@
 import React from 'react'
 import LegalLayout, { LegalSection } from '../components/LegalLayout.jsx'
+import { useT } from '../i18n/index.jsx'
 
 export default function Verification() {
-  return (
-    <LegalLayout eyebrow="Verification" title="프리랜서 검증 절차">
+  const { lang } = useT()
+  const ko = (
+    <>
       <p className="mt-8 text-white/75 leading-relaxed">
         ChainWork는 의뢰자가 안심하고 협업할 수 있도록 모든 전문가(프리랜서/파트너) 회원에게 단계별
         검증 절차를 운영합니다. 본 페이지는 검증 항목과 노출 기준을 안내합니다.
@@ -56,6 +58,71 @@ export default function Verification() {
       <LegalSection title="7. 검증 신청 / 문의">
         <p>검증 신청 및 문의: <a className="text-brand-300 hover:text-white" href="mailto:jangj6091@gmail.com">jangj6091@gmail.com</a></p>
       </LegalSection>
+    </>
+  )
+  const en = (
+    <>
+      <p className="mt-8 text-white/75 leading-relaxed">
+        ChainWork operates a step-by-step verification process for all expert (freelancer/partner) members so that
+        hirers can collaborate with confidence. This page explains the verification items and visibility criteria.
+      </p>
+
+      <LegalSection title="1. Identity verification">
+        <ul className="list-disc list-inside space-y-1">
+          <li>Mobile phone identity verification (required)</li>
+          <li>Email verification (required)</li>
+          <li>Review of the accuracy of real-name verification information</li>
+        </ul>
+      </LegalSection>
+
+      <LegalSection title="2. Business / affiliation verification (optional)">
+        <ul className="list-disc list-inside space-y-1">
+          <li>Business registration certificate check (sole proprietor / corporation)</li>
+          <li>Affiliated company domain email verification</li>
+          <li>Career verification through supporting documents</li>
+        </ul>
+        <p>Members who complete verification receive a Verified Badge on their profile.</p>
+      </LegalSection>
+
+      <LegalSection title="3. Portfolio review">
+        <p>Registered portfolios are reviewed based on whether the work is the member's own, whether it infringes any
+        rights, and its category suitability. Unauthorized use of another person's work will result in rejection of
+        registration, and account use may be restricted if such use is detected.</p>
+      </LegalSection>
+
+      <LegalSection title="4. Activity evaluation">
+        <ul className="list-disc list-inside space-y-1">
+          <li>Response speed (average response time to hirer messages)</li>
+          <li>Completion rate (proportion of accepted work completed normally)</li>
+          <li>Customer ratings (star ratings and reviews)</li>
+          <li>Frequency of disputes and their resolution outcomes</li>
+        </ul>
+      </LegalSection>
+
+      <LegalSection title="5. Verification tiers">
+        <ul className="list-disc list-inside space-y-1">
+          <li><strong className="text-white">Standard</strong> — identity verification completed</li>
+          <li><strong className="text-white">Verified</strong> — business/affiliation verification completed, portfolio review completed</li>
+          <li><strong className="text-white">Top Rated</strong> — 30+ completed + rating 4.7 or higher + dispute rate 1% or lower</li>
+        </ul>
+      </LegalSection>
+
+      <LegalSection title="6. Retention and destruction of materials">
+        <p>Materials used for verification are not used for any purpose other than verification, and are
+        <a className="text-brand-300 hover:text-white" href="#/privacy"> retained and destroyed in accordance with the Privacy Policy</a>.</p>
+      </LegalSection>
+
+      <LegalSection title="7. Verification request / inquiries">
+        <p>Verification requests and inquiries: <a className="text-brand-300 hover:text-white" href="mailto:jangj6091@gmail.com">jangj6091@gmail.com</a></p>
+      </LegalSection>
+    </>
+  )
+  return (
+    <LegalLayout
+      eyebrow={lang === 'ko' ? 'Verification' : 'Verification'}
+      title={lang === 'ko' ? '프리랜서 검증 절차' : 'Freelancer verification process'}
+    >
+      {lang === 'ko' ? ko : en}
     </LegalLayout>
   )
 }

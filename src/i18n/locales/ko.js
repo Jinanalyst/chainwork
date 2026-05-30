@@ -194,6 +194,69 @@ const ko = {
     findTalent: '전문가 찾기',
   },
 
+  cat: {
+    'web-dev': {
+      tag: '개발',
+      title: '웹/앱 개발',
+      blurb: '랜딩 페이지부터 SaaS, 사내 도구까지 — 프론트엔드, 백엔드, 배포, 유지보수.',
+      examples: ['랜딩 페이지', 'SaaS MVP', '웹 앱', 'API 연동', '버그 수정', '배포/운영'],
+    },
+    'no-code': {
+      tag: '노코드',
+      title: '노코드 / 웹사이트 빌더',
+      blurb: 'Webflow, Framer, WordPress, Shopify 기반의 빠른 사이트 제작 및 운영.',
+      examples: ['Webflow 사이트', 'Framer 랜딩', 'WordPress 테마', 'Shopify 스토어', '이메일 도메인', '카페24 셋업'],
+    },
+    'ai-automation': {
+      tag: 'AI',
+      title: 'AI 자동화',
+      blurb: '고객 응대 챗봇, 문서 요약, 업무 자동화 등 AI 워크플로우 구축.',
+      examples: ['AI 챗봇', '문서 RAG', '메일 자동화', '콘텐츠 요약', 'OpenAI API', '리드 수집 봇'],
+    },
+    marketing: {
+      tag: '마케팅',
+      title: '마케팅 지원',
+      blurb: '퍼포먼스 광고, SEO, 콘텐츠 마케팅, 소셜 채널 운영을 도와줄 전문가.',
+      examples: ['네이버 광고', 'Google Ads', 'SEO 진단', '인스타 운영', '뉴스레터', '랜딩 카피'],
+    },
+    'ui-ux': {
+      tag: '디자인',
+      title: 'UI/UX · 브랜드 디자인',
+      blurb: '제품 디자인, 브랜드 아이덴티티, 디자인 시스템, 전환율 중심 레이아웃.',
+      examples: ['Figma 리디자인', '디자인 시스템', '브랜드 아이덴티티', '로고 패키지', '마케팅 일러스트', '앱 UX'],
+    },
+    content: {
+      tag: '콘텐츠',
+      title: '콘텐츠 · 운영',
+      blurb: '카피라이팅, 영상 편집, 번역, 고객 응대, 커뮤니티 운영.',
+      examples: ['랜딩 카피', '블로그 시리즈', '영상 편집', '한영 번역', '고객 응대', '커뮤니티 운영'],
+    },
+    writing: {
+      tag: '글쓰기',
+      title: '글쓰기 · 번역',
+      blurb: '세일즈 카피, 블로그·뉴스레터, 기술 문서, 다국어 번역과 교정까지.',
+      examples: ['세일즈 카피', '블로그 글', '제품 설명', '기술 문서', '한영 번역', '맞춤법 교정'],
+    },
+    'design-graphics': {
+      tag: '디자인',
+      title: '그래픽 · 일러스트',
+      blurb: '로고, SNS·광고 배너, 상세페이지, 인포그래픽, 일러스트레이션.',
+      examples: ['로고 디자인', '상세페이지', 'SNS 배너', '인포그래픽', '일러스트', '썸네일'],
+    },
+    'video-motion': {
+      tag: '영상',
+      title: '영상 · 모션그래픽',
+      blurb: '숏폼·유튜브 편집, 모션그래픽, 광고 영상, 자막·더빙 작업.',
+      examples: ['유튜브 편집', '숏폼/릴스', '모션그래픽', '광고 영상', '자막 작업', '인트로 제작'],
+    },
+    'data-analytics': {
+      tag: '데이터',
+      title: '데이터 · 분석',
+      blurb: '데이터 정제, 대시보드, 스프레드시트 자동화, 리포팅, 크롤링.',
+      examples: ['데이터 정제', '대시보드', '엑셀 자동화', '리포팅', '웹 크롤링', 'SQL 쿼리'],
+    },
+  },
+
   trust: {
     eyebrow: '신뢰 요소',
     title: '안심하고 외주할 수 있는 이유',
@@ -417,6 +480,8 @@ const ko = {
     seller: { title: '판매자정책' },
     prohibited: { title: '금지서비스' },
     lastUpdated: '최종 업데이트',
+    backHome: '홈으로 돌아가기',
+    effective: '시행일',
   },
 
   components: {

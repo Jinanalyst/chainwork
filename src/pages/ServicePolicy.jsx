@@ -1,11 +1,14 @@
 import React from 'react'
 import LegalLayout, { LegalSection } from '../components/LegalLayout.jsx'
+import { useT } from '../i18n/index.jsx'
 
-const EFFECTIVE = '2026년 5월 27일'
+const EFFECTIVE = { ko: '2026년 5월 27일', en: 'May 27, 2026' }
 
 export default function ServicePolicy() {
-  return (
-    <LegalLayout eyebrow="서비스정책" title="서비스 운영정책" effective={EFFECTIVE}>
+  const { lang } = useT()
+
+  const ko = (
+    <>
       <p className="mt-8 text-white/75 leading-relaxed">
         본 정책은 ChainWork에서 제공·중개되는 디지털 전문 서비스의 범위, 거래 절차, 품질 기준 및
         회원의 책임을 규정합니다.
@@ -70,6 +73,89 @@ export default function ServicePolicy() {
           <li>관련 법령 또는 본 약관·정책 위반</li>
         </ul>
       </LegalSection>
+    </>
+  )
+
+  const en = (
+    <>
+      <p className="mt-8 text-white/75 leading-relaxed">
+        This policy governs the scope, transaction procedures, quality standards, and member
+        responsibilities of the digital professional services provided and intermediated on ChainWork.
+      </p>
+
+      <LegalSection title="1. Scope of Services Provided">
+        <ul className="list-disc list-inside space-y-1">
+          <li>Design (branding, logos, UI/UX, print materials)</li>
+          <li>Web/app development and maintenance</li>
+          <li>Marketing support (ad operations, SEO, content marketing)</li>
+          <li>Content production (writing, video editing, translation)</li>
+          <li>Community management and customer support</li>
+          <li>Other lawful digital professional services</li>
+        </ul>
+      </LegalSection>
+
+      <LegalSection title="2. Transaction Procedure">
+        <ol className="list-decimal list-inside space-y-1">
+          <li>The Hirer posts a job or selects a Worker's service.</li>
+          <li>The requirements, schedule, and amount are negotiated, and payment is made.</li>
+          <li>The payment is held as a Work Protection Payment.</li>
+          <li>The Worker performs the work and submits the deliverables.</li>
+          <li>The Hirer reviews and then approves or requests revisions.</li>
+          <li>Upon approval, settlement is carried out and the transaction is concluded.</li>
+        </ol>
+      </LegalSection>
+
+      <LegalSection title="3. Auto-approval">
+        <p>If the Hirer does not approve or request revisions within the review period (7 days by
+        default) after the Worker submits the final deliverables, the deliverables are deemed
+        automatically approved and settlement proceeds.</p>
+      </LegalSection>
+
+      <LegalSection title="4. Revision Requests">
+        <p>The Hirer may make reasonable revision requests within the agreed scope of work. Additional
+        work exceeding the agreed scope must be negotiated at a separate cost.</p>
+      </LegalSection>
+
+      <LegalSection title="5. Rights to Deliverables">
+        <p>Unless otherwise agreed, the rights to use the deliverables for which settlement has been
+        completed are transferred to the Hirer. However, the Worker may use part of those deliverables
+        for portfolio purposes. If trade secrets are included, a separate non-disclosure agreement may
+        be entered into.</p>
+      </LegalSection>
+
+      <LegalSection title="6. Quality Standards">
+        <p>The Worker must perform the work faithfully in accordance with the agreed specifications and
+        schedule, and if the deliverables have an obvious defect, rework or a refund may be determined
+        in accordance with the Company's mediation.</p>
+      </LegalSection>
+
+      <LegalSection title="7. Communication">
+        <p>All transaction-related communication must take place through the in-service chat, and
+        direct dealing by inducing payment on external channels or exchanging contact information is
+        prohibited. Because direct dealing creates blind spots in the protection of member rights, it
+        may result in use restrictions if detected.</p>
+      </LegalSection>
+
+      <LegalSection title="8. Service Use Restrictions">
+        <p>The Company may restrict service use in the following cases.</p>
+        <ul className="list-disc list-inside space-y-1">
+          <li>Violation of the Prohibited Services Policy</li>
+          <li>Repeated disputes or false reports</li>
+          <li>False registration of payment or settlement information</li>
+          <li>Inducement of direct dealing outside the platform</li>
+          <li>Violation of applicable laws or these terms and policies</li>
+        </ul>
+      </LegalSection>
+    </>
+  )
+
+  return (
+    <LegalLayout
+      eyebrow={lang === 'ko' ? '서비스정책' : 'Service Policy'}
+      title={lang === 'ko' ? '서비스 운영정책' : 'Service Operating Policy'}
+      effective={EFFECTIVE[lang]}
+    >
+      {lang === 'ko' ? ko : en}
     </LegalLayout>
   )
 }

@@ -1,11 +1,14 @@
 import React from 'react'
 import LegalLayout, { LegalSection } from '../components/LegalLayout.jsx'
+import { useT } from '../i18n/index.jsx'
 
-const EFFECTIVE = '2026년 5월 27일'
+const EFFECTIVE = { ko: '2026년 5월 27일', en: 'May 27, 2026' }
 
 export default function Privacy() {
-  return (
-    <LegalLayout eyebrow="개인정보 처리방침" title="개인정보 처리방침" effective={EFFECTIVE}>
+  const { lang } = useT()
+
+  const ko = (
+    <>
       <p className="mt-8 text-white/75 leading-relaxed">
         체인 랩스(Chain Labs, 이하 &quot;회사&quot;)는 ChainWork 서비스를 운영함에 있어 회원의 개인정보를
         중요하게 생각하며, 「개인정보 보호법」 및 관련 법령을 준수합니다. 본 처리방침은 회사가 수집하는
@@ -78,6 +81,96 @@ export default function Privacy() {
         <p>본 처리방침은 법령·서비스의 변경에 따라 개정될 수 있으며, 개정 시 서비스 내 공지를 통해
         안내합니다.</p>
       </LegalSection>
+    </>
+  )
+
+  const en = (
+    <>
+      <p className="mt-8 text-white/75 leading-relaxed">
+        In operating the ChainWork service, Chain Labs (the &quot;Company&quot;) values members' personal
+        information and complies with the Personal Information Protection Act and related laws. This
+        Privacy Policy explains the items of personal information the Company collects, the purposes of
+        use, the retention period, members' rights, and more.
+      </p>
+
+      <LegalSection title="1. Items of Personal Information Collected">
+        <p><strong className="text-white">Mandatory items</strong>: email, password (or OAuth/wallet identifier), nickname/legal name, mobile phone number.</p>
+        <p><strong className="text-white">Optional items</strong>: profile image, self-introduction, portfolio links, social handles, company name, address.</p>
+        <p><strong className="text-white">Payment and settlement items</strong>: when paying through a PG provider, the card issuer name/partial card number, transaction identifier, account holder name/account number/bank name for settlement, and transaction history.</p>
+        <p><strong className="text-white">Automatically collected during use of the Service</strong>: IP address, access date and time, browser/OS information, cookies, and service usage records.</p>
+      </LegalSection>
+
+      <LegalSection title="2. Purposes of Collection and Use of Personal Information">
+        <ul className="list-disc list-inside space-y-1">
+          <li>Membership registration and identity verification, and prevention of fraudulent use</li>
+          <li>Hirer-Worker matching, and the commissioning, performance, and settlement of work</li>
+          <li>Payment, refunds, and the holding and settlement of Work Protection Payments</li>
+          <li>Responding to customer inquiries and delivering notices and announcements</li>
+          <li>Dispute handling and fulfillment of statutory obligations</li>
+        </ul>
+      </LegalSection>
+
+      <LegalSection title="3. Retention and Use Period of Personal Information">
+        <p>Upon membership withdrawal, personal information is destroyed without delay. However, where retention is required by applicable laws, it is retained as follows.</p>
+        <ul className="list-disc list-inside space-y-1">
+          <li>Records on contracts or withdrawal of offers: 5 years (the E-Commerce Act)</li>
+          <li>Records on payment and supply of goods, etc.: 5 years (the E-Commerce Act)</li>
+          <li>Records on consumer complaints or dispute handling: 3 years (the E-Commerce Act)</li>
+          <li>Records on labeling and advertising: 6 months (the E-Commerce Act)</li>
+          <li>Access logs, etc.: 3 months (the Protection of Communications Secrets Act)</li>
+        </ul>
+      </LegalSection>
+
+      <LegalSection title="4. Provision of Personal Information to Third Parties">
+        <p>The Company processes members' personal information within the scope specified in this Privacy
+        Policy and does not provide it to third parties without the member's prior consent. However, the
+        following cases are exceptions.</p>
+        <ul className="list-disc list-inside space-y-1">
+          <li>Where the member has given prior consent</li>
+          <li>Where there is a legal basis or a lawful request from an investigative agency</li>
+          <li>Where necessary to perform a transaction (e.g., providing payment/settlement information to a PG provider or settlement bank)</li>
+        </ul>
+      </LegalSection>
+
+      <LegalSection title="5. Outsourcing of Personal Information Processing">
+        <ul className="list-disc list-inside space-y-1">
+          <li><strong className="text-white">PG provider (payment processing)</strong>: payment processing and refunds</li>
+          <li><strong className="text-white">Supabase</strong>: authentication, database, file storage</li>
+          <li><strong className="text-white">Vercel</strong>: web hosting and CDN</li>
+          <li><strong className="text-white">Email/SMS delivery providers</strong>: sending notification and verification messages</li>
+        </ul>
+      </LegalSection>
+
+      <LegalSection title="6. Members' Rights and How to Exercise Them">
+        <p>Members may at any time view, modify, or delete their personal information, or request a halt to
+        its processing. Requests can be made through the profile screen within the Service or via <a className="text-brand-300 hover:text-white" href="mailto:jangj6091@gmail.com">jangj6091@gmail.com</a>,
+        and the Company will take action without delay.</p>
+      </LegalSection>
+
+      <LegalSection title="7. Measures to Ensure the Security of Personal Information">
+        <p>The Company implements technical and administrative protection measures, including encrypted
+        transmission of personal information (TLS), access control, separation of privileges, database RLS
+        (row-level security), and retention of access logs.</p>
+      </LegalSection>
+
+      <LegalSection title="8. Personal Information Protection Officer">
+        <p>Name: Jinwoo Jang<br/>Email: <a className="text-brand-300 hover:text-white" href="mailto:jangj6091@gmail.com">jangj6091@gmail.com</a></p>
+      </LegalSection>
+
+      <LegalSection title="9. Changes to This Privacy Policy">
+        <p>This Privacy Policy may be amended in accordance with changes in laws or the Service, and any
+        amendment will be announced through a notice within the Service.</p>
+      </LegalSection>
+    </>
+  )
+
+  return (
+    <LegalLayout
+      eyebrow={lang === 'ko' ? '개인정보 처리방침' : 'Privacy Policy'}
+      title={lang === 'ko' ? '개인정보 처리방침' : 'Privacy Policy'}
+      effective={EFFECTIVE[lang]}
+    >
+      {lang === 'ko' ? ko : en}
     </LegalLayout>
   )
 }

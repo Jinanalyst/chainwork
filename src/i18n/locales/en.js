@@ -194,6 +194,69 @@ const en = {
     findTalent: 'Find talent',
   },
 
+  cat: {
+    'web-dev': {
+      tag: 'Development',
+      title: 'Web & app development',
+      blurb: 'From landing pages to SaaS and internal tools — frontend, backend, deployment, and maintenance.',
+      examples: ['Landing pages', 'SaaS MVP', 'Web apps', 'API integration', 'Bug fixes', 'Deploy & ops'],
+    },
+    'no-code': {
+      tag: 'No-code',
+      title: 'No-code / website builders',
+      blurb: 'Fast site builds and operations on Webflow, Framer, WordPress, and Shopify.',
+      examples: ['Webflow sites', 'Framer landing', 'WordPress themes', 'Shopify stores', 'Email domains', 'Cafe24 setup'],
+    },
+    'ai-automation': {
+      tag: 'AI',
+      title: 'AI automation',
+      blurb: 'Build AI workflows — support chatbots, document summarization, and task automation.',
+      examples: ['AI chatbots', 'Document RAG', 'Email automation', 'Content summaries', 'OpenAI API', 'Lead-gen bots'],
+    },
+    marketing: {
+      tag: 'Marketing',
+      title: 'Marketing support',
+      blurb: 'Experts for performance ads, SEO, content marketing, and social channel management.',
+      examples: ['Naver Ads', 'Google Ads', 'SEO audits', 'Instagram ops', 'Newsletters', 'Landing copy'],
+    },
+    'ui-ux': {
+      tag: 'Design',
+      title: 'UI/UX & brand design',
+      blurb: 'Product design, brand identity, design systems, and conversion-focused layouts.',
+      examples: ['Figma redesign', 'Design systems', 'Brand identity', 'Logo packages', 'Marketing illustration', 'App UX'],
+    },
+    content: {
+      tag: 'Content',
+      title: 'Content & operations',
+      blurb: 'Copywriting, video editing, translation, customer support, and community management.',
+      examples: ['Landing copy', 'Blog series', 'Video editing', 'KO–EN translation', 'Customer support', 'Community ops'],
+    },
+    writing: {
+      tag: 'Writing',
+      title: 'Writing & translation',
+      blurb: 'Sales copy, blogs and newsletters, technical docs, plus multilingual translation and proofreading.',
+      examples: ['Sales copy', 'Blog posts', 'Product descriptions', 'Technical docs', 'KO–EN translation', 'Proofreading'],
+    },
+    'design-graphics': {
+      tag: 'Design',
+      title: 'Graphics & illustration',
+      blurb: 'Logos, social and ad banners, detail pages, infographics, and illustration.',
+      examples: ['Logo design', 'Detail pages', 'Social banners', 'Infographics', 'Illustration', 'Thumbnails'],
+    },
+    'video-motion': {
+      tag: 'Video',
+      title: 'Video & motion graphics',
+      blurb: 'Short-form and YouTube editing, motion graphics, ad videos, subtitles, and dubbing.',
+      examples: ['YouTube editing', 'Shorts/Reels', 'Motion graphics', 'Ad videos', 'Subtitling', 'Intro creation'],
+    },
+    'data-analytics': {
+      tag: 'Data',
+      title: 'Data & analytics',
+      blurb: 'Data cleaning, dashboards, spreadsheet automation, reporting, and scraping.',
+      examples: ['Data cleaning', 'Dashboards', 'Excel automation', 'Reporting', 'Web scraping', 'SQL queries'],
+    },
+  },
+
   trust: {
     eyebrow: 'Trust',
     title: 'Why you can outsource with confidence',
@@ -417,6 +480,8 @@ const en = {
     seller: { title: 'Seller Policy' },
     prohibited: { title: 'Prohibited Services' },
     lastUpdated: 'Last updated',
+    backHome: 'Back to home',
+    effective: 'Effective',
   },
 
   components: {

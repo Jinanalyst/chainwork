@@ -1,11 +1,14 @@
 import React from 'react'
 import LegalLayout, { LegalSection } from '../components/LegalLayout.jsx'
+import { useT } from '../i18n/index.jsx'
 
-const EFFECTIVE = '2026년 5월 27일'
+const EFFECTIVE = { ko: '2026년 5월 27일', en: 'May 27, 2026' }
 
 export default function DisputePolicy() {
-  return (
-    <LegalLayout eyebrow="분쟁처리정책" title="분쟁처리정책" effective={EFFECTIVE}>
+  const { lang } = useT()
+
+  const ko = (
+    <>
       <p className="mt-8 text-white/75 leading-relaxed">
         ChainWork는 의뢰자와 전문가 사이에 발생하는 분쟁이 공정하고 신속하게 해결될 수 있도록 다음의
         절차를 운영합니다. 본 정책은 작업보호금 보관 상태에서의 분쟁뿐 아니라 정산 이후의 하자
@@ -68,6 +71,86 @@ export default function DisputePolicy() {
         <p>분쟁 절차를 악용하거나 허위 자료를 제출한 회원에 대해서는 이용 제한, 정산 보류, 손해배상 청구
         등 필요한 조치를 취할 수 있습니다.</p>
       </LegalSection>
+    </>
+  )
+
+  const en = (
+    <>
+      <p className="mt-8 text-white/75 leading-relaxed">
+        ChainWork operates the following procedures so that disputes arising between Hirers and
+        Workers can be resolved fairly and promptly. This policy applies not only to disputes while
+        the Work Protection Payment is held, but also to defect disputes after settlement.
+      </p>
+
+      <LegalSection title="1. Definition of a Dispute">
+        <p>A dispute refers to a situation in which the Hirer and the Worker have failed to reach an agreement, as follows.</p>
+        <ul className="list-disc list-inside space-y-1">
+          <li>Disagreement over the scope of work or the quality of deliverables</li>
+          <li>Schedule delays or suspension of work</li>
+          <li>Disagreement over the refund or settlement ratio</li>
+          <li>Claims of rights infringement such as copyright</li>
+        </ul>
+      </LegalSection>
+
+      <LegalSection title="2. Filing a Dispute">
+        <p>Members may file a dispute through [Request Dispute] on the order detail screen within the
+        service, or through customer support
+        (<a className="text-brand-300 hover:text-white" href="mailto:jangj6091@gmail.com">jangj6091@gmail.com</a>).
+        Please submit the following materials when filing.</p>
+        <ul className="list-disc list-inside space-y-1">
+          <li>Order number and identifying information of the counterparty</li>
+          <li>Reason for the dispute and the desired resolution</li>
+          <li>Supporting materials such as chat records, deliverables, and emails</li>
+        </ul>
+      </LegalSection>
+
+      <LegalSection title="3. Temporary Suspension of the Work Protection Payment">
+        <p>Once a dispute is filed, settlement of the Work Protection Payment for that transaction is
+        temporarily suspended until the dispute is resolved. The auto-approval period also pauses
+        until the dispute is resolved.</p>
+      </LegalSection>
+
+      <LegalSection title="4. Procedure and Timeline">
+        <ol className="list-decimal list-inside space-y-1">
+          <li>Within 1 to 3 business days after filing, both parties are requested to provide opinions and materials.</li>
+          <li>The Company reviews the submitted materials and presents a mediation opinion.</li>
+          <li>If the parties reach an agreement, refunds and settlements are executed according to the terms of the agreement.</li>
+          <li>If no agreement is reached, the Company determines the refund and settlement ratio in accordance with this policy and applicable laws.</li>
+        </ol>
+        <p>The overall processing period is generally 7 to 14 business days, and may be extended depending on the complexity of the matter.</p>
+      </LegalSection>
+
+      <LegalSection title="5. Mediation Criteria">
+        <p>The Company mediates based on the following objective materials.</p>
+        <ul className="list-disc list-inside space-y-1">
+          <li>The initially agreed scope of work, schedule, and amount</li>
+          <li>The actual volume of work performed and the completeness of the deliverables</li>
+          <li>The Hirer's review opinions and the number of revision requests</li>
+          <li>The Worker's adherence to the schedule and sincerity in communication</li>
+          <li>Applicable laws and this policy</li>
+        </ul>
+      </LegalSection>
+
+      <LegalSection title="6. External Dispute Resolution">
+        <p>If you do not agree with the Company's mediation, you may file for dispute mediation or
+        litigation with the Korea Consumer Agency or the competent court. The Company will faithfully
+        cooperate with requests from the relevant authorities.</p>
+      </LegalSection>
+
+      <LegalSection title="7. Measures Against False Reports">
+        <p>For members who abuse the dispute process or submit false materials, the Company may take
+        necessary measures such as use restrictions, settlement holds, and claims for damages.</p>
+      </LegalSection>
+    </>
+  )
+
+  return (
+    <LegalLayout
+      eyebrow={lang === 'ko' ? '분쟁처리정책' : 'Dispute Policy'}
+      title={lang === 'ko' ? '분쟁처리정책' : 'Dispute Policy'}
+      effective={EFFECTIVE[lang]}
+    >
+      {lang === 'ko' ? ko : en}
     </LegalLayout>
   )
 }

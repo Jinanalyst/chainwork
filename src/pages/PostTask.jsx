@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import ConversationalForm from '../components/ConversationalForm.jsx'
 import EscrowAddressCard from '../components/EscrowAddressCard.jsx'
 import PaymentProofForm from '../components/PaymentProofForm.jsx'
@@ -74,7 +74,7 @@ async function createTaskAndFanOutOffers(answers) {
   return { ok: true, taskId: task.id, offersCreated: rows.length }
 }
 
-import { CATEGORY_LABEL, CATEGORIES } from '../data/categories.jsx'
+import { useCategories, useCategoryLabel } from '../data/categories.jsx'
 
 const initials = (n) =>
   (n || '?').split(/\s+/).map((p) => p[0] || '').slice(0, 2).join('').toUpperCase()
@@ -92,7 +92,7 @@ const QUESTIONS = [
     prompt: 'Which category best fits this job?',
     shortLabel: 'Category',
     hint: 'This is how workers find your job on the Jobs board.',
-    choices: CATEGORIES.map((c) => ({ id: c.id, title: c.title, hint: c.blurb })),
+    // choices are injected at render time with localized category labels
   },
   {
     id: 'projectUrl',
@@ -173,6 +173,7 @@ const WarmTalentRow = ({ talent }) => (
 
 const MatchedTalents = ({ answers }) => {
   const { talents, loading } = useTalents()
+  const CATEGORY_LABEL = useCategoryLabel()
   const matches = matchTalents(answers, talents, { limit: 4 })
   const cats = inferCategories(answers.workType)
   if (loading || matches.length === 0) return null
@@ -408,6 +409,17 @@ const VerifiedEmployerWall = () => {
 }
 
 export default function PostTask() {
+  const categories = useCategories()
+  const questions = useMemo(
+    () =>
+      QUESTIONS.map((q) =>
+        q.id === 'category'
+          ? { ...q, choices: categories.map((c) => ({ id: c.id, title: c.title, hint: c.blurb })) }
+          : q,
+      ),
+    [categories],
+  )
+
   // Hard gate: an active Verified Employer subscription is required to post.
   const [sub, setSub] = useState(undefined)
   useEffect(() => {
@@ -430,7 +442,7 @@ export default function PostTask() {
   return (
     <ConversationalForm
       eyebrow="Post a task"
-      questions={QUESTIONS}
+      questions={questions}
       submitLabel="Post my task"
       successTitle="Your task is live."
       successBody="Send your budget to one of the escrow addresses below to start the work. You'll see offers from trusted workers within a few hours."

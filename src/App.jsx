@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react'
 import { Capacitor } from '@capacitor/core'
 import NativeWalletApp from './components/NativeWalletApp.jsx'
 import { LogoMark, Wordmark, Icon, useHashRoute, navigate } from './components/ui.jsx'
-import { CATEGORIES as WEB_CATEGORIES } from './data/categories.jsx'
+import { useCategories } from './data/categories.jsx'
 import SignInModal from './components/SignInModal.jsx'
 import RoleSelectModal from './components/RoleSelectModal.jsx'
 import LanguageSwitcher from './components/LanguageSwitcher.jsx'
@@ -235,15 +235,14 @@ const HowItWorks = () => {
   )
 }
 
-const CATEGORIES = WEB_CATEGORIES
-
 const Categories = () => {
   const { t } = useT()
+  const CATEGORIES = useCategories()
   const [category, setCategory] = useState('all')
 
   const visible = useMemo(
     () => (category === 'all' ? CATEGORIES : CATEGORIES.filter((c) => c.id === category)),
-    [category],
+    [category, CATEGORIES],
   )
 
   return (

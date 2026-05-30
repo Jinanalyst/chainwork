@@ -9,8 +9,6 @@
  * matching and browsing useful when a deployment has not published profiles.
  */
 
-import { CATEGORIES_WITH_ALL } from './categories.jsx'
-
 export const TALENTS = [
   {
     id: 't1',
@@ -333,5 +331,3 @@ export const TALENTS = [
     portfolio: ['from-emerald-400 to-brand-500'],
   },
 ]
-
-export const TALENT_CATEGORIES = CATEGORIES_WITH_ALL

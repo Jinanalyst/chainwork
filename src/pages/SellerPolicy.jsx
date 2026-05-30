@@ -1,11 +1,14 @@
 import React from 'react'
 import LegalLayout, { LegalSection } from '../components/LegalLayout.jsx'
+import { useT } from '../i18n/index.jsx'
 
-const EFFECTIVE = '2026년 5월 27일'
+const EFFECTIVE = { ko: '2026년 5월 27일', en: 'May 27, 2026' }
 
 export default function SellerPolicy() {
-  return (
-    <LegalLayout eyebrow="판매자(전문가) 정책" title="판매자(전문가) 정책" effective={EFFECTIVE}>
+  const { lang } = useT()
+
+  const ko = (
+    <>
       <p className="mt-8 text-white/75 leading-relaxed">
         본 정책은 ChainWork에서 디지털 전문 서비스를 제공·판매하는 전문가(Worker) 회원의 등록, 운영,
         의무 사항을 규정합니다. 전문가 회원은 본 정책에 동의한 것으로 간주됩니다.
@@ -69,6 +72,88 @@ export default function SellerPolicy() {
         <p>장기간 미활동 시 계정이 휴면 처리될 수 있습니다. 회원 탈퇴는 서비스 내 설정 화면에서 가능하며,
         진행 중인 작업이 있는 경우 작업 종료 후 처리됩니다.</p>
       </LegalSection>
+    </>
+  )
+
+  const en = (
+    <>
+      <p className="mt-8 text-white/75 leading-relaxed">
+        This Policy governs the registration, operation, and obligations of Worker members who provide
+        and sell digital professional services on ChainWork. Worker members are deemed to have agreed
+        to this Policy.
+      </p>
+
+      <LegalSection title="1. Worker Registration Requirements">
+        <ul className="list-disc list-inside space-y-1">
+          <li>An individual or business at least 19 years of age</li>
+          <li>Mobile phone verification or business verification for identity confirmation</li>
+          <li>A domestic bank account in the member's own name for settlement</li>
+          <li>Accurate profile information and portfolio registration</li>
+        </ul>
+      </LegalSection>
+
+      <LegalSection title="2. Service Listing Standards">
+        <ul className="list-disc list-inside space-y-1">
+          <li>Only digital professional services that you can actually provide may be listed.</li>
+          <li>Price, scope of work, work duration, number of revisions, and similar details must be clearly stated.</li>
+          <li>Sample images and portfolios must be created by you, and you may not appropriate others' works.</li>
+          <li>Services covered by the Prohibited Services Policy may not be listed.</li>
+        </ul>
+      </LegalSection>
+
+      <LegalSection title="3. Work Performance Obligations">
+        <ul className="list-disc list-inside space-y-1">
+          <li>Perform the work diligently in accordance with the agreed schedule and specifications.</li>
+          <li>Respond actively to the Hirer's reasonable requirements.</li>
+          <li>If a delay is anticipated, immediately notify the Hirer and consult with them.</li>
+          <li>All communication must take place through in-service chat, and external direct dealings are prohibited.</li>
+        </ul>
+      </LegalSection>
+
+      <LegalSection title="4. Settlement">
+        <p>Settlement is made in accordance with the Payment Policy based on the Hirer's review approval,
+        the lapse of the automatic approval deadline, or the outcome of dispute resolution, and is paid
+        to the registered account after deducting the Company's fee. The obligation to report taxes
+        related to settlement rests with the Worker.</p>
+      </LegalSection>
+
+      <LegalSection title="5. Ratings and Reviews">
+        <p>After the work is completed, the Hirer may leave a star rating and review of the Worker, and
+        the Worker may not request deletion or modification of a review without justifiable cause.
+        For false or defamatory reviews, you may request the Company's review by filing a report.</p>
+      </LegalSection>
+
+      <LegalSection title="6. Prohibited Conduct">
+        <ul className="list-disc list-inside space-y-1">
+          <li>Registering a false or exaggerated profile or portfolio</li>
+          <li>Inducingly lowering the price to lure the user into external payment</li>
+          <li>Stopping work or failing to provide deliverables without the Hirer's agreement</li>
+          <li>Unauthorized disclosure of the Hirer's trade secrets or personal information</li>
+          <li>Violation of the Prohibited Services Policy</li>
+        </ul>
+      </LegalSection>
+
+      <LegalSection title="7. Measures upon Violation">
+        <p>For a Worker who violates this Policy or applicable laws, the Company may take necessary
+        measures such as warnings, restriction of service exposure, suspension of settlement, account
+        suspension, and claims for damages.</p>
+      </LegalSection>
+
+      <LegalSection title="8. Dormancy and Withdrawal">
+        <p>If inactive for a long period, an account may be made dormant. Withdrawal of membership is
+        available from the settings screen within the service, and if there is work in progress, it is
+        processed after the work is completed.</p>
+      </LegalSection>
+    </>
+  )
+
+  return (
+    <LegalLayout
+      eyebrow={lang === 'ko' ? '판매자(전문가) 정책' : 'Seller (Worker) Policy'}
+      title={lang === 'ko' ? '판매자(전문가) 정책' : 'Seller (Worker) Policy'}
+      effective={EFFECTIVE[lang]}
+    >
+      {lang === 'ko' ? ko : en}
     </LegalLayout>
   )
 }

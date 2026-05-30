@@ -1,11 +1,14 @@
 import React from 'react'
 import LegalLayout, { LegalSection } from '../components/LegalLayout.jsx'
+import { useT } from '../i18n/index.jsx'
 
-const EFFECTIVE = '2026년 5월 27일'
+const EFFECTIVE = { ko: '2026년 5월 27일', en: 'May 27, 2026' }
 
 export default function Terms() {
-  return (
-    <LegalLayout eyebrow="이용약관" title="ChainWork 이용약관" effective={EFFECTIVE}>
+  const { lang } = useT()
+
+  const ko = (
+    <>
       <p className="mt-8 text-white/75 leading-relaxed">
         본 약관은 체인 랩스(Chain Labs, 이하 &quot;회사&quot;)가 운영하는 ChainWork 플랫폼(이하 &quot;서비스&quot;)의
         이용과 관련하여 회사와 회원 사이의 권리, 의무 및 책임 사항을 규정합니다. ChainWork는 디자인,
@@ -94,6 +97,121 @@ export default function Terms() {
       <LegalSection title="제12조 (문의)">
         <p>약관 및 운영 관련 문의는 <a className="text-brand-300 hover:text-white" href="mailto:jangj6091@gmail.com">jangj6091@gmail.com</a> 로 연락 주시기 바랍니다.</p>
       </LegalSection>
+    </>
+  )
+
+  const en = (
+    <>
+      <p className="mt-8 text-white/75 leading-relaxed">
+        These Terms govern the rights, obligations, and responsibilities between Chain Labs (the
+        &quot;Company&quot;) and members in relation to the use of the ChainWork platform (the
+        &quot;Service&quot;) operated by the Company. ChainWork is an online matching platform that
+        connects Hirers and freelancers so they can transact for digital professional services such as
+        design, web development, marketing, content production, and community management.
+      </p>
+
+      <LegalSection title="Article 1 (Purpose)">
+        <p>These Terms aim to set out the rights, obligations, and responsibilities of the Company and
+        members, as well as other necessary matters, in connection with members' use of the Service.</p>
+      </LegalSection>
+
+      <LegalSection title="Article 2 (Definitions)">
+        <ul className="list-disc list-inside space-y-1">
+          <li><strong className="text-white">Service</strong>: the ChainWork web/mobile matching platform provided by the Company.</li>
+          <li><strong className="text-white">Hirer</strong>: a member who, through the Service, commissions digital work from a freelancer and pays for it.</li>
+          <li><strong className="text-white">Worker (freelancer)</strong>: a member who, through the Service, performs digital work and receives payment for it.</li>
+          <li><strong className="text-white">Work Protection Payment</strong>: a completion-based payout structure in which the Company temporarily holds the amount paid by the Hirer and pays it to the Worker after confirmation of work completion or resolution of a dispute.</li>
+          <li><strong className="text-white">Completion-based Payout</strong>: a method in which settlement occurs based on the Hirer's review approval, auto-approval, or the outcome of dispute resolution.</li>
+        </ul>
+      </LegalSection>
+
+      <LegalSection title="Article 3 (Posting and Amendment of the Terms)">
+        <p>The Company posts these Terms at all times on the Service's initial screen and footer. The
+        Company may amend these Terms within the scope that does not violate applicable laws, and upon
+        amendment will give notice, specifying the effective date and reason, at least 7 days (30 days
+        in the case of changes unfavorable to members) in advance.</p>
+      </LegalSection>
+
+      <LegalSection title="Article 4 (Membership Registration and Accounts)">
+        <p>Members must provide their own accurate information and may not misappropriate another person's
+        identity, payment means, or wallet address. The Company may restrict use or terminate an account
+        if a member violates these Terms, applicable laws, or the Company's operating policies.</p>
+      </LegalSection>
+
+      <LegalSection title="Article 5 (Nature of the Service)">
+        <p>The Company acts as an online marketplace intermediary connecting Hirers and Workers and is not
+        a party to transactions. However, the Company operates USDT/USDC payments through the
+        cryptocurrency payment gateway NowPayments as well as the holding and settlement of Work
+        Protection Payments, and provides review periods, auto-approval, and dispute handling procedures
+        for safe transactions. KRW (Korean won) payments are currently delayed due to domestic regulation.</p>
+        <p>The products transacted on the Service are limited to digital professional services such as
+        design, web/app development, marketing support, content production, and community management.
+        Cash-equivalent goods such as gift certificates, game currency, points, coins, and tokens are not
+        treated as items for transaction at all (cryptocurrency is used only as a means of payment and is
+        not a tradable product).</p>
+      </LegalSection>
+
+      <LegalSection title="Article 6 (Payment and Settlement)">
+        <p>Payment is made in cryptocurrency such as USDT/USDC through the cryptocurrency payment gateway
+        NowPayments. The payment method may be selected from per-project, per-milestone, or monthly
+        recurring retainer. KRW (Korean won) payments are delayed due to domestic regulation; details are
+        set out in the Payment Policy.</p>
+        <p>Settlement is made to the Worker based on the Hirer's review approval, the lapse of the
+        auto-approval deadline, or the outcome of dispute resolution. The Company may deduct a service
+        usage fee at the time of settlement.</p>
+      </LegalSection>
+
+      <LegalSection title="Article 7 (Members' Obligations)">
+        <ul className="list-disc list-inside space-y-1">
+          <li>Comply with laws, these Terms, the Company's operating policies, and notices.</li>
+          <li>Do not register or transact services specified in the Prohibited Services Policy (illegal, gambling, adult, fraud, hacking, financial fraud, cash-equivalent goods, sale of virtual assets/tokens, etc.).</li>
+          <li>Do not infringe third-party rights such as copyrights.</li>
+          <li>Do not use the Service without authorization for commercial purposes such as business or advertising without the Company's prior consent.</li>
+        </ul>
+      </LegalSection>
+
+      <LegalSection title="Article 8 (The Company's Obligations)">
+        <p>The Company strives to provide a stable service and protects members' personal information in
+        accordance with applicable laws and the Privacy Policy. The Company operates payment, settlement,
+        and dispute handling procedures within the scope of an online marketplace intermediary's
+        responsibility.</p>
+      </LegalSection>
+
+      <LegalSection title="Article 9 (Limitation of Liability)">
+        <p>As an online marketplace intermediary, the Company is in principle not responsible for the
+        content, quality, or performance of transactions between Hirers and Workers. However, the Company
+        bears liability in accordance with applicable laws for damages caused by the Company's intent or
+        gross negligence.</p>
+        <p>The Company is not responsible for service interruptions due to reasons beyond the Company's
+        reasonable control, such as natural disasters, communication failures, power outages, or failures
+        of external services (banks/PG/blockchain networks).</p>
+      </LegalSection>
+
+      <LegalSection title="Article 10 (Refunds and Disputes)">
+        <p>Refunds are governed by the separate Refund Policy, and disputes are handled in accordance with
+        the Dispute Policy. The Company provides mediation opinions based on objective materials (chat
+        logs, deliverables, payment records) so that both parties can reach a reasonable agreement.</p>
+      </LegalSection>
+
+      <LegalSection title="Article 11 (Governing Law and Jurisdiction)">
+        <p>These Terms are governed by the laws of the Republic of Korea, and for disputes arising in
+        connection with the use of the Service, the competent court under the Civil Procedure Act shall
+        be the court of first instance.</p>
+      </LegalSection>
+
+      <LegalSection title="Article 12 (Inquiries)">
+        <p>For inquiries regarding the Terms and operations, please contact <a className="text-brand-300 hover:text-white" href="mailto:jangj6091@gmail.com">jangj6091@gmail.com</a>.</p>
+      </LegalSection>
+    </>
+  )
+
+  return (
+    <LegalLayout
+      eyebrow={lang === 'ko' ? '이용약관' : 'Terms of Service'}
+      title={lang === 'ko' ? 'ChainWork 이용약관' : 'ChainWork Terms of Service'}
+      effective={EFFECTIVE[lang]}
+    >
+      {lang === 'ko' ? ko : en}
     </LegalLayout>
   )
 }

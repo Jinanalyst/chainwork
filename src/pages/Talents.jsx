@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { Icon, navigate } from '../components/ui.jsx'
 import TalentCard from '../components/TalentCard.jsx'
 import ReviewsModal from '../components/ReviewsModal.jsx'
-import { TALENT_CATEGORIES } from '../data/talents.js'
+import { CATEGORY_IDS, useCategoriesWithAll } from '../data/categories.jsx'
 import { useTalents } from '../hooks/useTalents.js'
 import { useTaskStore } from '../hooks/useTaskStore.js'
 
@@ -181,10 +181,11 @@ const InvitePanel = ({ talent, onClose }) => (
 export default function Talents() {
   const { talents, loading, source, legacyFallback } = useTalents()
   const store = useTaskStore()
+  const categoryOptions = useCategoriesWithAll()
   const initialCategory = useMemo(() => {
     const q = (window.location.hash || '').split('?')[1]
     const requested = q && new URLSearchParams(q).get('category')
-    return TALENT_CATEGORIES.some((c) => c.id === requested) ? requested : 'all'
+    return CATEGORY_IDS.includes(requested) ? requested : 'all'
   }, [])
   const [category, setCategory] = useState(initialCategory)
   const [rating, setRating] = useState('any')
@@ -304,7 +305,7 @@ export default function Talents() {
         <div className="mb-10 rounded-2xl border border-white/10 bg-white/[0.02] p-4 md:p-5">
           <div className="flex flex-col gap-3">
             <div className="cw-scroll overflow-x-auto -mx-1 px-1 pb-1">
-              <FilterChips label="Category" options={TALENT_CATEGORIES} value={category} onChange={setCategory} />
+              <FilterChips label="Category" options={categoryOptions} value={category} onChange={setCategory} />
             </div>
             <div className="cw-scroll overflow-x-auto -mx-1 px-1 pb-1">
               <FilterChips label="Rating" options={RATING_RANGES} value={rating} onChange={setRating} />

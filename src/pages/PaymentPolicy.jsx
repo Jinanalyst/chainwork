@@ -1,11 +1,14 @@
 import React from 'react'
 import LegalLayout, { LegalSection } from '../components/LegalLayout.jsx'
+import { useT } from '../i18n/index.jsx'
 
-const EFFECTIVE = '2026년 5월 27일'
+const EFFECTIVE = { ko: '2026년 5월 27일', en: 'May 27, 2026' }
 
 export default function PaymentPolicy() {
-  return (
-    <LegalLayout eyebrow="결제정책" title="결제정책" effective={EFFECTIVE}>
+  const { lang } = useT()
+
+  const ko = (
+    <>
       <p className="mt-8 text-white/75 leading-relaxed">
         ChainWork는 현재 암호화폐 결제 게이트웨이 NowPayments를 통하여 USDT·USDC 스테이블코인 결제를
         제공합니다. 원화(KRW) 결제는 국내 규제 및 결제대행사(PG) 승인 절차로 인해 지연되고 있으며,
@@ -67,6 +70,90 @@ export default function PaymentPolicy() {
         <p>본 서비스에서는 상품권, 게임머니, 포인트, 가상자산(코인/토큰), 현금 환급성 상품 등 현금성
         재화의 거래가 일체 금지됩니다. 자세한 내용은 금지서비스 정책을 참고하시기 바랍니다.</p>
       </LegalSection>
+    </>
+  )
+
+  const en = (
+    <>
+      <p className="mt-8 text-white/75 leading-relaxed">
+        ChainWork currently provides USDT and USDC stablecoin payments through the cryptocurrency
+        payment gateway NowPayments. KRW (Korean won) payments are delayed due to domestic
+        regulations and the payment gateway (PG) approval process, and will be introduced after
+        official approval. This policy covers payment methods, payment structures, Work Protection
+        Payment custody, and settlement procedures.
+      </p>
+
+      <LegalSection title="1. Payment Methods">
+        <p>Payments are processed through the cryptocurrency payment gateway NowPayments.</p>
+        <ul className="list-disc list-inside space-y-1">
+          <li>USDT and USDC stablecoins (paid at the USD-denominated amount as is)</li>
+          <li>Cryptocurrencies supported by NowPayments such as BTC and ETH (converted at the exchange rate at the time of payment)</li>
+        </ul>
+        <p>※ KRW (Korean won) credit card, bank transfer, and simple payment methods are currently
+        delayed due to domestic regulations and the PG approval process, and will be enabled after
+        official approval.</p>
+      </LegalSection>
+
+      <LegalSection title="2. Payment Structure">
+        <p>The Hirer may choose one of the following methods depending on the nature of the work.</p>
+        <ul className="list-disc list-inside space-y-1">
+          <li><strong className="text-white">Project-based payment</strong>: Pay the entire work amount at once, with settlement after completion review.</li>
+          <li><strong className="text-white">Milestone-based payment</strong>: Divide the work into stages, with payment and settlement upon completion of each stage.</li>
+          <li><strong className="text-white">Monthly retainer</strong>: Pay the same amount each month to commission continuous work. Auto-renewal can be canceled at any time.</li>
+        </ul>
+      </LegalSection>
+
+      <LegalSection title="3. Work Protection Payment">
+        <p>The Hirer's payment is temporarily held in a Work Protection Payment account operated by
+        the Company. The Work Protection Payment is settled to the Worker when the following
+        conditions are met.</p>
+        <ul className="list-disc list-inside space-y-1">
+          <li>Review approval by the Hirer</li>
+          <li>Expiry of the auto-approval period (7 days by default) after the Worker submits the deliverables</li>
+          <li>Conclusion of the dispute resolution process</li>
+        </ul>
+        <p>The Work Protection Payment is managed separately by the Company and held apart from the Company's operating funds.</p>
+      </LegalSection>
+
+      <LegalSection title="4. Fees">
+        <p>The Company may deduct a fee for transaction intermediation at the time of settlement. The
+        fee rate and payment fees are provided separately on the service screen, and any changes will
+        be announced in advance.</p>
+      </LegalSection>
+
+      <LegalSection title="5. Settlement Procedure">
+        <p>The Worker may register a domestic bank account in their own name to receive settlement.
+        Settlement is processed within 1 to 3 business days after review approval, and may be delayed
+        depending on bank circumstances.</p>
+      </LegalSection>
+
+      <LegalSection title="6. Receipts and Tax Invoices">
+        <p>Payment receipts are issued through NowPayments, and payment details can be verified via
+        the on-chain transaction hash. Business members may request the issuance of a tax invoice for
+        settlement details.</p>
+      </LegalSection>
+
+      <LegalSection title="7. Payment Cancellation and Errors">
+        <p>If an error, duplicate payment, or amount mismatch occurs immediately after payment, please
+        contact customer support immediately along with the transaction hash. The Company will take
+        prompt action in cooperation with NowPayments.</p>
+      </LegalSection>
+
+      <LegalSection title="8. Prohibited Transaction Items">
+        <p>This service strictly prohibits the trading of cash-equivalent goods such as gift
+        certificates, game currency, points, virtual assets (coins/tokens), and cash-refundable
+        products. For details, please refer to the Prohibited Services Policy.</p>
+      </LegalSection>
+    </>
+  )
+
+  return (
+    <LegalLayout
+      eyebrow={lang === 'ko' ? '결제정책' : 'Payment Policy'}
+      title={lang === 'ko' ? '결제정책' : 'Payment Policy'}
+      effective={EFFECTIVE[lang]}
+    >
+      {lang === 'ko' ? ko : en}
     </LegalLayout>
   )
 }

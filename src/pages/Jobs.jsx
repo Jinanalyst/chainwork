@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { Icon } from '../components/ui.jsx'
 import StarRating from '../components/StarRating.jsx'
-import { CATEGORIES, CATEGORY_LABEL } from '../data/categories.jsx'
+import { useCategories, useCategoryLabel } from '../data/categories.jsx'
 import { useJobs } from '../hooks/useJobs.js'
 import { useT } from '../i18n/index.jsx'
 
@@ -44,6 +44,7 @@ const initials = (n) =>
   (n || '?').split(/\s+/).map((p) => p[0] || '').slice(0, 2).join('').toUpperCase()
 
 const JobCard = ({ job, t }) => {
+  const CATEGORY_LABEL = useCategoryLabel()
   const catLabel = job.category ? (CATEGORY_LABEL[job.category] || job.category) : null
   return (
     <div className="card flex flex-col h-full">
@@ -113,6 +114,7 @@ const JobCard = ({ job, t }) => {
 export default function Jobs() {
   const { t } = useT()
   const { jobs, loading, error } = useJobs()
+  const CATEGORIES = useCategories()
   const [category, setCategory] = useState('all')
   const [rating, setRating] = useState('any')
   const [sort, setSort] = useState('recent')
@@ -123,7 +125,7 @@ export default function Jobs() {
       { id: 'all', label: t('jobs.allCategories') },
       ...CATEGORIES.map((c) => ({ id: c.id, label: c.title })),
     ],
-    [t],
+    [t, CATEGORIES],
   )
 
   const ratingOptions = useMemo(

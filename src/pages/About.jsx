@@ -1,9 +1,11 @@
 import React from 'react'
 import LegalLayout, { LegalSection } from '../components/LegalLayout.jsx'
+import { useT } from '../i18n/index.jsx'
 
 export default function About() {
-  return (
-    <LegalLayout eyebrow="About" title="ChainWork 소개">
+  const { lang } = useT()
+  const ko = (
+    <>
       <p className="mt-8 text-white/75 leading-relaxed">
         ChainWork(체인워크)는 기업과 프리랜서·비즈니스 파트너를 연결하는 업무 매칭 플랫폼입니다.
         기업은 프로젝트 등록, 월간 파트너 계약, 업무 관리 서비스를 이용할 수 있으며, 결제는 암호화폐 결제
@@ -40,6 +42,55 @@ export default function About() {
       <LegalSection title="운영 회사">
         <p>본 서비스는 체인 랩스(Chain Labs)가 운영합니다. 자세한 사업자 정보는 <a className="text-brand-300 hover:text-white" href="#/business-info">사업자 정보</a> 페이지를 참고해 주십시오.</p>
       </LegalSection>
+    </>
+  )
+  const en = (
+    <>
+      <p className="mt-8 text-white/75 leading-relaxed">
+        ChainWork is a work-matching platform that connects companies with freelancers and business partners.
+        Companies can post projects, set up monthly partner contracts, and use work management services, while payments are
+        processed in USDT and USDC stablecoins through the crypto payment gateway <strong className="text-white">NowPayments</strong>.
+        KRW payments are currently delayed due to domestic regulations and the payment gateway (PG) approval process.
+      </p>
+
+      <LegalSection title="The problem we solve">
+        <p>Small businesses and solo entrepreneurs increasingly need to collaborate with outside experts on
+        design, development, marketing, content, and operations work. ChainWork reduces the risks of outsourced
+        collaboration by providing matching with verified freelancers, clear scope agreements, and secure
+        payment and settlement processes all in one place.</p>
+      </LegalSection>
+
+      <LegalSection title="Services we provide">
+        <ul className="list-disc list-inside space-y-1">
+          <li>Project posting and expert matching</li>
+          <li>Monthly partner contract management (retainer)</li>
+          <li>Per-task ordering and progress management</li>
+          <li>Work payment and settlement (USDT and USDC stablecoins, NowPayments)</li>
+          <li>Dispute mediation and refund handling</li>
+          <li>Pro membership for company members</li>
+        </ul>
+      </LegalSection>
+
+      <LegalSection title="Our principles">
+        <ul className="list-disc list-inside space-y-1">
+          <li>Transparent pricing — all fees announced in advance</li>
+          <li>Verified profiles — identity verification and business verification</li>
+          <li>Secure transactions — Work Protection Payment held in escrow</li>
+          <li>Fair disputes — mediation based on objective evidence</li>
+        </ul>
+      </LegalSection>
+
+      <LegalSection title="Operating company">
+        <p>This service is operated by Chain Labs. For detailed business information, please refer to the <a className="text-brand-300 hover:text-white" href="#/business-info">Business information</a> page.</p>
+      </LegalSection>
+    </>
+  )
+  return (
+    <LegalLayout
+      eyebrow={lang === 'ko' ? 'About' : 'About'}
+      title={lang === 'ko' ? 'ChainWork 소개' : 'About ChainWork'}
+    >
+      {lang === 'ko' ? ko : en}
     </LegalLayout>
   )
 }
