@@ -93,7 +93,10 @@ export default function JoinAsWorker() {
         // filled in. Without this, blank answers would overwrite existing
         // profile data (e.g. clear skills the user set elsewhere).
         const patch = {
-          role:           'worker',
+          // Preserve dual-role: if the user already chose 'both', keep it —
+          // otherwise saving a worker profile would silently demote them and
+          // strip hirer access. Anyone else becomes a 'worker'.
+          role:           profile?.role === 'both' ? 'both' : 'worker',
           role_chosen_at: profile?.role_chosen_at || new Date().toISOString(),
         }
         if (displayName && !profile?.display_name) patch.display_name = displayName
