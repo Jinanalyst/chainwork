@@ -27,7 +27,7 @@ import SellerPolicy from './pages/SellerPolicy.jsx'
 import ProhibitedServices from './pages/ProhibitedServices.jsx'
 import Contact from './pages/Contact.jsx'
 import ChainPay from './pages/ChainPay.jsx'
-import ProMembershipBadge from './components/ProMembershipBadge.jsx'
+import EmployerSubscriptionBadge from './components/EmployerSubscriptionBadge.jsx'
 import NowPaymentsCheckoutButton from './components/NowPaymentsCheckoutButton.jsx'
 import { isCurrentUserAdmin } from './lib/platform.js'
 import About from './pages/About.jsx'
@@ -525,21 +525,11 @@ const Payments = () => {
 
 const CTA = () => {
   const { t } = useT()
-  // Pro is billed in USDT/USDC via NowPayments (crypto checkout). The buyer
-  // pays the USD-denominated total in their chosen coin; the IPN webhook
-  // activates Pro and grants `hires` once the payment is finished. KRW is
-  // delayed pending domestic regulation + PG approval.
-  const PRICE_PER_HIRE_USD = 100
-  const MIN_HIRES = 1
-  const MAX_HIRES = 100
-  const [hires, setHires] = useState(5)
-  const [showCheckout, setShowCheckout] = useState(false)
+  // Single flat product: ChainWork Verified Employer — 990,000 KRW / year, paid
+  // in USDT (BEP20) via NOWPayments. The IPN webhook activates the subscription
+  // once the payment is finished.
   const { user } = useSession()
-  const total = hires * PRICE_PER_HIRE_USD
-  const totalUsd = +(hires * PRICE_PER_HIRE_USD).toFixed(2)
-  const percent = ((hires - MIN_HIRES) / (MAX_HIRES - MIN_HIRES)) * 100
-  const fmt = (n) => n.toLocaleString('en-US') + ' USDT'
-  const bullets = t('cta.bullets')
+  const benefits = t('cta.benefits')
 
   return (
     <section id="pro" className="py-24">
@@ -556,10 +546,10 @@ const CTA = () => {
                 {t('cta.titleA')} <span className="bg-gradient-to-r from-brand-300 to-accent-300 bg-clip-text text-transparent">{t('cta.titleB')}</span>.
               </h2>
               <p className="mt-4 text-white/75 max-w-lg">
-                {t('cta.body', { price: '100 USDT' })}
+                {t('cta.body')}
               </p>
               <ul className="mt-6 space-y-2 text-sm text-white/75">
-                {(Array.isArray(bullets) ? bullets : []).map((b, i) => (
+                {(Array.isArray(benefits) ? benefits : []).map((b, i) => (
                   <li key={i} className="flex items-start gap-2">
                     <Icon path={<path d="M5 12l5 5L20 7" />} className="h-4 w-4 text-accent-300 shrink-0 mt-0.5" />
                     <span>{b}</span>
@@ -569,77 +559,35 @@ const CTA = () => {
 
               {user && (
                 <div className="mt-6">
-                  <ProMembershipBadge />
+                  <EmployerSubscriptionBadge />
                 </div>
               )}
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-ink-900/70 backdrop-blur p-6 md:p-8">
-              <div className="flex items-baseline justify-between">
-                <div className="text-xs uppercase tracking-[0.2em] text-white/50">{t('cta.estimateLabel')}</div>
-                <div className="font-mono text-2xl font-bold tabular-nums">{hires}</div>
+              <div className="text-xs uppercase tracking-[0.2em] text-white/50">{t('cta.planName')}</div>
+
+              <div className="mt-4 flex items-baseline gap-2">
+                <span className="font-mono text-4xl md:text-5xl font-bold tabular-nums bg-gradient-to-r from-brand-300 to-accent-300 bg-clip-text text-transparent">
+                  990,000
+                </span>
+                <span className="text-lg text-white/70">KRW</span>
+                <span className="text-sm text-white/50">{t('cta.perYear')}</span>
               </div>
 
-              <div className="mt-4">
-                <input
-                  type="range"
-                  min={MIN_HIRES}
-                  max={MAX_HIRES}
-                  step={1}
-                  value={hires}
-                  onChange={(e) => setHires(Number(e.target.value))}
-                  className="cw-range w-full"
-                  style={{ '--cw-range-fill': `${percent}%` }}
-                  aria-label={t('cta.rangeAria')}
+              <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/70">
+                {t('cta.payNote')}
+              </div>
+
+              <div className="mt-6">
+                <NowPaymentsCheckoutButton
+                  userId={user?.id}
+                  description={t('cta.checkoutNote')}
                 />
-                <div className="mt-2 flex justify-between text-[11px] text-white/40 font-mono">
-                  <span>{MIN_HIRES}</span>
-                  <span>25</span>
-                  <span>50</span>
-                  <span>75</span>
-                  <span>{MAX_HIRES}+</span>
-                </div>
               </div>
 
-              <div className="mt-6 rounded-xl border border-white/10 bg-white/[0.03] p-5">
-                <div className="flex items-center justify-between text-sm text-white/70">
-                  <span>{t('cta.perUnit', { count: hires })}</span>
-                  <span className="font-mono tabular-nums">{fmt(total)}</span>
-                </div>
-                <div className="mt-3 flex items-baseline justify-between">
-                  <span className="text-xs uppercase tracking-[0.2em] text-white/50">{t('cta.annualMembership')}</span>
-                  <span className="font-mono text-3xl md:text-4xl font-bold tabular-nums bg-gradient-to-r from-brand-300 to-accent-300 bg-clip-text text-transparent">
-                    {fmt(total)}
-                  </span>
-                </div>
-                <div className="mt-3 text-[11px] text-white/45">{t('cta.vatNotice')}</div>
-              </div>
-
-              <button
-                onClick={() => setShowCheckout((v) => !v)}
-                className="btn-primary mt-6 w-full justify-center"
-              >
-                {showCheckout ? t('cta.hideCheckout') : t('cta.buyPro')}
-              </button>
-              {showCheckout && (
-                <div className="mt-4 rounded-xl border border-white/10 bg-ink-900/60 p-4">
-                  <div className="flex items-baseline justify-between text-xs text-white/55 mb-3">
-                    <span>{t('cta.sandboxLabel')}</span>
-                    <span className="font-mono text-white/90">USD {totalUsd.toFixed(2)}</span>
-                  </div>
-                  <NowPaymentsCheckoutButton
-                    userId={user?.id}
-                    hires={hires}
-                    amountUsd={totalUsd}
-                    description={`ChainWork Employer Pro Membership — ${hires} hires / year`}
-                  />
-                  <p className="mt-3 text-[10px] text-white/40 leading-relaxed">
-                    {t('cta.sandboxNote')}
-                  </p>
-                </div>
-              )}
-              <p className="mt-3 text-center text-xs text-white/45">
-                <a href="#/pricing" className="hover:text-white">{t('cta.seePricing')}</a> · {t('cta.pgPreparing')}
+              <p className="mt-4 text-center text-xs text-white/45">
+                <a href="#/pricing" className="hover:text-white">{t('cta.seePricing')}</a>
               </p>
             </div>
           </div>

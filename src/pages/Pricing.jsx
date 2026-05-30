@@ -1,82 +1,51 @@
 import React from 'react'
 import LegalLayout, { LegalSection } from '../components/LegalLayout.jsx'
 
-const items = [
-  {
-    name: '기업 Pro 멤버십',
-    desc: '연 단위 멤버십. 채용 1건당 정액 수수료로 플랫폼 이용료를 통합 처리합니다.',
-    price: '100 USDT / 채용 1건 · 연간',
-  },
-  {
-    name: '프로젝트 등록 수수료',
-    desc: '프로젝트 등록 시 발생하는 플랫폼 이용료 (선택형 / 옵션형 게시).',
-    price: '무료 ~ 40 USDT',
-  },
-  {
-    name: '플랫폼 이용 수수료',
-    desc: '거래 성사 시 결제 금액에서 정률 공제됩니다.',
-    price: '결제 금액의 5% ~ 12%',
-  },
-  {
-    name: '월간 파트너 계약 관리',
-    desc: '월간 리테이너 계약의 결제·정산 관리 서비스.',
-    price: '월 결제 금액의 5%',
-  },
-  {
-    name: '업무 서비스 대금',
-    desc: '의뢰자가 전문가에게 지급하는 업무 대금 — 합의된 금액 그대로 결제됩니다.',
-    price: '프로젝트에 따라 상이',
-  },
-  {
-    name: '추천 전문가 노출 (Featured Talent)',
-    desc: '전문가 프로필을 카테고리 상단에 추천 영역으로 노출.',
-    price: '월 75 USDT',
-  },
-  {
-    name: '비즈니스 매칭 서비스',
-    desc: '기업 요구사항에 맞춰 전담 매니저가 후보 전문가를 큐레이션.',
-    price: '건당 220 USDT부터',
-  },
+const benefits = [
+  '채용 공고 등록',
+  '지원자 관리',
+  '기업 인증 배지',
+  '회사 프로필 페이지',
+  '추천 기업 노출 (Featured Employer)',
+  '프리랜서 연락 요청 열람',
 ]
 
 export default function Pricing() {
   return (
     <LegalLayout eyebrow="Pricing" title="서비스 요금 안내">
       <p className="mt-8 text-white/75 leading-relaxed">
-        ChainWork의 요금은 미국 달러(USD) 기준으로 안내되며, 결제는 암호화폐 결제 게이트웨이
-        <strong className="text-white"> NowPayments</strong>를 통해 USDT·USDC 스테이블코인으로 진행됩니다.
-        스테이블코인은 1:1로 USD에 연동되므로 표시 금액 그대로 청구됩니다(네트워크 수수료 별도). 본
-        페이지의 요금은 정책 변경에 따라 업데이트될 수 있으며, 변경 시 사전에 공지합니다.
+        ChainWork는 단일 연간 요금제 <strong className="text-white">인증 기업회원(Verified Employer)</strong> 하나로
+        운영됩니다. 결제는 암호화폐 결제 게이트웨이 <strong className="text-white">NowPayments</strong>를 통해
+        USDT(BEP20)로 진행됩니다. 본 페이지의 요금은 정책 변경에 따라 업데이트될 수 있으며, 변경 시 사전에 공지합니다.
       </p>
-      <div className="mt-4 rounded-2xl border border-amber-400/30 bg-amber-500/10 px-5 py-4 text-sm text-amber-100 leading-relaxed not-prose">
-        <strong className="text-amber-50">원화(KRW) 결제 안내</strong> — 국내 규제 및 결제대행사(PG) 승인 절차로
-        인해 원화 직접 결제는 현재 지연되고 있습니다. 정식 승인이 완료될 때까지는 NowPayments 암호화폐 결제를
-        이용해 주시기 바랍니다.
-      </div>
 
-      <LegalSection title="요금 항목">
-        <div className="mt-4 grid gap-3 not-prose">
-          {items.map((it) => (
-            <div key={it.name} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-              <div className="flex flex-col md:flex-row md:items-baseline md:justify-between gap-1">
-                <div className="text-white font-semibold">{it.name}</div>
-                <div className="text-sm font-mono text-accent-200">{it.price}</div>
-              </div>
-              <p className="mt-2 text-sm text-white/70 leading-relaxed">{it.desc}</p>
-            </div>
-          ))}
+      <LegalSection title="요금제">
+        <div className="mt-4 rounded-2xl border border-accent-400/30 bg-accent-400/[0.06] p-6 not-prose">
+          <div className="flex flex-col md:flex-row md:items-baseline md:justify-between gap-1">
+            <div className="text-white font-semibold text-lg">인증 기업회원 · 연간</div>
+            <div className="text-sm font-mono text-accent-200">990,000 KRW / 년 · USDT(BEP20)</div>
+          </div>
+          <p className="mt-2 text-sm text-white/70 leading-relaxed">
+            연간 단일 결제. 월간 구독은 없습니다. 채용 공고 등록과 모든 기업 기능을 이용할 수 있습니다.
+          </p>
+          <ul className="mt-4 grid gap-2 sm:grid-cols-2">
+            {benefits.map((b) => (
+              <li key={b} className="flex items-start gap-2 text-sm text-white/80">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 text-accent-300 shrink-0 mt-0.5"><path d="M5 12l5 5L20 7" /></svg>
+                <span>{b}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       </LegalSection>
 
       <LegalSection title="결제 수단">
-        <p>현재 결제는 암호화폐 결제 게이트웨이 NowPayments를 통해 진행됩니다.</p>
+        <p>결제는 암호화폐 결제 게이트웨이 NowPayments를 통해 진행됩니다.</p>
         <ul className="list-disc list-inside space-y-1">
-          <li>USDT · USDC 스테이블코인 (USD 표시 금액 그대로 결제)</li>
-          <li>BTC · ETH 등 NowPayments가 지원하는 암호화폐</li>
-          <li>스테이블코인 외 자산은 결제 시점 시세로 USD 표시 금액에 맞춰 환산</li>
+          <li>USDT (BEP20 / BSC) — 990,000 KRW 상당을 결제 시점 시세로 환산하여 청구</li>
+          <li>연간 결제 전용 — 월간 구독 없음</li>
+          <li>결제가 온체인에서 확인되면 인증 기업회원 자격이 자동으로 활성화됩니다</li>
         </ul>
-        <p>※ 원화(KRW) 신용카드·계좌이체·간편결제는 국내 규제 및 PG 승인 절차로 인해 현재 지연되고 있으며,
-        정식 승인 이후 활성화될 예정입니다. 그때까지는 NowPayments 암호화폐 결제를 이용해 주세요.</p>
       </LegalSection>
 
       <LegalSection title="환불 및 분쟁">

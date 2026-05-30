@@ -1,7 +1,8 @@
 import {
   NOWPAYMENTS_API_BASE,
-  PRICE_PER_HIRE_USD,
-  clampHires,
+  ANNUAL_PRICE_KRW,
+  PRICE_CURRENCY,
+  PAY_CURRENCY,
   buildOrderId,
   sendJson,
   readJsonBody,
@@ -11,12 +12,13 @@ import {
 
 /**
  * POST /api/nowpayments/create-invoice
- * Body: { user_id, hires }
+ * Body: { user_id }
  *
- * Creates a NOWPayments hosted invoice for a ChainWork Pro membership and
- * returns { invoice_url, id } for the browser to redirect to. The order_id is
- * "chainwork:<user_id>:<hires>" so the IPN webhook can attribute the payment and
- * grant the right number of hires once it reaches "finished".
+ * Creates a NOWPayments hosted invoice for a ChainWork Verified Employer annual
+ * subscription (990,000 KRW, paid in USDT BEP20) and returns { invoice_url, id }
+ * for the browser to redirect to. The order_id is "chainwork-sub:<user_id>" so the
+ * IPN webhook can attribute the payment and activate the subscription once it
+ * reaches "finished".
  *
  * A pending payments row is best-effort inserted for reconciliation; the
  * webhook upserts the authoritative state.
@@ -38,9 +40,7 @@ export default async function handler(req, res) {
     return sendJson(res, 400, { error: 'invalid_request', details: ['missing user_id'] })
   }
 
-  const hires = clampHires(body?.hires)
-  const priceAmount = +(hires * PRICE_PER_HIRE_USD).toFixed(2)
-  const orderId = buildOrderId(userId, hires)
+  const orderId = buildOrderId(userId)
   const ipnUrl = ipnCallbackUrl(req)
 
   // Where NOWPayments sends the buyer back to after the hosted checkout.
@@ -53,16 +53,17 @@ export default async function handler(req, res) {
 
   try {
     const invoiceReq = {
-      price_amount: priceAmount,
-      price_currency: 'usd',
+      price_amount: ANNUAL_PRICE_KRW,
+      price_currency: PRICE_CURRENCY,
+      pay_currency: PAY_CURRENCY,
       order_id: orderId,
-      order_description: `ChainWork Employer Pro Membership — ${hires} hires / year`,
+      order_description: 'ChainWork Verified Employer — annual subscription',
       is_fixed_rate: true,
     }
     if (ipnUrl) invoiceReq.ipn_callback_url = ipnUrl
     if (origin) {
-      invoiceReq.success_url = `${origin}/#/?pro=success`
-      invoiceReq.cancel_url = `${origin}/#/?pro=cancel`
+      invoiceReq.success_url = `${origin}/#/?employer=success`
+      invoiceReq.cancel_url = `${origin}/#/?employer=cancel`
     }
 
     const npRes = await fetch(`${NOWPAYMENTS_API_BASE}/invoice`, {
@@ -90,15 +91,14 @@ export default async function handler(req, res) {
         await sb.from('payments').insert({
           provider: 'nowpayments',
           user_id: userId,
-          payment_type: 'employer_pro_membership',
-          amount: priceAmount,
-          currency: 'USD',
+          payment_type: 'employer_subscription',
+          amount: ANNUAL_PRICE_KRW,
+          currency: 'KRW',
           status: 'pending',
           metadata: {
             created_via: 'create-invoice',
             nowpayments_invoice_id: data.id != null ? String(data.id) : null,
             order_id: orderId,
-            hires,
           },
         })
       }
@@ -110,9 +110,8 @@ export default async function handler(req, res) {
       invoice_url: data.invoice_url,
       id: data.id,
       order_id: orderId,
-      hires,
-      amount: priceAmount,
-      currency: 'USD',
+      amount: ANNUAL_PRICE_KRW,
+      currency: 'KRW',
     })
   } catch (err) {
     console.error('[nowpayments/create-invoice] error:', err)

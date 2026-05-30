@@ -4,8 +4,6 @@ import {
   readJsonBody,
   getSupabase,
   parseOrder,
-  hiresFromAmount,
-  clampHires,
 } from './_shared.js'
 
 /**
@@ -18,10 +16,10 @@ import {
  *      keys sorted recursively, signed with NOWPAYMENTS_IPN_SECRET).
  *   2. Upsert the payment into the Supabase `payments` table (keyed on the
  *      NOWPayments payment_id, so retries are idempotent).
- *   3. On `finished`, activate the buyer's ChainWork Pro membership by inserting
- *      a *verified* payment_proofs row whose reference encodes the hire count
- *      (CW-P-<hash>-N<hires>). The existing pro_memberships view / pro_status RPC
- *      then report the user as active automatically.
+ *   3. On `finished`, activate the buyer's ChainWork Verified Employer
+ *      subscription by upserting an `employer_subscriptions` row (status=active,
+ *      expires_at = now + 1 year, keyed on the NOWPayments payment_id). The
+ *      employer_subscription_status RPC then reports the user as active.
  *
  * Always returns JSON. Signature/secret problems return 4xx; transient DB
  * failures return 5xx so NOWPayments retries. Successful handling returns 200.
@@ -63,27 +61,6 @@ function verifySignature(body, signature, secret) {
   try { return crypto.timingSafeEqual(a, b) } catch { return false }
 }
 
-// Same deterministic short hash as src/lib/platform.js -> stable per-user code.
-const REF_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'
-function shortHash(seed) {
-  const s = String(seed || '')
-  let h = 2166136261 >>> 0
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i)
-    h = Math.imul(h, 16777619) >>> 0
-  }
-  let out = ''
-  for (let i = 0; i < 6; i++) {
-    out += REF_ALPHABET[h % REF_ALPHABET.length]
-    h = Math.floor(h / REF_ALPHABET.length) || (h * 2654435761) >>> 0
-  }
-  return out
-}
-
-function proReference(userId, hires) {
-  return `CW-P-${shortHash(`pro:${userId || 'anon'}`)}-N${hires}`
-}
-
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return sendJson(res, 405, { error: 'method_not_allowed' })
@@ -123,7 +100,7 @@ export default async function handler(req, res) {
 
   const priceAmount = body.price_amount != null ? Number(body.price_amount) : null
   const priceCurrency = body.price_currency ? String(body.price_currency).toUpperCase() : null
-  const { userId, hires: explicitHires } = parseOrder(body)
+  const { userId } = parseOrder(body)
 
   // ---- 3. Upsert the payment row -------------------------------------------
   const sb = await getSupabase()
@@ -135,7 +112,7 @@ export default async function handler(req, res) {
   const patch = {
     provider: 'nowpayments',
     nowpayments_payment_id: paymentId,
-    payment_type: 'employer_pro_membership',
+    payment_type: 'employer_subscription',
     amount: priceAmount,
     currency: priceCurrency,
     status: dbStatus,
@@ -166,42 +143,36 @@ export default async function handler(req, res) {
     return sendJson(res, 500, { error: 'payment_write_failed' })
   }
 
-  // ---- 4. Activate Pro membership on finished ------------------------------
-  let proActivated = false
+  // ---- 4. Activate Verified Employer subscription on finished --------------
+  let subscriptionActivated = false
   if (rawStatus === 'finished') {
     if (!userId) {
       // Payment recorded, but we can't attribute it. Surface loudly; an admin
       // can reconcile from metadata.order_id. Don't 500 — the payment is real.
-      console.warn(`[nowpayments/webhook] finished payment ${paymentId} has no user_id; Pro not activated`)
+      console.warn(`[nowpayments/webhook] finished payment ${paymentId} has no user_id; subscription not activated`)
     } else {
-      const hires = explicitHires ? clampHires(explicitHires) : hiresFromAmount(priceAmount)
+      const now = new Date()
+      const expiresAt = new Date(now)
+      expiresAt.setFullYear(expiresAt.getFullYear() + 1)
 
-      const proof = {
+      const subscription = {
         user_id: userId,
-        kind: 'pro-membership',
-        reference: proReference(userId, hires),
-        amount_text: priceAmount != null ? `${priceAmount} ${priceCurrency || 'USD'}` : null,
-        token: body.pay_currency ? String(body.pay_currency).toUpperCase() : null,
-        chain: null,
-        to_address: body.pay_address || null,
-        from_wallet: null,
-        // tx_hash is NOT NULL UNIQUE — use a stable per-payment key so retries /
-        // duplicate finished events upsert instead of erroring or double-granting.
-        tx_hash: body.payin_hash ? String(body.payin_hash) : `nowpayments:${paymentId}`,
-        status: 'verified',
-        verified_at: new Date().toISOString(),
-        verified_by: null,
-        notes: `Auto-verified via NOWPayments IPN (payment_id ${paymentId})`,
+        status: 'active',
+        started_at: now.toISOString(),
+        expires_at: expiresAt.toISOString(),
+        // Keyed on payment_id so duplicate finished events upsert instead of
+        // inserting a second subscription.
+        payment_id: paymentId,
       }
 
-      const { error: proofErr } = await sb
-        .from('payment_proofs')
-        .upsert(proof, { onConflict: 'tx_hash' })
-      if (proofErr) {
-        console.error('[nowpayments/webhook] Pro activation failed:', proofErr.message)
-        return sendJson(res, 500, { error: 'pro_activation_failed' })
+      const { error: subErr } = await sb
+        .from('employer_subscriptions')
+        .upsert(subscription, { onConflict: 'payment_id' })
+      if (subErr) {
+        console.error('[nowpayments/webhook] subscription activation failed:', subErr.message)
+        return sendJson(res, 500, { error: 'subscription_activation_failed' })
       }
-      proActivated = true
+      subscriptionActivated = true
     }
   }
 
@@ -210,6 +181,6 @@ export default async function handler(req, res) {
     payment_id: paymentId,
     status: dbStatus,
     nowpayments_status: rawStatus,
-    pro_activated: proActivated,
+    subscription_activated: subscriptionActivated,
   })
 }

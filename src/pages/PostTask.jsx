@@ -2,8 +2,7 @@ import React, { useEffect, useState } from 'react'
 import ConversationalForm from '../components/ConversationalForm.jsx'
 import EscrowAddressCard from '../components/EscrowAddressCard.jsx'
 import PaymentProofForm from '../components/PaymentProofForm.jsx'
-import ProMembershipBadge from '../components/ProMembershipBadge.jsx'
-import { PLATFORM_WALLETS, PLATFORM_BANK, ESCROW_RELEASE_NOTE, taskReference, getProMembership } from '../lib/platform.js'
+import { PLATFORM_WALLETS, PLATFORM_BANK, ESCROW_RELEASE_NOTE, taskReference, getEmployerSubscription } from '../lib/platform.js'
 import { matchTalents, inferCategories, pickTargetedWorkers } from '../lib/matching.js'
 import { navigate } from '../components/ui.jsx'
 import { useTalents } from '../hooks/useTalents.js'
@@ -201,43 +200,6 @@ const MatchedTalents = ({ answers }) => {
   )
 }
 
-const ProCoveredCard = ({ pro }) => (
-  <div className="max-w-xl mx-auto">
-    <div className="rounded-2xl border border-[#1e5be3]/30 bg-[#1e5be3]/[0.06] p-5 md:p-6">
-      <div className="flex items-center gap-2">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-[#1e5be3] text-white px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-[0.15em]">
-          Covered by Pro
-        </span>
-        <code className="font-mono text-xs text-warm-ink/65">{pro.reference}</code>
-      </div>
-      <h2 className="mt-3 text-lg font-semibold text-warm-ink">No escrow funding needed for this hire.</h2>
-      <p className="mt-1 text-sm text-warm-ink/65 leading-relaxed">
-        This task counts as <strong className="text-warm-ink">1 of your {pro.hiresIncluded}</strong> ChainWork Pro hires. After this post you'll have{' '}
-        <strong className="text-warm-ink">{Math.max(0, pro.hiresRemaining - 1)} hires remaining</strong> until renewal.
-      </p>
-      <div className="mt-4">
-        <ProMembershipBadge variant="warm" />
-      </div>
-    </div>
-  </div>
-)
-
-const ProGate = ({ answers, reference }) => {
-  const [pro, setPro] = useState(undefined)
-  useEffect(() => {
-    let cancelled = false
-    getProMembership().then((p) => { if (!cancelled) setPro(p) })
-    return () => { cancelled = true }
-  }, [])
-
-  if (pro === undefined) {
-    return <div className="max-w-xl mx-auto text-center text-warm-ink/55 text-sm">Checking membership…</div>
-  }
-  if (pro && pro.active && pro.hiresRemaining > 0) {
-    return <ProCoveredCard pro={pro} />
-  }
-  return <FundingInstructions answers={answers} reference={reference} />
-}
 
 const PaymentMethodTabs = ({ method, onChange }) => {
   // KRW bank transfer is paused while domestic regulation + PG approval are
@@ -399,7 +361,72 @@ const FundingInstructions = ({ answers, reference }) => {
   )
 }
 
+// Full-page "Become Verified Employer" wall shown when the signed-in user has
+// no active subscription. Mirrors the warm cream chrome of ConversationalForm.
+const VerifiedEmployerWall = () => {
+  const benefits = [
+    'Create job posts',
+    'Manage applicants',
+    'Employer verification badge',
+    'Company profile page',
+    'Featured employer placement',
+    'Access to freelancer contact requests',
+  ]
+  return (
+    <div className="min-h-screen bg-cream text-warm-ink relative overflow-hidden">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-32 -left-24 h-[36rem] w-[36rem] rounded-full bg-warm-peach opacity-60 blur-3xl" />
+        <div className="absolute -bottom-32 -right-24 h-[36rem] w-[36rem] rounded-full bg-warm-blush opacity-50 blur-3xl" />
+      </div>
+      <div className="relative mx-auto max-w-xl px-6 py-20">
+        <button onClick={() => navigate('#/')} className="text-sm text-warm-ink/55 hover:text-warm-ink">← Back</button>
+        <div className="mt-6 rounded-3xl border border-warm-ink/10 bg-white/70 backdrop-blur p-7 md:p-9">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#1e5be3]/15 text-[#1e5be3] px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-[0.15em]">
+            Verified Employer required
+          </span>
+          <h1 className="mt-4 text-2xl md:text-3xl font-bold text-warm-ink">Become a Verified Employer to post jobs.</h1>
+          <p className="mt-2 text-sm text-warm-ink/70 leading-relaxed">
+            Posting jobs on ChainWork requires an active Verified Employer subscription —
+            one annual plan of <strong className="text-warm-ink">990,000 KRW</strong>, paid in USDT (BEP20).
+          </p>
+          <ul className="mt-5 space-y-2 text-sm text-warm-ink/80">
+            {benefits.map((b) => (
+              <li key={b} className="flex items-start gap-2">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 text-[#1e5be3] shrink-0 mt-0.5"><path d="M5 12l5 5L20 7" /></svg>
+                <span>{b}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-7 flex flex-col sm:flex-row gap-3">
+            <a href="#/" className="btn-primary justify-center">Become Verified Employer</a>
+            <a href="#/pricing" className="rounded-full border border-warm-ink/15 hover:border-warm-ink/40 px-5 py-2.5 text-sm text-warm-ink text-center">See pricing</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function PostTask() {
+  // Hard gate: an active Verified Employer subscription is required to post.
+  const [sub, setSub] = useState(undefined)
+  useEffect(() => {
+    let cancelled = false
+    getEmployerSubscription().then((s) => { if (!cancelled) setSub(s) })
+    return () => { cancelled = true }
+  }, [])
+
+  if (sub === undefined) {
+    return (
+      <div className="min-h-screen bg-cream text-warm-ink grid place-items-center text-sm text-warm-ink/55">
+        Checking your subscription…
+      </div>
+    )
+  }
+  if (!sub || !sub.active) {
+    return <VerifiedEmployerWall />
+  }
+
   return (
     <ConversationalForm
       eyebrow="Post a task"
@@ -412,7 +439,7 @@ export default function PostTask() {
         return (
           <div className="space-y-8">
             <MatchedTalents answers={answers} />
-            <ProGate answers={answers} reference={reference} />
+            <FundingInstructions answers={answers} reference={reference} />
           </div>
         )
       }}

@@ -3,24 +3,24 @@ import React, { useState } from 'react'
 /**
  * <NowPaymentsCheckoutButton />
  *
- * Starts a ChainWork Pro purchase via NOWPayments. Calls
- * /api/nowpayments/create-invoice with the signed-in user + chosen hire count,
- * then redirects the browser to the hosted NOWPayments checkout. When the
- * payment reaches "finished", the IPN webhook activates Pro automatically.
+ * Starts a ChainWork Verified Employer purchase via NOWPayments. Calls
+ * /api/nowpayments/create-invoice, which mints a *per-user* hosted invoice
+ * (990,000 KRW, paid in USDT BEP20) stamped with order_id "chainwork-sub:<uid>",
+ * then redirects the browser to it. Because the invoice carries the buyer's id,
+ * the IPN webhook activates the subscription automatically once the payment
+ * reaches "finished".
  *
  *   userId:      string  — required; the buyer (used to attribute the payment)
- *   hires:       number  — plan size; webhook grants this many hires
- *   amountUsd:   number  — display-only total (server recomputes authoritatively)
  *   description: string  — display-only label
  */
-export default function NowPaymentsCheckoutButton({ userId, hires, amountUsd, description }) {
+export default function NowPaymentsCheckoutButton({ userId, description }) {
   const [busy, setBusy]   = useState(false)
   const [error, setError] = useState('')
 
   if (!userId) {
     return (
       <div className="rounded-lg border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
-        Sign in to purchase ChainWork Pro.
+        Sign in to become a Verified Employer.
       </div>
     )
   }
@@ -31,7 +31,7 @@ export default function NowPaymentsCheckoutButton({ userId, hires, amountUsd, de
       const res = await fetch('/api/nowpayments/create-invoice', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: userId, hires }),
+        body: JSON.stringify({ user_id: userId }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok || !data?.invoice_url) {
@@ -52,9 +52,7 @@ export default function NowPaymentsCheckoutButton({ userId, hires, amountUsd, de
         disabled={busy}
         className="btn-primary w-full justify-center disabled:opacity-60 disabled:cursor-not-allowed"
       >
-        {busy
-          ? 'Starting checkout…'
-          : `Pay with crypto${typeof amountUsd === 'number' ? ` · USD ${amountUsd.toFixed(2)}` : ''}`}
+        {busy ? 'Starting checkout…' : 'Become Verified Employer · Pay with USDT'}
       </button>
       {description && (
         <p className="mt-2 text-[10px] text-white/40 leading-relaxed">{description}</p>

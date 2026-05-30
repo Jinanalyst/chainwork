@@ -13,37 +13,25 @@
 
 export const NOWPAYMENTS_API_BASE = 'https://api.nowpayments.io/v1'
 
-// ChainWork Pro pricing. Keep in sync with src/App.jsx (PRICE_PER_HIRE_USD).
-export const PRICE_PER_HIRE_USD = 100
-export const MIN_HIRES = 1
-export const MAX_HIRES = 100
-
-export function clampHires(n) {
-  const v = Math.round(Number(n))
-  if (!Number.isFinite(v)) return MIN_HIRES
-  return Math.max(MIN_HIRES, Math.min(MAX_HIRES, v))
-}
-
-export function hiresFromAmount(amountUsd) {
-  return clampHires(Number(amountUsd) / PRICE_PER_HIRE_USD)
-}
+// ChainWork Verified Employer — single flat annual plan.
+// Priced in KRW; charged in USDT on BEP20 (NOWPayments converts at checkout).
+export const ANNUAL_PRICE_KRW = 990000
+export const PRICE_CURRENCY = 'krw'
+export const PAY_CURRENCY = 'usdtbsc' // USDT (BEP20 / BSC)
 
 // order_id convention shared by create-invoice (writer) and webhook (reader):
-//   chainwork:<user_uuid>:<hires>
-export function buildOrderId(userId, hires) {
-  return `chainwork:${userId}:${clampHires(hires)}`
+//   chainwork-sub:<user_uuid>
+export function buildOrderId(userId) {
+  return `chainwork-sub:${userId}`
 }
 
 const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i
 
-// Recover { userId, hires } from order_id/order_description. hires is null when
-// not explicitly encoded, leaving the caller to derive it from the amount.
+// Recover { userId } from order_id/order_description.
 export function parseOrder(body) {
   const haystack = `${body?.order_id || ''} ${body?.order_description || ''}`
   const userId = (haystack.match(UUID_RE) || [])[0] || null
-  const explicit = (String(body?.order_id || '').match(/(?::|[-_]?N)(\d{1,3})\b/i) || [])[1]
-  const hires = explicit ? clampHires(explicit) : null
-  return { userId, hires }
+  return { userId }
 }
 
 export function sendJson(res, status, payload) {

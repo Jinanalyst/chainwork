@@ -8,7 +8,7 @@ import { useSession, getWalletAddress, shortAddress, handleFor } from '../hooks/
 import { useProfile } from '../hooks/useProfile.js'
 import { isLiveChatReady } from '../lib/liveChat.js'
 import LiveChatPanel from '../components/LiveChatPanel.jsx'
-import ProMembershipBadge from '../components/ProMembershipBadge.jsx'
+import EmployerSubscriptionBadge from '../components/EmployerSubscriptionBadge.jsx'
 import RoleSwitcher from '../components/RoleSwitcher.jsx'
 import HirerProfileEditor from '../components/HirerProfileEditor.jsx'
 import AvatarUploader from '../components/AvatarUploader.jsx'
@@ -577,8 +577,8 @@ export default function HirerDashboard() {
               </div>
             </Section>
 
-            <Section title="Membership">
-              <ProMembershipBadge />
+            <Section title="Verified Employer">
+              <EmployerSubscriptionBadge />
             </Section>
 
             <Section

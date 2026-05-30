@@ -62,7 +62,6 @@ import { supabase } from './supabase.js'
  *
  *   CW-T-XXXXXX  → task escrow funding
  *   CW-U-XXXXXX  → per-user / per-hirer reference
- *   CW-P-XXXXXX  → ChainWork Pro yearly membership (with hire count suffix)
  */
 
 // Deterministic short hash → 6 char base32-ish code. Same seed → same code.
@@ -89,11 +88,6 @@ export function taskReference(taskId) {
 export function userReference(user) {
   const seed = user?.id || user?.email || user?.user_metadata?.wallet_address || 'anon'
   return `CW-U-${shortHash(`user:${seed}`)}`
-}
-
-export function proReference(user, hires) {
-  const base = shortHash(`pro:${user?.id || user?.email || 'anon'}`)
-  return `CW-P-${base}-N${hires}`
 }
 
 const PROOF_STORAGE_KEY = 'chainwork.paymentProofs.v1'
@@ -180,29 +174,26 @@ export async function setPaymentProofStatus(id, status, notes) {
 }
 
 /**
- * Pro membership status for the signed-in user.
+ * Verified Employer subscription status for the signed-in user.
  * Returns null when not signed in or Supabase isn't configured.
- * Returns { active:false } when the user has never had a verified Pro proof.
+ * Returns { active:false } when the user has never had a subscription.
  */
-export async function getProMembership() {
+export async function getEmployerSubscription() {
   if (!supabase) return null
   const { data: sess } = await supabase.auth.getUser()
   if (!sess?.user) return null
-  const { data, error } = await supabase.rpc('pro_status')
+  const { data, error } = await supabase.rpc('employer_subscription_status')
   if (error) {
-    console.warn('[pro_status] rpc failed:', error.message)
+    console.warn('[employer_subscription_status] rpc failed:', error.message)
     return { active: false }
   }
   const row = Array.isArray(data) ? data[0] : data
   if (!row || row.active == null) return { active: false }
   return {
-    active:          !!row.active,
-    reference:       row.reference,
-    activatedAt:     row.activated_at,
-    expiresAt:       row.expires_at,
-    hiresIncluded:   row.hires_included ?? 0,
-    hiresUsed:       row.hires_used ?? 0,
-    hiresRemaining:  row.hires_remaining ?? 0,
+    active:    !!row.active,
+    status:    row.status,
+    startedAt: row.started_at,
+    expiresAt: row.expires_at,
   }
 }
 
