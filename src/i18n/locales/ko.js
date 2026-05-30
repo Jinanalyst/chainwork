@@ -31,6 +31,7 @@ const ko = {
 
   nav: {
     home: '홈',
+    jobs: '채용 공고',
     talents: '전문가 찾기',
     hirer: '기업 회원',
     worker: '전문가 회원',
@@ -45,6 +46,35 @@ const ko = {
     workerDashboard: '전문가 대시보드',
     postTask: '프로젝트 등록',
     adminPayments: '관리자 · 결제 증빙',
+  },
+
+  jobs: {
+    eyebrow: 'Jobs',
+    title: '지금 채용 중인 실시간 공고',
+    body: 'ChainWork 기업 회원이 실제로 등록한 채용 공고입니다. 카테고리별로 살펴보고, 맞는 공고에 제안서를 보내보세요.',
+    loading: '실시간 공고를 불러오는 중…',
+    liveCount: '실시간 공고 {{count}}건',
+    searchPlaceholder: '제목·기술·키워드로 공고 검색…',
+    allCategories: '전체',
+    labels: { category: '카테고리', budget: '예산', sort: '정렬' },
+    filters: {
+      budget: { any: '전체 예산', lt100: '$100 미만', '100-500': '$100 – $500', '500-2k': '$500 – $2k', gt2k: '$2k 이상' },
+    },
+    sort: { recent: '최신순', budgetHigh: '예산 높은순', budgetLow: '예산 낮은순' },
+    showing: '전체 {{total}}건 중 {{shown}}건 표시',
+    budget: '예산',
+    budgetTbd: '협의 가능',
+    split: '50 / 50',
+    fullOnDone: '완료 시 지급',
+    applyCta: '이 공고에 지원',
+    postCta: '프로젝트 등록',
+    hirerPrompt: '채용이 필요하신가요? 프로젝트를 등록하면 검증된 전문가에게 몇 분 안에 닿습니다.',
+    emptyTitle: '아직 등록된 공고가 없습니다.',
+    emptyBody: '기업 회원이 프로젝트를 등록하면 이곳에 바로 표시됩니다.',
+    noMatch: '조건에 맞는 공고가 없습니다.',
+    resetFilters: '필터 초기화',
+    errorTitle: '공고를 불러오지 못했습니다.',
+    errorBody: 'Jobs 보드 뷰가 아직 설정되지 않았을 수 있습니다. Supabase에서 0020_job_listings.sql 마이그레이션을 적용하세요.',
   },
 
   auth: {

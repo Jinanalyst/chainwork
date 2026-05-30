@@ -31,6 +31,7 @@ const en = {
 
   nav: {
     home: 'Home',
+    jobs: 'Jobs',
     talents: 'Find talent',
     hirer: 'For hirers',
     worker: 'For talent',
@@ -45,6 +46,35 @@ const en = {
     workerDashboard: 'Worker dashboard',
     postTask: 'Post a task',
     adminPayments: 'Admin · Payment proofs',
+  },
+
+  jobs: {
+    eyebrow: 'Jobs board',
+    title: 'Live jobs, hiring right now.',
+    body: 'Real jobs posted by hirers on ChainWork. Browse by category, find the right fit, and apply with a focused brief.',
+    loading: 'Loading live jobs…',
+    liveCount: '{{count}} live jobs',
+    searchPlaceholder: 'Search jobs by title, skill, or keyword…',
+    allCategories: 'All',
+    labels: { category: 'Category', budget: 'Budget', sort: 'Sort' },
+    filters: {
+      budget: { any: 'Any budget', lt100: 'Under $100', '100-500': '$100 – $500', '500-2k': '$500 – $2k', gt2k: '$2k+' },
+    },
+    sort: { recent: 'Newest first', budgetHigh: 'Highest budget', budgetLow: 'Lowest budget' },
+    showing: 'Showing {{shown}} of {{total}} jobs',
+    budget: 'Budget',
+    budgetTbd: 'To be discussed',
+    split: '50 / 50',
+    fullOnDone: 'On completion',
+    applyCta: 'Apply to this job',
+    postCta: 'Post a job',
+    hirerPrompt: 'Hiring for something? Post a job and reach verified workers in minutes.',
+    emptyTitle: 'No live jobs yet.',
+    emptyBody: 'Once a hirer posts a job it shows up here instantly.',
+    noMatch: 'No jobs match those filters.',
+    resetFilters: 'Reset filters',
+    errorTitle: "Couldn't load jobs.",
+    errorBody: 'The job board view may not be set up yet. Apply migration 0020_job_listings.sql in Supabase.',
   },
 
   auth: {

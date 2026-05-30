@@ -14,6 +14,7 @@ import PostTask from './pages/PostTask.jsx'
 import WorkerDashboard from './pages/WorkerDashboard.jsx'
 import JoinAsWorker from './pages/JoinAsWorker.jsx'
 import Talents from './pages/Talents.jsx'
+import Jobs from './pages/Jobs.jsx'
 import HirerDashboard from './pages/HirerDashboard.jsx'
 import AdminPayments from './pages/AdminPayments.jsx'
 import Privacy from './pages/Privacy.jsx'
@@ -113,6 +114,7 @@ const Nav = ({ route, user, onSignIn, onSignOut }) => {
         </a>
         <nav className="hidden md:flex items-center gap-8 text-sm text-white/70">
           <a href="#/"          className={'hover:text-white ' + (route === '#/' ? 'text-white' : '')}>{t('nav.home')}</a>
+          <a href="#/jobs"      className={'hover:text-white ' + (route.startsWith('#/jobs') ? 'text-white' : '')}>{t('nav.jobs')}</a>
           <a href="#/talents"   className={'hover:text-white ' + (route.startsWith('#/talents') ? 'text-white' : '')}>{t('nav.talents')}</a>
           <a href="#/hirer"     className={'hover:text-white ' + ((route.startsWith('#/hirer') || route.startsWith('#/post-task')) ? 'text-white' : '')}>{t('nav.hirer')}</a>
           <a href="#/worker"    className={'hover:text-white ' + (route.startsWith('#/worker') ? 'text-white' : '')}>{t('nav.worker')}</a>
@@ -807,6 +809,8 @@ export default function App() {
     page = <Contact />
   } else if (route.startsWith('#/pay')) {
     page = <ChainPay />
+  } else if (route.startsWith('#/jobs')) {
+    page = <Jobs />
   } else if (route.startsWith('#/talents')) {
     page = <Talents />
   } else if (route.startsWith('#/admin/payments')) {

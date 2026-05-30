@@ -32,7 +32,9 @@ async function createTaskAndFanOutOffers(answers) {
     hirer_id:          user.id,
     title:             (answers?.workType || 'Untitled task').slice(0, 200),
     description:       answers?.workType || null,
-    category:          cats[0] || null,
+    // Hirer's explicit choice wins; fall back to inferring from the brief so
+    // the job still lands in a category on the public Jobs board.
+    category:          answers?.category || cats[0] || null,
     budget_cents:      parseBudgetCents(answers?.budget),
     budget_currency:   'USD',
     url:               answers?.projectUrl || null,
@@ -75,7 +77,7 @@ async function createTaskAndFanOutOffers(answers) {
   return { ok: true, taskId: task.id, offersCreated: rows.length }
 }
 
-import { CATEGORY_LABEL } from '../data/categories.jsx'
+import { CATEGORY_LABEL, CATEGORIES } from '../data/categories.jsx'
 
 const initials = (n) =>
   (n || '?').split(/\s+/).map((p) => p[0] || '').slice(0, 2).join('').toUpperCase()
@@ -87,6 +89,13 @@ const QUESTIONS = [
     shortLabel: 'Type of work',
     placeholder: 'A landing page, an AI chatbot, a bug fix…',
     hint: 'Describe it the way you would to a friend.',
+  },
+  {
+    id: 'category',
+    prompt: 'Which category best fits this job?',
+    shortLabel: 'Category',
+    hint: 'This is how workers find your job on the Jobs board.',
+    choices: CATEGORIES.map((c) => ({ id: c.id, title: c.title, hint: c.blurb })),
   },
   {
     id: 'projectUrl',
