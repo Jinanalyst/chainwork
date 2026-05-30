@@ -43,10 +43,16 @@ export default function Pricing() {
   return (
     <LegalLayout eyebrow="Pricing" title="서비스 요금 안내">
       <p className="mt-8 text-white/75 leading-relaxed">
-        ChainWork의 모든 요금은 원화(KRW) 기준으로 안내되며, 부가세는 별도입니다. 결제는 회사가 지정한
-        결제대행사(PG)를 통해 신용카드·계좌이체·간편결제로 진행됩니다. 본 페이지의 요금은 정책 변경에
-        따라 업데이트될 수 있으며, 변경 시 사전에 공지합니다.
+        ChainWork의 요금은 원화(KRW) 기준으로 안내되며, 부가세는 별도입니다. 현재 결제는 암호화폐 결제
+        게이트웨이 <strong className="text-white">NowPayments</strong>를 통해 USDC·USDT 등 스테이블코인으로
+        진행됩니다. 결제 시점의 환율에 따라 원화 표시 금액에 해당하는 암호화폐 금액이 청구됩니다. 본
+        페이지의 요금은 정책 변경에 따라 업데이트될 수 있으며, 변경 시 사전에 공지합니다.
       </p>
+      <div className="mt-4 rounded-2xl border border-amber-400/30 bg-amber-500/10 px-5 py-4 text-sm text-amber-100 leading-relaxed not-prose">
+        <strong className="text-amber-50">원화(KRW) 결제 안내</strong> — 국내 규제 및 결제대행사(PG) 승인 절차로
+        인해 원화 직접 결제는 현재 지연되고 있습니다. 정식 승인이 완료될 때까지는 NowPayments 암호화폐 결제를
+        이용해 주시기 바랍니다.
+      </div>
 
       <LegalSection title="요금 항목">
         <div className="mt-4 grid gap-3 not-prose">
@@ -63,12 +69,14 @@ export default function Pricing() {
       </LegalSection>
 
       <LegalSection title="결제 수단">
+        <p>현재 결제는 암호화폐 결제 게이트웨이 NowPayments를 통해 진행됩니다.</p>
         <ul className="list-disc list-inside space-y-1">
-          <li>신용·체크카드 (국내 카드사)</li>
-          <li>실시간 계좌이체 / 가상계좌</li>
-          <li>간편결제 (네이버페이, 카카오페이 등)</li>
+          <li>USDC · USDT 등 주요 스테이블코인</li>
+          <li>BTC · ETH 등 NowPayments가 지원하는 암호화폐</li>
+          <li>결제 금액은 결제 시점 환율 기준으로 원화 표시 금액에 맞춰 산정</li>
         </ul>
-        <p>※ 현재 결제대행사(PG) 연동을 준비 중이며, 정식 승인 이후 KRW 결제가 활성화됩니다.</p>
+        <p>※ 원화(KRW) 신용카드·계좌이체·간편결제는 국내 규제 및 PG 승인 절차로 인해 현재 지연되고 있으며,
+        정식 승인 이후 활성화될 예정입니다. 그때까지는 NowPayments 암호화폐 결제를 이용해 주세요.</p>
       </LegalSection>
 
       <LegalSection title="환불 및 분쟁">
