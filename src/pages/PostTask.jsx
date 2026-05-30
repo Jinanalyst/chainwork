@@ -3,13 +3,11 @@ import ConversationalForm from '../components/ConversationalForm.jsx'
 import EscrowAddressCard from '../components/EscrowAddressCard.jsx'
 import PaymentProofForm from '../components/PaymentProofForm.jsx'
 import ProMembershipBadge from '../components/ProMembershipBadge.jsx'
-import PayPalCheckoutButton from '../components/PayPalCheckoutButton.jsx'
 import { PLATFORM_WALLETS, PLATFORM_BANK, ESCROW_RELEASE_NOTE, taskReference, getProMembership } from '../lib/platform.js'
 import { matchTalents, inferCategories, pickTargetedWorkers } from '../lib/matching.js'
 import { navigate } from '../components/ui.jsx'
 import { useTalents } from '../hooks/useTalents.js'
 import { supabase } from '../lib/supabase.js'
-import { useSession } from '../hooks/useSession.js'
 
 // Pull the first $ amount out of a free-text budget like "$500-$2,000".
 // Returns cents (integer) or null if nothing parseable found.
@@ -241,26 +239,13 @@ const ProGate = ({ answers, reference }) => {
   return <FundingInstructions answers={answers} reference={reference} />
 }
 
-// Pull the first $ amount out of a free-text budget like "$500-$2,000" or
-// "500 to 2000". Returns a number (USD) or null. Used to seed the PayPal
-// Sandbox order amount when the hirer chooses PayPal — for split-pay this
-// returns the first amount (deposit), not the total.
-function parseFirstUsd(text) {
-  if (!text) return null
-  const m = String(text).replace(/,/g, '').match(/(\d+(?:\.\d+)?)/)
-  if (!m) return null
-  const n = Number(m[1])
-  return isFinite(n) && n > 0 ? +n.toFixed(2) : null
-}
-
 const PaymentMethodTabs = ({ method, onChange }) => {
   const tabs = [
     { id: 'crypto', title: 'Crypto', sub: 'USDC / USDT' },
-    { id: 'paypal', title: 'PayPal', sub: 'USD · Sandbox' },
     { id: 'bank',   title: '한국 계좌', sub: 'KRW · 토스뱅크' },
   ]
   return (
-    <div className="grid grid-cols-3 gap-2 rounded-2xl border border-warm-ink/10 bg-white/60 p-1">
+    <div className="grid grid-cols-2 gap-2 rounded-2xl border border-warm-ink/10 bg-white/60 p-1">
       {tabs.map((t) => {
         const active = method === t.id
         return (
@@ -353,19 +338,6 @@ const FundingInstructions = ({ answers, reference }) => {
   const isSplit = answers?.paymentStructure === 'fifty-fifty'
   const budget = (answers?.budget || '').trim()
   const [method, setMethod] = useState('crypto')
-  const { user } = useSession()
-
-  // For PayPal sandbox: bill the first parsed USD amount, fall back to $9.99
-  // so the sandbox button still mounts in a testable state when the budget
-  // didn't parse cleanly. Hirer can still adjust on the PayPal modal.
-  const usd = parseFirstUsd(answers?.budget) || 9.99
-  const paypalAmount = isSplit ? +(usd / 2).toFixed(2) : usd
-  const paypalItem = {
-    key:         'task_escrow_funding',
-    amount:      paypalAmount,
-    currency:    'USD',
-    description: `ChainWork task escrow — ${reference}${isSplit ? ' (50% deposit)' : ''}`,
-  }
 
   return (
     <div className="max-w-xl mx-auto space-y-4">
@@ -409,25 +381,6 @@ const FundingInstructions = ({ answers, reference }) => {
               <strong>Double-check the chain.</strong> USDC goes to the Base address. USDT goes to the Tron (TRC20) address. Sending on the wrong network can result in lost funds.
             </div>
           </>
-        )}
-
-        {method === 'paypal' && (
-          <div className="mt-5 rounded-2xl border border-warm-ink/10 bg-white/70 p-4 md:p-5">
-            <div className="flex items-baseline justify-between gap-3 mb-3">
-              <div>
-                <div className="text-sm font-semibold text-warm-ink">PayPal Sandbox 결제</div>
-                <div className="text-[11px] text-warm-ink/60">
-                  Test mode · USD {paypalAmount.toFixed(2)}{isSplit ? ' (50% deposit)' : ''}
-                </div>
-              </div>
-              <div className="font-mono text-sm text-[#1e5be3]">USD {paypalAmount.toFixed(2)}</div>
-            </div>
-            <PayPalCheckoutButton item={paypalItem} userId={user?.id} />
-            <p className="mt-3 text-[11px] text-warm-ink/55 leading-relaxed">
-              결제 완료 후 자동으로 영수증이 생성되며, ChainWork가 작업 승인 시까지 보관합니다.
-              실결제는 PG 정식 연동 이후 활성화됩니다.
-            </p>
-          </div>
         )}
 
         {method === 'bank' && (

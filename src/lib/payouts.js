@@ -20,14 +20,12 @@ export async function fetchTaskWorkerPayout(taskId) {
     // 'wallet' | 'bank' | null (null = legacy rows from before 0016 — treat
     // as wallet if an address is present, otherwise unset).
     payoutMethod:        row.payout_method
-                          || (row.payout_paypal_email ? 'paypal'
-                              : (row.payout_address ? 'wallet' : null)),
+                          || (row.payout_address ? 'wallet' : null),
     payoutAddress:       row.payout_address,
     payoutChain:         row.payout_chain,
     payoutToken:         row.payout_token,
     payoutBankName:      row.payout_bank_name      || null,
     payoutAccountHolder: row.payout_account_holder || null,
-    payoutPaypalEmail:   row.payout_paypal_email   || null,
     // Account number is NOT returned by the RPC by design — KRW settles
     // via the ChainWork PG, the hirer never sees the worker's bank PII.
   }

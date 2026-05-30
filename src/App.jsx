@@ -28,13 +28,12 @@ import ProhibitedServices from './pages/ProhibitedServices.jsx'
 import Contact from './pages/Contact.jsx'
 import ChainPay from './pages/ChainPay.jsx'
 import ProMembershipBadge from './components/ProMembershipBadge.jsx'
-import PayPalCheckoutButton from './components/PayPalCheckoutButton.jsx'
+import NowPaymentsCheckoutButton from './components/NowPaymentsCheckoutButton.jsx'
 import { isCurrentUserAdmin } from './lib/platform.js'
 import About from './pages/About.jsx'
 import Pricing from './pages/Pricing.jsx'
 import Verification from './pages/Verification.jsx'
 import BusinessInfo from './pages/BusinessInfo.jsx'
-import PayPalTest from './pages/PayPalTest.jsx'
 
 const UserChip = ({ user, onSignOut }) => {
   const { t } = useT()
@@ -527,11 +526,10 @@ const Payments = () => {
 const CTA = () => {
   const { t } = useT()
   const PRICE_PER_HIRE_KRW = 400000
-  // PayPal sandbox testing is easiest in USD — KRW requires a Korea-domiciled
-  // PayPal account on both sides. We charge a USD-denominated test amount per
-  // hire so you can drive the full create-order → capture-order flow with the
-  // standard sandbox personal buyer account.
-  const PRICE_PER_HIRE_USD = 9.99
+  // Pro is billed in USD via NOWPayments (crypto checkout). The buyer pays the
+  // USD-denominated total in their chosen coin; the IPN webhook activates Pro
+  // and grants `hires` once the payment is finished.
+  const PRICE_PER_HIRE_USD = 100
   const MIN_HIRES = 1
   const MAX_HIRES = 100
   const [hires, setHires] = useState(5)
@@ -542,13 +540,6 @@ const CTA = () => {
   const percent = ((hires - MIN_HIRES) / (MAX_HIRES - MIN_HIRES)) * 100
   const fmt = (n) => '₩' + n.toLocaleString('ko-KR')
   const bullets = t('cta.bullets')
-
-  const checkoutItem = {
-    key:         'employer_pro_membership',
-    amount:      totalUsd,
-    currency:    'USD',
-    description: `ChainWork Employer Pro Membership — ${hires} hires / year`,
-  }
 
   return (
     <section id="pro" className="py-24">
@@ -636,7 +627,12 @@ const CTA = () => {
                     <span>{t('cta.sandboxLabel')}</span>
                     <span className="font-mono text-white/90">USD {totalUsd.toFixed(2)}</span>
                   </div>
-                  <PayPalCheckoutButton item={checkoutItem} userId={user?.id} />
+                  <NowPaymentsCheckoutButton
+                    userId={user?.id}
+                    hires={hires}
+                    amountUsd={totalUsd}
+                    description={`ChainWork Employer Pro Membership — ${hires} hires / year`}
+                  />
                   <p className="mt-3 text-[10px] text-white/40 leading-relaxed">
                     {t('cta.sandboxNote')}
                   </p>
@@ -787,8 +783,6 @@ export default function App() {
     page = <Verification />
   } else if (route.startsWith('#/business-info')) {
     page = <BusinessInfo />
-  } else if (route.startsWith('#/paypal-test')) {
-    page = <PayPalTest />
   } else if (route.startsWith('#/privacy')) {
     page = <Privacy />
   } else if (route.startsWith('#/terms')) {

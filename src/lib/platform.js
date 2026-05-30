@@ -33,8 +33,8 @@ export const PLATFORM_WALLETS = [
 ]
 
 // Platform KRW bank deposit account. Hirers who don't want to use crypto
-// or PayPal can wire KRW directly to this account and include the task
-// reference code in the memo for attribution.
+// can wire KRW directly to this account and include the task reference code
+// in the memo for attribution.
 export const PLATFORM_BANK = {
   bankName:      '토스뱅크',
   bankNameEn:    'Toss Bank',

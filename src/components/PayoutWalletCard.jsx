@@ -63,9 +63,6 @@ export default function PayoutWalletCard() {
   const [holder, setHolder]         = useState('')
   const [acctNumber, setAcctNumber] = useState('')
 
-  // PayPal sub-state
-  const [paypalEmail, setPaypalEmail] = useState('')
-
   const [busy, setBusy]   = useState(false)
   const [error, setError] = useState('')
 
@@ -74,9 +71,8 @@ export default function PayoutWalletCard() {
     if (!profile) return
     // Infer method from stored fields if the new column is null (legacy rows).
     const inferred = profile.payout_method
-      || (profile.payout_paypal_email ? 'paypal'
-          : (profile.payout_address ? 'wallet'
-              : (profile.payout_bank_name ? 'bank' : 'bank')))
+      || (profile.payout_address ? 'wallet'
+          : (profile.payout_bank_name ? 'bank' : 'bank'))
     setMethod(inferred)
     setChain(profile.payout_chain   || 'base')
     setAddress(profile.payout_address || '')
@@ -84,7 +80,6 @@ export default function PayoutWalletCard() {
     setBankName(profile.payout_bank_name      || '')
     setHolder(profile.payout_account_holder   || '')
     setAcctNumber(profile.payout_account_number || '')
-    setPaypalEmail(profile.payout_paypal_email || '')
   }, [
     profile?.payout_method,
     profile?.payout_chain,
@@ -93,17 +88,14 @@ export default function PayoutWalletCard() {
     profile?.payout_bank_name,
     profile?.payout_account_holder,
     profile?.payout_account_number,
-    profile?.payout_paypal_email,
   ])
 
   // What's currently saved on the row (independent of the form state).
   const savedMethod = profile?.payout_method
-    || (profile?.payout_paypal_email ? 'paypal'
-        : (profile?.payout_address ? 'wallet'
-            : (profile?.payout_bank_name ? 'bank' : null)))
+    || (profile?.payout_address ? 'wallet'
+        : (profile?.payout_bank_name ? 'bank' : null))
   const savedWallet = profile?.payout_address
   const savedBank   = profile?.payout_bank_name && profile?.payout_account_number
-  const savedPaypal = profile?.payout_paypal_email
 
   const startEdit = () => { setEditing(true); setError('') }
   const cancel = () => {
@@ -116,7 +108,6 @@ export default function PayoutWalletCard() {
       setBankName(profile.payout_bank_name      || '')
       setHolder(profile.payout_account_holder   || '')
       setAcctNumber(profile.payout_account_number || '')
-      setPaypalEmail(profile.payout_paypal_email || '')
     }
   }
 
@@ -129,7 +120,7 @@ export default function PayoutWalletCard() {
       return
     }
     setBusy(true); setError('')
-    // Switching to wallet — clear bank / paypal fields so a stale value
+    // Switching to wallet — clear bank fields so a stale value
     // doesn't sit on the row claiming to be active.
     const res = await update({
       payout_method:          'wallet',
@@ -139,7 +130,6 @@ export default function PayoutWalletCard() {
       payout_bank_name:       null,
       payout_account_holder:  null,
       payout_account_number:  null,
-      payout_paypal_email:    null,
     })
     setBusy(false)
     if (!res.ok) { setError(res.error || 'Could not save.'); return }
@@ -162,34 +152,10 @@ export default function PayoutWalletCard() {
       payout_bank_name:       bn,
       payout_account_holder:  ho,
       payout_account_number:  an,
-      // Clear wallet + paypal fields so the saved view is unambiguous.
+      // Clear wallet fields so the saved view is unambiguous.
       payout_address:         null,
       payout_chain:           null,
       payout_token:           null,
-      payout_paypal_email:    null,
-    })
-    setBusy(false)
-    if (!res.ok) { setError(res.error || 'Could not save.'); return }
-    setEditing(false)
-  }
-
-  const savePaypal = async () => {
-    const em = (paypalEmail || '').trim()
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) {
-      setError('Enter a valid PayPal email address.')
-      return
-    }
-    setBusy(true); setError('')
-    const res = await update({
-      payout_method:          'paypal',
-      payout_paypal_email:    em,
-      // Clear bank + wallet fields so only PayPal is active.
-      payout_address:         null,
-      payout_chain:           null,
-      payout_token:           null,
-      payout_bank_name:       null,
-      payout_account_holder:  null,
-      payout_account_number:  null,
     })
     setBusy(false)
     if (!res.ok) { setError(res.error || 'Could not save.'); return }
@@ -208,18 +174,16 @@ export default function PayoutWalletCard() {
       payout_bank_name:      null,
       payout_account_holder: null,
       payout_account_number: null,
-      payout_paypal_email:   null,
     })
     setBusy(false)
     if (!res.ok) { alert('Could not remove: ' + (res.error || 'unknown')); return }
     setEditing(false)
   }
 
-  const isSaved = !!(savedWallet || savedBank || savedPaypal)
+  const isSaved = !!(savedWallet || savedBank)
   const savedLabel =
       savedMethod === 'bank'   ? `Active · KRW · ${profile?.payout_bank_name}`
     : savedMethod === 'wallet' ? `Active · ${chainById(profile?.payout_chain).label}`
-    : savedMethod === 'paypal' ? `Active · PayPal · ${profile?.payout_paypal_email}`
     : 'No payout destination set'
 
   return (
@@ -259,25 +223,6 @@ export default function PayoutWalletCard() {
         </div>
       )}
 
-      {/* Saved view — paypal */}
-      {!editing && savedPaypal && savedMethod === 'paypal' && (
-        <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="text-[10px] uppercase tracking-[0.18em] text-white/45">PayPal · USD</div>
-            <div className="mt-0.5 text-sm text-white/85 truncate font-mono">{profile.payout_paypal_email}</div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={() => { try { navigator.clipboard.writeText(profile.payout_paypal_email) } catch {} }}
-              className="text-[11px] rounded-full border border-white/15 hover:border-white/35 px-2.5 py-1"
-            >
-              Copy
-            </button>
-            <button onClick={clear} className="text-[11px] text-rose-300 hover:text-rose-200">Remove</button>
-          </div>
-        </div>
-      )}
-
       {/* Saved view — wallet */}
       {!editing && savedWallet && savedMethod === 'wallet' && (
         <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 flex items-center justify-between gap-3">
@@ -303,10 +248,9 @@ export default function PayoutWalletCard() {
       {(editing || !isSaved) && (
         <div className="mt-4 space-y-4">
           {/* Method picker */}
-          <div className="grid grid-cols-3 gap-2 rounded-xl border border-white/10 bg-white/[0.02] p-1">
+          <div className="grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/[0.02] p-1">
             {[
               { id: 'bank',   title: '한국 계좌',     sub: 'KRW · 토스/국민/신한…' },
-              { id: 'paypal', title: 'PayPal',       sub: 'USD · 이메일로 정산' },
               { id: 'wallet', title: 'Crypto',       sub: 'USDC / USDT' },
             ].map((m) => (
               <button
@@ -394,29 +338,6 @@ export default function PayoutWalletCard() {
             </>
           )}
 
-          {/* PayPal fields */}
-          {method === 'paypal' && (
-            <>
-              <label className="block">
-                <span className="text-[11px] uppercase tracking-[0.18em] text-white/55">PayPal 이메일 · PayPal email</span>
-                <input
-                  type="email"
-                  value={paypalEmail}
-                  onChange={(e) => setPaypalEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  disabled={busy}
-                  autoComplete="email"
-                  className="mt-1 w-full rounded-xl bg-white/[0.04] border border-white/15 px-3 py-2 text-sm font-mono focus:outline-none focus:border-brand-300"
-                />
-              </label>
-
-              <div className="rounded-xl border border-brand-400/30 bg-brand-500/10 px-3 py-2 text-[11px] text-brand-100 leading-relaxed">
-                의뢰자가 작업을 승인하면 ChainWork가 이 PayPal 계정으로 USD 정산을 보냅니다.
-                계정이 USD 수신을 지원하는지 확인하세요 — 일부 국가 계정은 추가 인증이 필요합니다.
-              </div>
-            </>
-          )}
-
           {/* Wallet fields */}
           {method === 'wallet' && (
             <>
@@ -474,7 +395,7 @@ export default function PayoutWalletCard() {
               </button>
             )}
             <button
-              onClick={method === 'bank' ? saveBank : method === 'paypal' ? savePaypal : saveWallet}
+              onClick={method === 'bank' ? saveBank : saveWallet}
               disabled={busy}
               className="btn-primary !py-2 !px-4 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
             >
@@ -482,8 +403,6 @@ export default function PayoutWalletCard() {
                 ? 'Saving…'
                 : method === 'bank'
                     ? (savedBank   ? 'Update bank account'  : 'Save bank account')
-                : method === 'paypal'
-                    ? (savedPaypal ? 'Update PayPal email'  : 'Save PayPal email')
                     : (savedWallet ? 'Update payout wallet' : 'Save payout wallet')}
             </button>
           </div>

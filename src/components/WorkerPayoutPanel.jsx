@@ -40,41 +40,6 @@ export default function WorkerPayoutPanel({ taskId, workerName }) {
     )
   }
 
-  // Worker chose PayPal — give the hirer a copyable email so they can pay
-  // direct via PayPal Sandbox after approving the work.
-  if (payout && payout.payoutMethod === 'paypal' && payout.payoutPaypalEmail) {
-    const copyEmail = async () => {
-      try {
-        await navigator.clipboard.writeText(payout.payoutPaypalEmail)
-        setCopied(true)
-        setTimeout(() => setCopied(false), 1500)
-      } catch {}
-    }
-    return (
-      <div className="rounded-xl border border-accent-400/30 bg-accent-500/10 px-4 py-3">
-        <div className="flex items-center gap-2">
-          <Icon path={<><path d="M7 4h7a4 4 0 0 1 0 8h-3l-1 8H6z" /></>} className="h-4 w-4 text-accent-200" />
-          <div className="text-sm font-semibold text-accent-100">Send PayPal payout to</div>
-        </div>
-        <div className="mt-2 flex items-center justify-between gap-3 flex-wrap">
-          <div className="min-w-0">
-            <div className="text-[10px] uppercase tracking-[0.18em] text-white/55">PayPal · USD</div>
-            <code className="block mt-0.5 font-mono text-sm text-white truncate">{payout.payoutPaypalEmail}</code>
-          </div>
-          <button
-            onClick={copyEmail}
-            className="shrink-0 text-[11px] rounded-full border border-white/20 hover:border-white/40 px-2.5 py-1 text-white"
-          >
-            {copied ? 'Copied' : 'Copy email'}
-          </button>
-        </div>
-        <div className="mt-2 text-[11px] text-white/55 leading-snug">
-          Use the "Send Money" flow in PayPal — friends & family is for sandbox testing only.
-        </div>
-      </div>
-    )
-  }
-
   // Worker chose KRW bank settlement. ChainWork's PG handles the payout, so
   // the hirer never needs the account number — we just confirm it's ready.
   if (payout && payout.payoutMethod === 'bank' && payout.payoutBankName) {
