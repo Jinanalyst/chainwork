@@ -7,6 +7,7 @@ import { matchTalents, inferCategories, pickTargetedWorkers } from '../lib/match
 import { navigate } from '../components/ui.jsx'
 import { useTalents } from '../hooks/useTalents.js'
 import { supabase } from '../lib/supabase.js'
+import { useT } from '../i18n/index.jsx'
 
 // Pull the first $ amount out of a free-text budget like "$500-$2,000".
 // Returns cents (integer) or null if nothing parseable found.
@@ -79,71 +80,75 @@ import { useCategories, useCategoryLabel } from '../data/categories.jsx'
 const initials = (n) =>
   (n || '?').split(/\s+/).map((p) => p[0] || '').slice(0, 2).join('').toUpperCase()
 
-const QUESTIONS = [
+// Build the question set with localized copy. Category choices are injected
+// separately at render time with the localized category list.
+const buildQuestions = (t) => [
   {
     id: 'workType',
-    prompt: 'What kind of web work do you need?',
-    shortLabel: 'Type of work',
-    placeholder: 'A landing page, an AI chatbot, a bug fix…',
-    hint: 'Describe it the way you would to a friend.',
+    prompt: t('postTask.questions.workType.prompt'),
+    shortLabel: t('postTask.questions.workType.shortLabel'),
+    placeholder: t('postTask.questions.workType.placeholder'),
+    hint: t('postTask.questions.workType.hint'),
   },
   {
     id: 'category',
-    prompt: 'Which category best fits this job?',
-    shortLabel: 'Category',
-    hint: 'This is how workers find your job on the Jobs board.',
+    prompt: t('postTask.questions.category.prompt'),
+    shortLabel: t('postTask.questions.category.shortLabel'),
+    hint: t('postTask.questions.category.hint'),
     // choices are injected at render time with localized category labels
   },
   {
     id: 'projectUrl',
-    prompt: 'What is your website or project URL?',
-    shortLabel: 'Website / project URL',
-    placeholder: 'https://your-site.com',
+    prompt: t('postTask.questions.projectUrl.prompt'),
+    shortLabel: t('postTask.questions.projectUrl.shortLabel'),
+    placeholder: t('postTask.questions.projectUrl.placeholder'),
     type: 'url',
     optional: true,
-    hint: "If you don't have one yet, just press Enter.",
+    hint: t('postTask.questions.projectUrl.hint'),
   },
   {
     id: 'budget',
-    prompt: 'What is your budget?',
-    shortLabel: 'Budget',
-    placeholder: 'e.g. $500 – $2,000',
-    hint: 'A rough range in USDC or USDT helps workers send realistic offers.',
+    prompt: t('postTask.questions.budget.prompt'),
+    shortLabel: t('postTask.questions.budget.shortLabel'),
+    placeholder: t('postTask.questions.budget.placeholder'),
+    hint: t('postTask.questions.budget.hint'),
   },
   {
     id: 'paymentStructure',
-    prompt: 'How would you like to pay?',
-    shortLabel: 'Payment structure',
-    hint: 'Both options are held in escrow until you approve the work.',
+    prompt: t('postTask.questions.paymentStructure.prompt'),
+    shortLabel: t('postTask.questions.paymentStructure.shortLabel'),
+    hint: t('postTask.questions.paymentStructure.hint'),
     choices: [
       {
         id: 'full-on-completion',
-        title: 'Full on completion',
-        hint: '100% sits in escrow now, released the moment you approve the finished work. Lowest risk — best for short, well-defined tasks.',
+        title: t('postTask.questions.paymentStructure.full.title'),
+        hint: t('postTask.questions.paymentStructure.full.hint'),
       },
       {
         id: 'fifty-fifty',
-        title: 'Split 50 / 50',
-        hint: '50% released at kickoff, 50% on final approval. Shares risk evenly — good for longer builds or first-time pairings.',
+        title: t('postTask.questions.paymentStructure.split.title'),
+        hint: t('postTask.questions.paymentStructure.split.hint'),
       },
     ],
   },
   {
     id: 'startWhen',
-    prompt: 'When do you want to start?',
-    shortLabel: 'Start time',
-    placeholder: 'This week, next month, flexible…',
+    prompt: t('postTask.questions.startWhen.prompt'),
+    shortLabel: t('postTask.questions.startWhen.shortLabel'),
+    placeholder: t('postTask.questions.startWhen.placeholder'),
   },
   {
     id: 'contact',
-    prompt: 'How can freelancers contact you?',
-    shortLabel: 'Contact',
-    placeholder: 'Email or Telegram',
-    hint: "We'll only share this with the worker you accept.",
+    prompt: t('postTask.questions.contact.prompt'),
+    shortLabel: t('postTask.questions.contact.shortLabel'),
+    placeholder: t('postTask.questions.contact.placeholder'),
+    hint: t('postTask.questions.contact.hint'),
   },
 ]
 
-const WarmTalentRow = ({ talent }) => (
+const WarmTalentRow = ({ talent }) => {
+  const { t } = useT()
+  return (
   <div className="flex items-center gap-3 rounded-2xl border border-warm-ink/10 bg-white/70 px-4 py-3">
     <div className={`shrink-0 h-11 w-11 rounded-2xl bg-gradient-to-br ${talent.accent} grid place-items-center text-sm font-bold text-ink-950`}>
       {initials(talent.name)}
@@ -153,7 +158,7 @@ const WarmTalentRow = ({ talent }) => (
         <span className="font-semibold text-warm-ink truncate">{talent.name}</span>
         {talent.topRated && (
           <span className="text-[10px] uppercase tracking-wider rounded-full bg-[#1e5be3]/10 text-[#1e5be3] border border-[#1e5be3]/25 px-1.5 py-0.5">
-            Top-rated
+            {t('postTask.matched.topRated')}
           </span>
         )}
       </div>
@@ -165,13 +170,15 @@ const WarmTalentRow = ({ talent }) => (
       </div>
     </div>
     <div className="text-right shrink-0">
-      <div className="text-xs text-warm-ink/55">From</div>
+      <div className="text-xs text-warm-ink/55">{t('postTask.matched.from')}</div>
       <div className="font-semibold text-warm-ink">${talent.startingPrice}</div>
     </div>
   </div>
-)
+  )
+}
 
 const MatchedTalents = ({ answers }) => {
+  const { t } = useT()
   const { talents, loading } = useTalents()
   const CATEGORY_LABEL = useCategoryLabel()
   const matches = matchTalents(answers, talents, { limit: 4 })
@@ -181,20 +188,20 @@ const MatchedTalents = ({ answers }) => {
     <div className="max-w-xl mx-auto">
       <div className="rounded-2xl border border-warm-ink/10 bg-white/70 backdrop-blur p-5 md:p-6">
         <div className="flex items-center justify-between gap-3 mb-1">
-          <h2 className="text-lg font-semibold text-warm-ink">Matched talents</h2>
-          <a href="#/talents" className="text-xs text-[#1e5be3] hover:underline">Browse all →</a>
+          <h2 className="text-lg font-semibold text-warm-ink">{t('postTask.matched.title')}</h2>
+          <a href="#/talents" className="text-xs text-[#1e5be3] hover:underline">{t('postTask.matched.browseAll')}</a>
         </div>
         <p className="text-sm text-warm-ink/65">
-          Based on your brief{cats.length ? <> · best fit in <span className="text-warm-ink font-medium">{CATEGORY_LABEL[cats[0]] || cats[0]}</span></> : null}
+          {t('postTask.matched.basedOn')}{cats.length ? <> · {t('postTask.matched.bestFitIn')} <span className="text-warm-ink font-medium">{CATEGORY_LABEL[cats[0]] || cats[0]}</span></> : null}
         </p>
         <div className="mt-4 space-y-2.5">
-          {matches.map((t) => <WarmTalentRow key={t.id} talent={t} />)}
+          {matches.map((tal) => <WarmTalentRow key={tal.id} talent={tal} />)}
         </div>
         <button
           onClick={() => navigate('#/talents')}
           className="mt-4 w-full text-center text-xs text-warm-ink/60 hover:text-warm-ink"
         >
-          See more talents in this category →
+          {t('postTask.matched.seeMore')}
         </button>
       </div>
     </div>
@@ -203,10 +210,11 @@ const MatchedTalents = ({ answers }) => {
 
 
 const PaymentMethodTabs = ({ method, onChange }) => {
+  const { t } = useT()
   // KRW bank transfer is paused while domestic regulation + PG approval are
   // pending, so escrow is funded with USDC/USDT (NowPayments-compatible) only.
   const tabs = [
-    { id: 'crypto', title: 'Crypto', sub: 'USDC / USDT · NowPayments' },
+    { id: 'crypto', title: t('postTask.funding.tabCrypto'), sub: t('postTask.funding.tabCryptoSub') },
   ]
   return (
     <div className="grid grid-cols-1 gap-2 rounded-2xl border border-warm-ink/10 bg-white/60 p-1">
@@ -299,9 +307,21 @@ const BankDepositCard = ({ reference }) => {
 }
 
 const FundingInstructions = ({ answers, reference }) => {
+  const { t } = useT()
   const isSplit = answers?.paymentStructure === 'fifty-fifty'
   const budget = (answers?.budget || '').trim()
   const [method, setMethod] = useState('crypto')
+
+  // The funded amount is rendered bold inside the sentence; split the
+  // localized template on a sentinel so word order works in any language.
+  const amountText = isSplit
+    ? (budget ? t('postTask.funding.splitAmountOf', { budget }) : t('postTask.funding.splitAmount'))
+    : (budget ? t('postTask.funding.fullAmountOf', { budget }) : t('postTask.funding.fullAmount'))
+  const SENTINEL = '@@AMT@@'
+  const bodyTemplate = isSplit
+    ? t('postTask.funding.splitBody', { half: SENTINEL })
+    : t('postTask.funding.fullBody', { amount: SENTINEL })
+  const [bodyBefore, bodyAfter] = bodyTemplate.split(SENTINEL)
 
   return (
     <div className="max-w-xl mx-auto space-y-4">
@@ -313,20 +333,18 @@ const FundingInstructions = ({ answers, reference }) => {
               <path d="M8 10V7a4 4 0 0 1 8 0v3" />
             </svg>
           </div>
-          <h2 className="text-lg font-semibold text-warm-ink">Fund the escrow</h2>
+          <h2 className="text-lg font-semibold text-warm-ink">{t('postTask.funding.title')}</h2>
         </div>
         <p className="text-sm text-warm-ink/70 leading-relaxed">
-          {isSplit
-            ? <>Send <strong className="text-warm-ink">50% of your budget{budget && ` (of ${budget})`}</strong> now to start work. The remaining 50% releases on final approval.</>
-            : <>Choose how you want to fund <strong className="text-warm-ink">your full budget{budget && ` (${budget})`}</strong>. The funds release to the worker the moment you approve the work.</>}
+          {bodyBefore}<strong className="text-warm-ink">{amountText}</strong>{bodyAfter}
         </p>
         <p className="mt-2 text-xs text-warm-ink/55">{ESCROW_RELEASE_NOTE}</p>
 
         <div className="mt-4 rounded-xl bg-[#1e5be3]/10 border border-[#1e5be3]/30 px-4 py-3 text-sm text-warm-ink">
-          <div className="text-[10px] uppercase tracking-[0.18em] text-warm-ink/55">Your task reference</div>
+          <div className="text-[10px] uppercase tracking-[0.18em] text-warm-ink/55">{t('postTask.funding.reference')}</div>
           <code className="block mt-0.5 text-base font-mono font-semibold text-[#1e5be3]">{reference}</code>
           <div className="mt-1 text-[11px] text-warm-ink/55">
-            Include this code in the transaction memo so we credit the payment to this task.
+            {t('postTask.funding.referenceNote')}
           </div>
         </div>
 
@@ -342,7 +360,7 @@ const FundingInstructions = ({ answers, reference }) => {
               ))}
             </div>
             <div className="mt-5 rounded-xl border border-amber-300/40 bg-amber-100/60 px-4 py-3 text-xs text-amber-900 leading-relaxed">
-              <strong>Double-check the chain.</strong> USDC goes to the Base address. USDT goes to the Tron (TRC20) address. Sending on the wrong network can result in lost funds.
+              <strong>{t('postTask.funding.chainWarnTitle')}</strong> {t('postTask.funding.chainWarnBody')}
             </div>
           </>
         )}
@@ -365,14 +383,9 @@ const FundingInstructions = ({ answers, reference }) => {
 // Full-page "Become Verified Employer" wall shown when the signed-in user has
 // no active subscription. Mirrors the warm cream chrome of ConversationalForm.
 const VerifiedEmployerWall = () => {
-  const benefits = [
-    'Create job posts',
-    'Manage applicants',
-    'Employer verification badge',
-    'Company profile page',
-    'Featured employer placement',
-    'Access to freelancer contact requests',
-  ]
+  const { t } = useT()
+  const benefits = t('postTask.wall.benefits')
+  const body = t('postTask.wall.body', { price: t('postTask.wall.price') })
   return (
     <div className="min-h-screen bg-cream text-warm-ink relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0">
@@ -380,18 +393,17 @@ const VerifiedEmployerWall = () => {
         <div className="absolute -bottom-32 -right-24 h-[36rem] w-[36rem] rounded-full bg-warm-blush opacity-50 blur-3xl" />
       </div>
       <div className="relative mx-auto max-w-xl px-6 py-20">
-        <button onClick={() => navigate('#/')} className="text-sm text-warm-ink/55 hover:text-warm-ink">← Back</button>
+        <button onClick={() => navigate('#/')} className="text-sm text-warm-ink/55 hover:text-warm-ink">{t('postTask.wall.back')}</button>
         <div className="mt-6 rounded-3xl border border-warm-ink/10 bg-white/70 backdrop-blur p-7 md:p-9">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-[#1e5be3]/15 text-[#1e5be3] px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-[0.15em]">
-            Verified Employer required
+            {t('postTask.wall.badge')}
           </span>
-          <h1 className="mt-4 text-2xl md:text-3xl font-bold text-warm-ink">Become a Verified Employer to post jobs.</h1>
+          <h1 className="mt-4 text-2xl md:text-3xl font-bold text-warm-ink">{t('postTask.wall.title')}</h1>
           <p className="mt-2 text-sm text-warm-ink/70 leading-relaxed">
-            Posting jobs on ChainWork requires an active Verified Employer subscription —
-            one annual plan of <strong className="text-warm-ink">990,000 KRW</strong>, paid in USDT (BEP20).
+            {body}
           </p>
           <ul className="mt-5 space-y-2 text-sm text-warm-ink/80">
-            {benefits.map((b) => (
+            {(Array.isArray(benefits) ? benefits : []).map((b) => (
               <li key={b} className="flex items-start gap-2">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 text-[#1e5be3] shrink-0 mt-0.5"><path d="M5 12l5 5L20 7" /></svg>
                 <span>{b}</span>
@@ -399,8 +411,8 @@ const VerifiedEmployerWall = () => {
             ))}
           </ul>
           <div className="mt-7 flex flex-col sm:flex-row gap-3">
-            <a href="#/" className="btn-primary justify-center">Become Verified Employer</a>
-            <a href="#/pricing" className="rounded-full border border-warm-ink/15 hover:border-warm-ink/40 px-5 py-2.5 text-sm text-warm-ink text-center">See pricing</a>
+            <a href="#/" className="btn-primary justify-center">{t('postTask.wall.become')}</a>
+            <a href="#/pricing" className="rounded-full border border-warm-ink/15 hover:border-warm-ink/40 px-5 py-2.5 text-sm text-warm-ink text-center">{t('postTask.wall.seePricing')}</a>
           </div>
         </div>
       </div>
@@ -409,15 +421,16 @@ const VerifiedEmployerWall = () => {
 }
 
 export default function PostTask() {
+  const { t } = useT()
   const categories = useCategories()
   const questions = useMemo(
     () =>
-      QUESTIONS.map((q) =>
+      buildQuestions(t).map((q) =>
         q.id === 'category'
           ? { ...q, choices: categories.map((c) => ({ id: c.id, title: c.title, hint: c.blurb })) }
           : q,
       ),
-    [categories],
+    [categories, t],
   )
 
   // Hard gate: an active Verified Employer subscription is required to post.
@@ -431,7 +444,7 @@ export default function PostTask() {
   if (sub === undefined) {
     return (
       <div className="min-h-screen bg-cream text-warm-ink grid place-items-center text-sm text-warm-ink/55">
-        Checking your subscription…
+        {t('postTask.checkingSub')}
       </div>
     )
   }
@@ -441,11 +454,11 @@ export default function PostTask() {
 
   return (
     <ConversationalForm
-      eyebrow="Post a task"
+      eyebrow={t('postTask.eyebrow')}
       questions={questions}
-      submitLabel="Post my task"
-      successTitle="Your task is live."
-      successBody="Send your budget to one of the escrow addresses below to start the work. You'll see offers from trusted workers within a few hours."
+      submitLabel={t('postTask.submit')}
+      successTitle={t('postTask.successTitle')}
+      successBody={t('postTask.successBody')}
       successExtra={(answers) => {
         const reference = taskReference(answers?._taskId || answers?.workType || Date.now())
         return (

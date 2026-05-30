@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Icon, LogoMark, Wordmark, navigate } from './ui.jsx'
+import { useT } from '../i18n/index.jsx'
 
 /**
  * A soft, conversational onboarding flow.
@@ -15,6 +16,7 @@ export default function ConversationalForm({
   submitLabel  = 'Submit',
   onSubmit,
 }) {
+  const { t } = useT()
   const total = questions.length
   const [idx, setIdx] = useState(0)
   const [answers, setAnswers] = useState(() =>
@@ -70,7 +72,7 @@ export default function ConversationalForm({
           <button
             onClick={() => navigate('#/')}
             className="h-9 w-9 grid place-items-center rounded-full text-warm-ink/55 hover:text-warm-ink hover:bg-warm-ink/5 transition"
-            aria-label="Close"
+            aria-label={t('convForm.close')}
           >
             <Icon path={<path d="M6 6l12 12M18 6l-12 12" />} className="h-4 w-4" />
           </button>
@@ -82,7 +84,7 @@ export default function ConversationalForm({
             onClick={goBack}
             disabled={onDone}
             className="h-8 w-8 grid place-items-center rounded-full text-warm-ink/45 hover:text-warm-ink hover:bg-warm-ink/5 transition disabled:opacity-0"
-            aria-label="Back"
+            aria-label={t('convForm.back')}
           >
             <Icon path={<path d="M15 18l-6-6 6-6" />} className="h-4 w-4" />
           </button>
@@ -141,6 +143,7 @@ export default function ConversationalForm({
 // ---------- pieces ----------
 
 const Question = ({ eyebrow, q, value, onChange, onNext, inputRef, canContinue }) => {
+  const { t } = useT()
   const onKeyDown = (e) => {
     if (e.key === 'Enter' && !(q.long && e.shiftKey)) {
       e.preventDefault()
@@ -165,7 +168,7 @@ const Question = ({ eyebrow, q, value, onChange, onNext, inputRef, canContinue }
         {q.prompt}
         {q.optional && (
           <span className="ml-3 align-middle inline-block text-[11px] uppercase tracking-wider text-warm-ink/40 border border-warm-ink/15 rounded-full px-2 py-0.5">
-            Optional
+            {t('convForm.optional')}
           </span>
         )}
       </h2>
@@ -205,7 +208,7 @@ const Question = ({ eyebrow, q, value, onChange, onNext, inputRef, canContinue }
               type="button"
               onClick={onNext}
               disabled={!canContinue}
-              aria-label="Next"
+              aria-label={t('convForm.next')}
               className={
                 'shrink-0 h-11 w-11 md:h-12 md:w-12 rounded-full grid place-items-center transition transform ' +
                 (canContinue
@@ -218,10 +221,10 @@ const Question = ({ eyebrow, q, value, onChange, onNext, inputRef, canContinue }
           </div>
 
           <div className="mt-5 flex items-center gap-3 text-xs text-warm-ink/40">
-            <span>Press</span>
-            <kbd className="px-2 py-0.5 rounded-md border border-warm-ink/15 bg-white/40 font-mono">Enter</kbd>
-            <span>to continue</span>
-            {q.long && <span className="opacity-70">· Shift + Enter for a new line</span>}
+            <span>{t('convForm.press')}</span>
+            <kbd className="px-2 py-0.5 rounded-md border border-warm-ink/15 bg-white/40 font-mono">{t('convForm.enterKey')}</kbd>
+            <span>{t('convForm.toContinue')}</span>
+            {q.long && <span className="opacity-70">{t('convForm.shiftEnter')}</span>}
           </div>
         </>
       )}
@@ -273,15 +276,17 @@ const ChoiceList = ({ choices, value, onPick }) => (
   </div>
 )
 
-const Summary = ({ eyebrow, questions, answers, onEdit, onSubmit, submitLabel }) => (
+const Summary = ({ eyebrow, questions, answers, onEdit, onSubmit, submitLabel }) => {
+  const { t } = useT()
+  return (
   <div className="animate-[fadein_.4s_ease]">
     {eyebrow && (
       <div className="text-[11px] uppercase tracking-[0.22em] text-warm-ink/45 font-mono mb-5">
-        Review
+        {t('convForm.review')}
       </div>
     )}
-    <h2 className="text-2xl md:text-4xl font-medium tracking-tight">Looks good?</h2>
-    <p className="mt-3 text-warm-ink/55">You can tweak anything before we send it off.</p>
+    <h2 className="text-2xl md:text-4xl font-medium tracking-tight">{t('convForm.reviewTitle')}</h2>
+    <p className="mt-3 text-warm-ink/55">{t('convForm.reviewSub')}</p>
 
     <div className="mt-10 rounded-3xl bg-white/70 backdrop-blur border border-warm-ink/10 shadow-[0_30px_80px_-40px_rgba(60,40,20,0.25)] divide-y divide-warm-ink/10 overflow-hidden">
       {questions.map((q, i) => (
@@ -299,11 +304,11 @@ const Summary = ({ eyebrow, questions, answers, onEdit, onSubmit, submitLabel })
             <div className="mt-1 text-base text-warm-ink whitespace-pre-wrap break-words">
               {q.choices
                 ? (q.choices.find((c) => c.id === answers[q.id])?.title
-                    || <span className="text-warm-ink/30">— not chosen —</span>)
-                : (answers[q.id]?.trim() || <span className="text-warm-ink/30">— not provided —</span>)}
+                    || <span className="text-warm-ink/30">{t('convForm.notChosen')}</span>)
+                : (answers[q.id]?.trim() || <span className="text-warm-ink/30">{t('convForm.notProvided')}</span>)}
             </div>
           </div>
-          <span className="opacity-0 group-hover:opacity-100 text-xs text-warm-ink/50 mt-1">Edit</span>
+          <span className="opacity-0 group-hover:opacity-100 text-xs text-warm-ink/50 mt-1">{t('convForm.edit')}</span>
         </button>
       ))}
     </div>
@@ -317,12 +322,15 @@ const Summary = ({ eyebrow, questions, answers, onEdit, onSubmit, submitLabel })
         {submitLabel}
         <Icon path={<path d="M5 12l5 5L20 7" />} className="h-4 w-4" />
       </button>
-      <span className="text-xs text-warm-ink/45">Your answers are private — only matched workers will see them.</span>
+      <span className="text-xs text-warm-ink/45">{t('convForm.privacyNote')}</span>
     </div>
   </div>
-)
+  )
+}
 
-const Success = ({ title, body, extra }) => (
+const Success = ({ title, body, extra }) => {
+  const { t } = useT()
+  return (
   <div className="animate-[fadein_.4s_ease] pt-4 md:pt-8">
     <div className="text-center">
       <div className="mx-auto h-16 w-16 rounded-full bg-[#14b8a6]/15 border border-[#14b8a6]/40 grid place-items-center text-[#0d9488] mb-6">
@@ -336,8 +344,9 @@ const Success = ({ title, body, extra }) => (
 
     <div className="mt-10 flex flex-col sm:flex-row gap-3 justify-center">
       <button onClick={() => navigate('#/')} className="rounded-full border border-warm-ink/15 hover:border-warm-ink/35 px-6 py-3 font-medium transition">
-        Back to home
+        {t('convForm.backHome')}
       </button>
     </div>
   </div>
-)
+  )
+}
