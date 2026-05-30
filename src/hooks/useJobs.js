@@ -39,6 +39,9 @@ const shapeJob = (row) => {
     budgetCents: row.budget_cents ?? null,
     budgetCurrency: row.budget_currency || 'USD',
     budget: fmtMoney(row.budget_cents, row.budget_currency),
+    // Employer's average rating (1–5), left by workers. Null until the
+    // employer-rating backend is wired (and hirer_rating added to JOB_COLS).
+    rating: row.hirer_rating != null ? Number(row.hirer_rating) : null,
     paymentStructure: row.payment_structure || null,
     hirer: {
       name: row.hirer_company || row.hirer_name || 'A ChainWork hirer',

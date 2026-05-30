@@ -1,19 +1,20 @@
 import React, { useMemo, useState } from 'react'
 import { Icon } from '../components/ui.jsx'
+import StarRating from '../components/StarRating.jsx'
 import { CATEGORIES, CATEGORY_LABEL } from '../data/categories.jsx'
 import { useJobs } from '../hooks/useJobs.js'
 import { useT } from '../i18n/index.jsx'
 
-// Budget buckets (in whole USD) — mirrors the home Categories filter ranges.
-const BUDGET_RANGES = [
-  { id: 'any',     test: () => true },
-  { id: 'lt100',   test: (usd) => usd != null && usd < 100 },
-  { id: '100-500', test: (usd) => usd != null && usd >= 100 && usd <= 500 },
-  { id: '500-2k',  test: (usd) => usd != null && usd > 500 && usd <= 2000 },
-  { id: 'gt2k',    test: (usd) => usd != null && usd > 2000 },
+// Minimum employer-rating buckets (1–5 stars, left by workers).
+const RATING_RANGES = [
+  { id: 'any',  test: () => true },
+  { id: 'gte4', test: (r) => r != null && r >= 4 },
+  { id: 'gte3', test: (r) => r != null && r >= 3 },
+  { id: 'gte2', test: (r) => r != null && r >= 2 },
+  { id: 'gte1', test: (r) => r != null && r >= 1 },
 ]
 
-const SORTS = ['recent', 'budgetHigh', 'budgetLow']
+const SORTS = ['recent', 'ratingHigh', 'ratingLow']
 
 const FilterChips = ({ label, options, value, onChange }) => (
   <div className="flex items-center gap-2 min-w-max">
@@ -82,9 +83,16 @@ const JobCard = ({ job, t }) => {
 
       <div className="mt-auto pt-5 flex items-end justify-between gap-3">
         <div>
-          <div className="text-[10px] uppercase tracking-[0.18em] text-white/40">{t('jobs.budget')}</div>
-          <div className="mt-0.5 font-semibold text-white">
-            {job.budget || <span className="text-white/45 font-normal">{t('jobs.budgetTbd')}</span>}
+          <div className="text-[10px] uppercase tracking-[0.18em] text-white/40">{t('jobs.rating')}</div>
+          <div className="mt-0.5">
+            {job.rating != null
+              ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <StarRating value={job.rating} size="sm" />
+                  <span className="font-semibold text-white tabular-nums">{job.rating.toFixed(1)}</span>
+                </span>
+              )
+              : <span className="text-white/45 text-sm">{t('jobs.ratingNew')}</span>}
           </div>
         </div>
         {job.paymentStructure && (
@@ -106,7 +114,7 @@ export default function Jobs() {
   const { t } = useT()
   const { jobs, loading, error } = useJobs()
   const [category, setCategory] = useState('all')
-  const [budget, setBudget] = useState('any')
+  const [rating, setRating] = useState('any')
   const [sort, setSort] = useState('recent')
   const [query, setQuery] = useState('')
 
@@ -118,8 +126,8 @@ export default function Jobs() {
     [t],
   )
 
-  const budgetOptions = useMemo(
-    () => BUDGET_RANGES.map((r) => ({ id: r.id, label: t(`jobs.filters.budget.${r.id}`) })),
+  const ratingOptions = useMemo(
+    () => RATING_RANGES.map((r) => ({ id: r.id, label: t(`jobs.filters.rating.${r.id}`) })),
     [t],
   )
 
@@ -129,23 +137,22 @@ export default function Jobs() {
   )
 
   const filtered = useMemo(() => {
-    const budgetTest = BUDGET_RANGES.find((r) => r.id === budget)?.test || (() => true)
+    const ratingTest = RATING_RANGES.find((r) => r.id === rating)?.test || (() => true)
     const q = query.trim().toLowerCase()
     const out = jobs.filter((j) => {
       if (category !== 'all' && j.category !== category) return false
-      const usd = j.budgetCents != null ? j.budgetCents / 100 : null
-      if (budget !== 'any' && !budgetTest(usd)) return false
+      if (rating !== 'any' && !ratingTest(j.rating)) return false
       if (q) {
         const hay = `${j.title} ${j.description} ${j.skills.join(' ')} ${j.hirer.name}`.toLowerCase()
         if (!hay.includes(q)) return false
       }
       return true
     })
-    if (sort === 'budgetHigh') out.sort((a, b) => (b.budgetCents ?? -1) - (a.budgetCents ?? -1))
-    else if (sort === 'budgetLow') out.sort((a, b) => (a.budgetCents ?? Infinity) - (b.budgetCents ?? Infinity))
+    if (sort === 'ratingHigh') out.sort((a, b) => (b.rating ?? -1) - (a.rating ?? -1))
+    else if (sort === 'ratingLow') out.sort((a, b) => (a.rating ?? Infinity) - (b.rating ?? Infinity))
     else out.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
     return out
-  }, [jobs, category, budget, sort, query])
+  }, [jobs, category, rating, sort, query])
 
   return (
     <section className="py-20">
@@ -180,7 +187,7 @@ export default function Jobs() {
               <FilterChips label={t('jobs.labels.category')} options={categoryOptions} value={category} onChange={setCategory} />
             </div>
             <div className="overflow-x-auto -mx-1 px-1 pb-1">
-              <FilterChips label={t('jobs.labels.budget')} options={budgetOptions} value={budget} onChange={setBudget} />
+              <FilterChips label={t('jobs.labels.rating')} options={ratingOptions} value={rating} onChange={setRating} />
             </div>
             <div className="overflow-x-auto -mx-1 px-1 pb-1">
               <FilterChips label={t('jobs.labels.sort')} options={sortOptions} value={sort} onChange={setSort} />
@@ -208,7 +215,7 @@ export default function Jobs() {
           <div className="card text-center py-16">
             <div className="text-white/70">{t('jobs.noMatch')}</div>
             <button
-              onClick={() => { setCategory('all'); setBudget('any'); setQuery('') }}
+              onClick={() => { setCategory('all'); setRating('any'); setQuery('') }}
               className="btn-ghost mt-4"
             >
               {t('jobs.resetFilters')}
@@ -219,14 +226,6 @@ export default function Jobs() {
             {filtered.map((j) => <JobCard key={j.id} job={j} t={t} />)}
           </div>
         )}
-
-        <div className="mt-14 text-center">
-          <p className="text-sm text-white/55">{t('jobs.hirerPrompt')}</p>
-          <a href="#/post-task" className="btn-primary mt-4 inline-flex">
-            {t('jobs.postCta')}
-            <Icon path={<path d="M5 12h14M13 5l7 7-7 7" />} className="h-4 w-4" />
-          </a>
-        </div>
       </div>
     </section>
   )
