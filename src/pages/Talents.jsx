@@ -5,6 +5,7 @@ import ReviewsModal from '../components/ReviewsModal.jsx'
 import { CATEGORY_IDS, useCategoriesWithAll } from '../data/categories.jsx'
 import { useTalents } from '../hooks/useTalents.js'
 import { useTaskStore } from '../hooks/useTaskStore.js'
+import { useT } from '../i18n/index.jsx'
 
 const RATING_RANGES = [
   { id: 'any', label: 'Any rating', test: () => true },
@@ -82,8 +83,10 @@ const Metric = ({ label, value }) => (
   </div>
 )
 
-const TalentProfile = ({ talent, reviewCount, onInvite, onViewReviews, onClose }) => (
-  <Dialog title={`${talent.name} profile`} onClose={onClose}>
+const TalentProfile = ({ talent, reviewCount, onInvite, onViewReviews, onClose }) => {
+  const { t } = useT()
+  return (
+  <Dialog title={t('talents.profile.titleSuffix', { name: talent.name })} onClose={onClose}>
     <div className="p-5 md:p-6">
       <div className="flex flex-col sm:flex-row sm:items-start gap-4">
         <div className={`h-16 w-16 rounded-2xl bg-gradient-to-br ${talent.accent} grid place-items-center text-xl font-bold text-ink-950`}>
@@ -92,8 +95,8 @@ const TalentProfile = ({ talent, reviewCount, onInvite, onViewReviews, onClose }
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-2xl font-bold">{talent.name}</h2>
-            {talent.verified && <span className="rounded-full border border-accent-400/30 bg-accent-500/15 px-2 py-0.5 text-xs text-accent-300">Verified</span>}
-            {talent.topRated && <span className="rounded-full border border-brand-400/30 bg-brand-500/15 px-2 py-0.5 text-xs text-brand-200">Top-rated</span>}
+            {talent.verified && <span className="rounded-full border border-accent-400/30 bg-accent-500/15 px-2 py-0.5 text-xs text-accent-300">{t('talents.profile.verified')}</span>}
+            {talent.topRated && <span className="rounded-full border border-brand-400/30 bg-brand-500/15 px-2 py-0.5 text-xs text-brand-200">{t('talents.profile.topRated')}</span>}
           </div>
           <div className="mt-1 text-white/70">{talent.role} - {talent.location}</div>
           <button
@@ -104,7 +107,7 @@ const TalentProfile = ({ talent, reviewCount, onInvite, onViewReviews, onClose }
             <Icon path={<path d="M12 17.3l-6.2 3.7 1.6-7.1L2 9.2l7.2-.6L12 2l2.8 6.6 7.2.6-5.4 4.7 1.6 7.1z" />} className="h-3.5 w-3.5 text-amber-300" />
             <span className="font-medium">{talent.rating.toFixed(1)}</span>
             <span className="text-white/45 group-hover:text-white/65 underline-offset-2 group-hover:underline">
-              View {reviewCount} review{reviewCount === 1 ? '' : 's'}
+              {t('talents.profile.viewReviews', { n: reviewCount })}
             </span>
           </button>
           <p className="mt-3 text-sm leading-relaxed text-white/70">{talent.about}</p>
@@ -112,14 +115,14 @@ const TalentProfile = ({ talent, reviewCount, onInvite, onViewReviews, onClose }
       </div>
 
       <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-        <Metric label="Rating" value={reviewCount ? talent.rating.toFixed(1) : 'New'} />
-        <Metric label="Reviews" value={reviewCount} />
-        <Metric label="From" value={`$${talent.startingPrice}`} />
-        <Metric label="Replies" value={talent.responseTime} />
+        <Metric label={t('talents.profile.ratingLabel')} value={reviewCount ? talent.rating.toFixed(1) : t('talents.profile.newRating')} />
+        <Metric label={t('talents.profile.reviewsLabel')} value={reviewCount} />
+        <Metric label={t('talents.profile.fromLabel')} value={`$${talent.startingPrice}`} />
+        <Metric label={t('talents.profile.repliesLabel')} value={talent.responseTime} />
       </div>
 
       <div className="mt-6">
-        <div className="text-xs uppercase tracking-wider text-white/40 mb-2">Skills</div>
+        <div className="text-xs uppercase tracking-wider text-white/40 mb-2">{t('talents.profile.skills')}</div>
         <div className="flex flex-wrap gap-2">
           {talent.skills.map((skill) => (
             <span key={skill} className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs text-white/80">{skill}</span>
@@ -128,40 +131,43 @@ const TalentProfile = ({ talent, reviewCount, onInvite, onViewReviews, onClose }
       </div>
 
       <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-        <div className="text-xs uppercase tracking-wider text-white/40 mb-2">Best for</div>
+        <div className="text-xs uppercase tracking-wider text-white/40 mb-2">{t('talents.profile.bestFor')}</div>
         <div className="text-sm text-white/75">
-          Focused web tasks, scoped builds, production fixes, and clear handoffs with escrow-backed milestones.
+          {t('talents.profile.bestForText')}
         </div>
       </div>
 
       <div className="mt-6 flex flex-col sm:flex-row gap-3">
         <button onClick={() => onInvite(talent)} className="btn-primary justify-center">
-          Invite to a task
+          {t('talents.profile.invite')}
           <Icon path={<path d="M5 12h14M13 5l7 7-7 7" />} className="h-4 w-4" />
         </button>
         <button onClick={() => onViewReviews(talent)} className="btn-ghost justify-center">
-          View reviews ({reviewCount})
+          {t('talents.profile.viewReviewsCta', { n: reviewCount })}
         </button>
-        <button onClick={onClose} className="btn-ghost justify-center">Keep browsing</button>
+        <button onClick={onClose} className="btn-ghost justify-center">{t('talents.profile.keepBrowsing')}</button>
       </div>
     </div>
   </Dialog>
-)
+  )
+}
 
-const InvitePanel = ({ talent, onClose }) => (
-  <Dialog title={`Invite ${talent.name}`} onClose={onClose}>
+const InvitePanel = ({ talent, onClose }) => {
+  const { t } = useT()
+  return (
+  <Dialog title={t('talents.invitePanel.title', { name: talent.name })} onClose={onClose}>
     <div className="p-5 md:p-6">
       <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-        <div className="text-sm font-semibold">Start with a focused task brief</div>
+        <div className="text-sm font-semibold">{t('talents.invitePanel.briefHeading')}</div>
         <p className="mt-2 text-sm leading-relaxed text-white/65">
-          Your invite carries this worker into the post-task flow so the brief, budget, escrow choice, and contact details stay in one clean handoff.
+          {t('talents.invitePanel.briefText')}
         </p>
       </div>
 
       <div className="mt-5 grid sm:grid-cols-3 gap-3 text-sm">
-        <Metric label="Worker" value={talent.name} />
-        <Metric label="Starting at" value={`$${talent.startingPrice}`} />
-        <Metric label="Availability" value={talent.availability} />
+        <Metric label={t('talents.invitePanel.worker')} value={talent.name} />
+        <Metric label={t('talents.invitePanel.startingAt')} value={`$${talent.startingPrice}`} />
+        <Metric label={t('talents.invitePanel.availability')} value={talent.availability} />
       </div>
 
       <div className="mt-6 flex flex-col sm:flex-row gap-3">
@@ -169,19 +175,24 @@ const InvitePanel = ({ talent, onClose }) => (
           onClick={() => navigate(`#/post-task?talent=${encodeURIComponent(talent.handle || talent.id)}`)}
           className="btn-primary justify-center"
         >
-          Continue to brief
+          {t('talents.invitePanel.continue')}
           <Icon path={<path d="M5 12h14M13 5l7 7-7 7" />} className="h-4 w-4" />
         </button>
-        <button onClick={onClose} className="btn-ghost justify-center">Cancel</button>
+        <button onClick={onClose} className="btn-ghost justify-center">{t('talents.invitePanel.cancel')}</button>
       </div>
     </div>
   </Dialog>
-)
+  )
+}
 
 export default function Talents() {
+  const { t } = useT()
   const { talents, loading, source, legacyFallback } = useTalents()
   const store = useTaskStore()
   const categoryOptions = useCategoriesWithAll()
+  const ratingOptions = RATING_RANGES.map((r) => ({ id: r.id, label: t(`talents.rating.${r.id}`, r.label) }))
+  const availOptions = AVAILS.map((a) => ({ id: a.id, label: t(`talents.avail.${a.id}`, a.label) }))
+  const sortOptions = SORTS.map((s) => ({ id: s.id, label: t(`talents.sort.${s.id}`, s.label) }))
   const initialCategory = useMemo(() => {
     const q = (window.location.hash || '').split('?')[1]
     const requested = q && new URLSearchParams(q).get('category')
@@ -277,13 +288,13 @@ export default function Talents() {
           </div>
         )}
         <div className="text-center mb-10">
-          <div className="text-xs uppercase tracking-[0.2em] text-accent-400 mb-3">Talents</div>
-          <h1 className="text-3xl md:text-5xl font-bold">Trusted workers, ready to ship.</h1>
+          <div className="text-xs uppercase tracking-[0.2em] text-accent-400 mb-3">{t('talents.eyebrow')}</div>
+          <h1 className="text-3xl md:text-5xl font-bold">{t('talents.heroTitle')}</h1>
           <p className="mt-4 text-white/70 max-w-2xl mx-auto">
-            Browse verified web builders, fixers, and AI engineers. Filter by what you need, then invite the ones that fit.
+            {t('talents.subtitle')}
           </p>
           <div className="mt-4 text-xs text-white/40">
-            {loading ? 'Loading worker profiles...' : source === 'profiles' ? 'Live worker profiles' : 'Verified worker network'}
+            {loading ? t('talents.status.loading') : source === 'profiles' ? t('talents.status.live') : t('talents.status.network')}
           </div>
         </div>
 
@@ -293,11 +304,11 @@ export default function Talents() {
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search talents by name, skill, or keyword..."
+              placeholder={t('talents.searchPlaceholder')}
               className="flex-1 bg-transparent border-0 focus:outline-none text-sm placeholder:text-white/35"
             />
             {query && (
-              <button onClick={() => setQuery('')} className="text-white/45 hover:text-white text-xs">Clear</button>
+              <button onClick={() => setQuery('')} className="text-white/45 hover:text-white text-xs">{t('talents.clear')}</button>
             )}
           </div>
         </div>
@@ -305,43 +316,43 @@ export default function Talents() {
         <div className="mb-10 rounded-2xl border border-white/10 bg-white/[0.02] p-4 md:p-5">
           <div className="flex flex-col gap-3">
             <div className="cw-scroll overflow-x-auto -mx-1 px-1 pb-1">
-              <FilterChips label="Category" options={categoryOptions} value={category} onChange={setCategory} />
+              <FilterChips label={t('talents.filters.category')} options={categoryOptions} value={category} onChange={setCategory} />
             </div>
             <div className="cw-scroll overflow-x-auto -mx-1 px-1 pb-1">
-              <FilterChips label="Rating" options={RATING_RANGES} value={rating} onChange={setRating} />
+              <FilterChips label={t('talents.filters.rating')} options={ratingOptions} value={rating} onChange={setRating} />
             </div>
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
               <div className="cw-scroll overflow-x-auto -mx-1 px-1 pb-1 flex-1">
-                <FilterChips label="Availability" options={AVAILS} value={avail} onChange={setAvail} />
+                <FilterChips label={t('talents.filters.availability')} options={availOptions} value={avail} onChange={setAvail} />
               </div>
               <div className="cw-scroll overflow-x-auto -mx-1 px-1 pb-1">
-                <FilterChips label="Sort" options={SORTS} value={sort} onChange={setSort} />
+                <FilterChips label={t('talents.filters.sort')} options={sortOptions} value={sort} onChange={setSort} />
               </div>
             </div>
           </div>
           <div className="mt-3 text-xs text-white/45">
-            Showing <span className="text-white">{filtered.length}</span> of {talents.length} talents
+            {t('talents.showing', { filtered: filtered.length, total: talents.length })}
           </div>
         </div>
 
         {loading ? (
-          <div className="card text-center py-16 text-white/55 text-sm">Loading talents…</div>
+          <div className="card text-center py-16 text-white/55 text-sm">{t('talents.loadingTalents')}</div>
         ) : talents.length === 0 ? (
           <div className="card text-center py-16">
-            <div className="text-white/80">No talents yet.</div>
+            <div className="text-white/80">{t('talents.emptyState.none')}</div>
             <p className="text-xs text-white/45 mt-1 max-w-md mx-auto">
-              Once workers sign in and complete their profile they'll appear here.
+              {t('talents.emptyState.noneHint')}
             </p>
-            <a href="#/join-as-worker" className="btn-primary mt-5 inline-flex">Join as a worker</a>
+            <a href="#/join-as-worker" className="btn-primary mt-5 inline-flex">{t('talents.emptyState.join')}</a>
           </div>
         ) : filtered.length === 0 ? (
           <div className="card text-center py-16">
-            <div className="text-white/70">No talents match those filters.</div>
+            <div className="text-white/70">{t('talents.emptyState.noMatch')}</div>
             <button
               onClick={() => { setCategory('all'); setRating('any'); setAvail('any'); setQuery('') }}
               className="btn-ghost mt-4"
             >
-              Reset filters
+              {t('talents.emptyState.reset')}
             </button>
           </div>
         ) : (
