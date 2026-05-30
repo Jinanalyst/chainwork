@@ -14,6 +14,14 @@ const RATE_RANGES = [
   { id: 'gt120', label: '$120+/h', test: (t) => t.hourlyRate > 120 },
 ]
 
+const RATING_RANGES = [
+  { id: 'any', label: 'Any rating', test: () => true },
+  { id: 'gte4', label: '4.0+', test: (t) => t.rating != null && t.rating >= 4 },
+  { id: 'gte3', label: '3.0+', test: (t) => t.rating != null && t.rating >= 3 },
+  { id: 'gte2', label: '2.0+', test: (t) => t.rating != null && t.rating >= 2 },
+  { id: 'gte1', label: '1.0+', test: (t) => t.rating != null && t.rating >= 1 },
+]
+
 const AVAILS = [
   { id: 'any', label: 'Any time' },
   { id: 'now', label: 'Available now' },
@@ -183,6 +191,7 @@ export default function Talents() {
   const store = useTaskStore()
   const [category, setCategory] = useState('all')
   const [rate, setRate] = useState('any')
+  const [rating, setRating] = useState('any')
   const [avail, setAvail] = useState('any')
   const [sort, setSort] = useState('top')
   const [query, setQuery] = useState('')
@@ -214,10 +223,12 @@ export default function Talents() {
 
   const filtered = useMemo(() => {
     const rateTest = RATE_RANGES.find((r) => r.id === rate)?.test || (() => true)
+    const ratingTest = RATING_RANGES.find((r) => r.id === rating)?.test || (() => true)
     const q = query.trim().toLowerCase()
     const out = talents.filter((t) => {
       if (category !== 'all' && !t.categories.includes(category)) return false
       if (!rateTest(t)) return false
+      if (!ratingTest(t)) return false
       if (avail === 'now' && t.availability !== 'Available now') return false
       if (avail === 'soon' && t.availability !== 'Available next week') return false
       if (avail === 'limit' && t.availability !== 'Limited') return false
@@ -231,7 +242,7 @@ export default function Talents() {
     else if (sort === 'fast') out.sort((a, b) => responseMinutes(a.responseTime) - responseMinutes(b.responseTime))
     else out.sort((a, b) => (Number(b.topRated) - Number(a.topRated)) || (b.rating - a.rating))
     return out
-  }, [talents, category, rate, avail, sort, query])
+  }, [talents, category, rate, rating, avail, sort, query])
 
   const openProfile = (talent) => {
     setProfileTalent(talent)
@@ -304,6 +315,9 @@ export default function Talents() {
             <div className="overflow-x-auto -mx-1 px-1 pb-1">
               <FilterChips label="Rate" options={RATE_RANGES} value={rate} onChange={setRate} />
             </div>
+            <div className="overflow-x-auto -mx-1 px-1 pb-1">
+              <FilterChips label="Rating" options={RATING_RANGES} value={rating} onChange={setRating} />
+            </div>
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
               <div className="overflow-x-auto -mx-1 px-1 pb-1 flex-1">
                 <FilterChips label="Availability" options={AVAILS} value={avail} onChange={setAvail} />
@@ -332,7 +346,7 @@ export default function Talents() {
           <div className="card text-center py-16">
             <div className="text-white/70">No talents match those filters.</div>
             <button
-              onClick={() => { setCategory('all'); setRate('any'); setAvail('any'); setQuery('') }}
+              onClick={() => { setCategory('all'); setRate('any'); setRating('any'); setAvail('any'); setQuery('') }}
               className="btn-ghost mt-4"
             >
               Reset filters
