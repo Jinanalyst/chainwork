@@ -429,7 +429,14 @@ const Payments = () => {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-5">
+        <div
+          className={
+            'grid gap-5 ' +
+            (structures.length >= 3
+              ? 'md:grid-cols-3'
+              : 'sm:grid-cols-2 max-w-4xl mx-auto')
+          }
+        >
           {structures.map((s, i) => (
             <div key={i} className="card relative overflow-hidden">
               {s.pill && (
