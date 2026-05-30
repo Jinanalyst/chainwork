@@ -6,8 +6,9 @@ export default function About() {
     <LegalLayout eyebrow="About" title="ChainWork 소개">
       <p className="mt-8 text-white/75 leading-relaxed">
         ChainWork(체인워크)는 기업과 프리랜서·비즈니스 파트너를 연결하는 업무 매칭 플랫폼입니다.
-        기업은 프로젝트 등록, 월간 파트너 계약, 업무 관리 서비스를 이용할 수 있으며, 결제는 원화(KRW)
-        기반의 플랫폼 이용료 및 업무 서비스 대금 결제로 처리됩니다.
+        기업은 프로젝트 등록, 월간 파트너 계약, 업무 관리 서비스를 이용할 수 있으며, 결제는 암호화폐 결제
+        게이트웨이 <strong className="text-white">NowPayments</strong>를 통해 USDT·USDC 스테이블코인으로
+        처리됩니다. 원화(KRW) 결제는 국내 규제 및 결제대행사(PG) 승인 절차로 인해 현재 지연되고 있습니다.
       </p>
 
       <LegalSection title="우리가 해결하는 문제">
@@ -21,7 +22,7 @@ export default function About() {
           <li>프로젝트 등록 및 전문가 매칭</li>
           <li>월간 파트너 계약 관리 (리테이너)</li>
           <li>건별 업무 발주 및 진행 관리</li>
-          <li>업무 대금 결제 및 정산(원화 기준)</li>
+          <li>업무 대금 결제 및 정산 (USDT·USDC 스테이블코인, NowPayments)</li>
           <li>분쟁 조정 및 환불 처리</li>
           <li>기업 회원을 위한 Pro 멤버십</li>
         </ul>
