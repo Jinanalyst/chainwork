@@ -7,7 +7,6 @@ import { PLATFORM_WALLETS, PLATFORM_BANK, ESCROW_RELEASE_NOTE, taskReference, ge
 import { matchTalents, inferCategories, pickTargetedWorkers } from '../lib/matching.js'
 import { navigate } from '../components/ui.jsx'
 import { useTalents } from '../hooks/useTalents.js'
-import { useSession } from '../hooks/useSession.js'
 import { supabase } from '../lib/supabase.js'
 import { useT } from '../i18n/index.jsx'
 
@@ -387,9 +386,8 @@ const FundingInstructions = ({ answers, reference }) => {
 // NOWPayments checkout button so the employer can pay (990,000 KRW / USDT BEP20)
 // right here. Once the IPN webhook activates their subscription, the gate in
 // PostTask opens and they reach the job form.
-const VerifiedEmployerWall = () => {
+const VerifiedEmployerWall = ({ user }) => {
   const { t } = useT()
-  const { user } = useSession()
   const benefits = t('postTask.wall.benefits')
   const body = t('postTask.wall.body', { price: t('postTask.wall.price') })
   return (
@@ -429,7 +427,7 @@ const VerifiedEmployerWall = () => {
   )
 }
 
-export default function PostTask() {
+export default function PostTask({ user }) {
   const { t } = useT()
   const categories = useCategories()
   const questions = useMemo(
@@ -468,7 +466,7 @@ export default function PostTask() {
     )
   }
   if (!sub || !sub.active) {
-    return <VerifiedEmployerWall />
+    return <VerifiedEmployerWall user={user} />
   }
 
   return (

@@ -712,7 +712,7 @@ export default function App() {
       : <AuthGate title={t('auth.gate.hirerTitle')} sub={t('auth.gate.hirerSub')} onSignIn={openSignIn} />
   } else if (route.startsWith('#/post-task')) {
     page = user
-      ? <PostTask />
+      ? <PostTask user={user} />
       : <AuthGate title={t('auth.gate.postTaskTitle')} sub={t('auth.gate.postTaskSub')} onSignIn={openSignIn} />
   } else if (route.startsWith('#/join-as-worker')) {
     page = user
