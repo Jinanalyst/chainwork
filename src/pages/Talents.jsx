@@ -113,7 +113,6 @@ const TalentProfile = ({ talent, reviewCount, onInvite, onViewReviews, onClose }
             onClick={() => onViewReviews(talent)}
             className="mt-2 inline-flex items-center gap-1.5 text-xs text-white/75 hover:text-white transition group"
           >
-            <Icon path={<path d="M12 17.3l-6.2 3.7 1.6-7.1L2 9.2l7.2-.6L12 2l2.8 6.6 7.2.6-5.4 4.7 1.6 7.1z" />} className="h-3.5 w-3.5 text-amber-300" />
             <span className="font-medium">{talent.rating.toFixed(1)}</span>
             <span className="text-white/45 group-hover:text-white/65 underline-offset-2 group-hover:underline">
               {t('talents.profile.viewReviews', { n: reviewCount })}

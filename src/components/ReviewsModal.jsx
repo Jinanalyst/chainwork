@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo } from 'react'
 import { Icon } from './ui.jsx'
-import StarRating from './StarRating.jsx'
 
 const initials = (n) =>
   (n || '?').split(/\s+/).map((p) => p[0] || '').slice(0, 2).join('').toUpperCase()
@@ -41,7 +40,6 @@ export default function ReviewsModal({ open, workerName, reviews, onClose }) {
           <div className="flex items-end gap-6 flex-wrap">
             <div>
               <div className="text-4xl font-bold tabular-nums">{stats.avg.toFixed(1)}</div>
-              <StarRating value={stats.avg} size="sm" />
               <div className="text-xs text-white/55 mt-1">{stats.count} review{stats.count !== 1 ? 's' : ''}</div>
             </div>
             <div className="flex-1 min-w-[200px] space-y-1">
@@ -51,7 +49,6 @@ export default function ReviewsModal({ open, workerName, reviews, onClose }) {
                 return (
                   <div key={n} className="flex items-center gap-2 text-xs">
                     <span className="w-3 text-white/55">{n}</span>
-                    <Icon path={<path d="M12 17.3l-6.2 3.7 1.6-7.1L2 9.2l7.2-.6L12 2l2.8 6.6 7.2.6-5.4 4.7 1.6 7.1z" />} className="h-3 w-3 text-amber-300" />
                     <div className="flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden">
                       <div className="h-full bg-amber-300/70" style={{ width: `${pct}%` }} />
                     </div>
@@ -76,7 +73,7 @@ export default function ReviewsModal({ open, workerName, reviews, onClose }) {
                   {r.hirerCompany && <span className="text-xs text-white/55">· {r.hirerCompany}</span>}
                 </div>
                 <div className="flex items-center gap-3 mt-0.5">
-                  <StarRating value={r.rating} size="sm" />
+                  <span className="text-xs font-medium text-white/85 tabular-nums">{Number(r.rating).toFixed(1)}</span>
                   <span className="text-xs text-white/55">{r.createdAt}</span>
                 </div>
                 {r.taskTitle && (

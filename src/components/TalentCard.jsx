@@ -71,7 +71,6 @@ export default function TalentCard({ talent, compact = false, onInvite, onView, 
           aria-label={onViewReviews ? `View ${talent.reviews} reviews` : undefined}
         >
           <div className="flex items-center gap-1 text-sm font-medium">
-            <Icon path={<path d="M12 17.3l-6.2 3.7 1.6-7.1L2 9.2l7.2-.6L12 2l2.8 6.6 7.2.6-5.4 4.7 1.6 7.1z" />} className="h-3.5 w-3.5 text-amber-300" />
             {talent.rating.toFixed(1)}
           </div>
           <div className="text-[11px] text-white/45">{talent.reviews} reviews</div>
