@@ -2,10 +2,12 @@ import React, { useEffect, useMemo, useState } from 'react'
 import ConversationalForm from '../components/ConversationalForm.jsx'
 import EscrowAddressCard from '../components/EscrowAddressCard.jsx'
 import PaymentProofForm from '../components/PaymentProofForm.jsx'
+import NowPaymentsCheckoutButton from '../components/NowPaymentsCheckoutButton.jsx'
 import { PLATFORM_WALLETS, PLATFORM_BANK, ESCROW_RELEASE_NOTE, taskReference, getEmployerSubscription } from '../lib/platform.js'
 import { matchTalents, inferCategories, pickTargetedWorkers } from '../lib/matching.js'
 import { navigate } from '../components/ui.jsx'
 import { useTalents } from '../hooks/useTalents.js'
+import { useSession } from '../hooks/useSession.js'
 import { supabase } from '../lib/supabase.js'
 import { useT } from '../i18n/index.jsx'
 
@@ -381,9 +383,13 @@ const FundingInstructions = ({ answers, reference }) => {
 }
 
 // Full-page "Become Verified Employer" wall shown when the signed-in user has
-// no active subscription. Mirrors the warm cream chrome of ConversationalForm.
+// no active subscription. Doubles as the payment page: it embeds the
+// NOWPayments checkout button so the employer can pay (990,000 KRW / USDT BEP20)
+// right here. Once the IPN webhook activates their subscription, the gate in
+// PostTask opens and they reach the job form.
 const VerifiedEmployerWall = () => {
   const { t } = useT()
+  const { user } = useSession()
   const benefits = t('postTask.wall.benefits')
   const body = t('postTask.wall.body', { price: t('postTask.wall.price') })
   return (
@@ -410,9 +416,12 @@ const VerifiedEmployerWall = () => {
               </li>
             ))}
           </ul>
-          <div className="mt-7 flex flex-col sm:flex-row gap-3">
-            <a href="#/" className="btn-primary justify-center">{t('postTask.wall.become')}</a>
-            <a href="#/pricing" className="rounded-full border border-warm-ink/15 hover:border-warm-ink/40 px-5 py-2.5 text-sm text-warm-ink text-center">{t('postTask.wall.seePricing')}</a>
+          {/* The actual payment affordance: pay the subscription right here. */}
+          <div className="mt-7">
+            <NowPaymentsCheckoutButton userId={user?.id} />
+          </div>
+          <div className="mt-4 text-center">
+            <a href="#/pricing" className="text-sm text-warm-ink/55 hover:text-warm-ink underline">{t('postTask.wall.seePricing')}</a>
           </div>
         </div>
       </div>
@@ -434,6 +443,7 @@ export default function PostTask() {
   )
 
   // Hard gate: an active Verified Employer subscription is required to post.
+  // Unpaid users get the payment wall (VerifiedEmployerWall) instead of the form.
   const [sub, setSub] = useState(undefined)
   useEffect(() => {
     let cancelled = false
