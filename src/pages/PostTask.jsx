@@ -447,7 +447,16 @@ export default function PostTask() {
   const [sub, setSub] = useState(undefined)
   useEffect(() => {
     let cancelled = false
-    getEmployerSubscription().then((s) => { if (!cancelled) setSub(s) })
+    // Guard against a hung auth/RPC call: if the check doesn't settle within a
+    // few seconds, stop showing "Checking…" and fall through to the payment
+    // wall (the safe default — the user can still pay there).
+    const timeout = new Promise((resolve) => setTimeout(() => resolve({ active: false }), 6000))
+    Promise.race([getEmployerSubscription(), timeout])
+      .then((s) => { if (!cancelled) setSub(s) })
+      .catch((e) => {
+        console.warn('[PostTask] subscription check failed:', e?.message || e)
+        if (!cancelled) setSub({ active: false })
+      })
     return () => { cancelled = true }
   }, [])
 
