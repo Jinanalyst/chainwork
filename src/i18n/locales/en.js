@@ -58,7 +58,7 @@ const en = {
     allCategories: 'All',
     labels: { category: 'Category', rating: 'Rating', sort: 'Sort' },
     filters: {
-      rating: { any: 'Any rating', gte4: '4★ & up', gte3: '3★ & up', gte2: '2★ & up', gte1: '1★ & up' },
+      rating: { any: 'Any rating', gte4: '4★+', gte3: '3★+', gte2: '2★+', gte1: '1★+' },
     },
     sort: { recent: 'Newest first', ratingHigh: 'Highest rated', ratingLow: 'Lowest rated' },
     showing: 'Showing {{shown}} of {{total}} jobs',
