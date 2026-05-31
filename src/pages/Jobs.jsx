@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from 'react'
 import { Icon } from '../components/ui.jsx'
-import StarRating from '../components/StarRating.jsx'
 import { useCategories, useCategoryLabel } from '../data/categories.jsx'
 import { useJobs } from '../hooks/useJobs.js'
 import { useT } from '../i18n/index.jsx'
@@ -89,7 +88,6 @@ const JobCard = ({ job, t }) => {
             {job.rating != null
               ? (
                 <span className="inline-flex items-center gap-1.5">
-                  <StarRating value={job.rating} size="sm" />
                   <span className="font-semibold text-white tabular-nums">{job.rating.toFixed(1)}</span>
                 </span>
               )

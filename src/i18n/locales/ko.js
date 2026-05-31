@@ -58,7 +58,7 @@ const ko = {
     allCategories: '전체',
     labels: { category: '카테고리', rating: '평점', sort: '정렬' },
     filters: {
-      rating: { any: '전체 평점', gte4: '4★+', gte3: '3★+', gte2: '2★+', gte1: '1★+' },
+      rating: { any: '전체 평점', gte4: '4.0+', gte3: '3.0+', gte2: '2.0+', gte1: '1.0+' },
     },
     sort: { recent: '최신순', ratingHigh: '평점 높은순', ratingLow: '평점 낮은순' },
     showing: '전체 {{total}}건 중 {{shown}}건 표시',
