@@ -180,8 +180,11 @@ export async function setPaymentProofStatus(id, status, notes) {
  */
 export async function getEmployerSubscription() {
   if (!supabase) return null
-  const { data: sess } = await supabase.auth.getUser()
-  if (!sess?.user) return null
+  // getSession() reads the persisted session locally; getUser() round-trips to
+  // GoTrue and can stall on its navigator.locks token-refresh until the tab
+  // gets a focus/visibility event (the "only works after opening DevTools" bug).
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session?.user) return null
   const { data, error } = await supabase.rpc('employer_subscription_status')
   if (error) {
     console.warn('[employer_subscription_status] rpc failed:', error.message)

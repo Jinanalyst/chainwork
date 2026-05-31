@@ -445,17 +445,40 @@ export default function PostTask({ user }) {
   const [sub, setSub] = useState(undefined)
   useEffect(() => {
     let cancelled = false
-    // Guard against a hung auth/RPC call: if the check doesn't settle within a
-    // few seconds, stop showing "Checking…" and fall through to the payment
-    // wall (the safe default — the user can still pay there).
-    const timeout = new Promise((resolve) => setTimeout(() => resolve({ active: false }), 6000))
-    Promise.race([getEmployerSubscription(), timeout])
+
+    // GoTrue's token-refresh lock (navigator.locks) can stall this lookup until
+    // the tab receives a focus/visibility event — that's why the page used to
+    // sit on "Checking…" forever and only unstick when DevTools was opened.
+    // Show the payment wall after a short wait instead of hanging, but still
+    // upgrade to the form if the real check later confirms an active plan.
+    const safety = setTimeout(() => {
+      if (!cancelled) setSub((prev) => (prev === undefined ? { active: false } : prev))
+    }, 3000)
+
+    getEmployerSubscription()
       .then((s) => { if (!cancelled) setSub(s) })
       .catch((e) => {
         console.warn('[PostTask] subscription check failed:', e?.message || e)
-        if (!cancelled) setSub({ active: false })
+        if (!cancelled) setSub((prev) => (prev === undefined ? { active: false } : prev))
       })
-    return () => { cancelled = true }
+
+    // Re-poke the lookup when the window wakes: the same focus/visibility event
+    // releases the auth lock, so a stalled check resolves promptly without the
+    // user having to open DevTools. Only upgrade (never flip an active plan off).
+    const onWake = () => {
+      getEmployerSubscription()
+        .then((s) => { if (!cancelled && s?.active) setSub(s) })
+        .catch(() => {})
+    }
+    window.addEventListener('focus', onWake)
+    document.addEventListener('visibilitychange', onWake)
+
+    return () => {
+      cancelled = true
+      clearTimeout(safety)
+      window.removeEventListener('focus', onWake)
+      document.removeEventListener('visibilitychange', onWake)
+    }
   }, [])
 
   if (sub === undefined) {
