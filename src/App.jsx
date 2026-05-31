@@ -115,8 +115,6 @@ const Nav = ({ route, user, onSignIn, onSignOut }) => {
           <a href="#/"          className={'hover:text-white ' + (route === '#/' ? 'text-white' : '')}>{t('nav.home')}</a>
           <a href="#/jobs"      className={'hover:text-white ' + (route.startsWith('#/jobs') ? 'text-white' : '')}>{t('nav.jobs')}</a>
           <a href="#/talents"   className={'hover:text-white ' + (route.startsWith('#/talents') ? 'text-white' : '')}>{t('nav.talents')}</a>
-          <a href="#/hirer"     className={'hover:text-white ' + ((route.startsWith('#/hirer') || route.startsWith('#/post-task')) ? 'text-white' : '')}>{t('nav.hirer')}</a>
-          <a href="#/worker"    className={'hover:text-white ' + (route.startsWith('#/worker') ? 'text-white' : '')}>{t('nav.worker')}</a>
           <a href="#/pricing"   className={'hover:text-white ' + (route.startsWith('#/pricing') ? 'text-white' : '')}>{t('nav.pricing')}</a>
           <a href="#/about"     className={'hover:text-white ' + (route.startsWith('#/about') ? 'text-white' : '')}>{t('nav.about')}</a>
         </nav>
